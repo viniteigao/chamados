@@ -11,6 +11,7 @@ Sistema de chamados (ordens de serviço) para uma empresa de manutenção predia
 ```bash
 dotnet build
 dotnet run --project src/Chamados.Web
+dotnet test
 ```
 
 ## Decisões

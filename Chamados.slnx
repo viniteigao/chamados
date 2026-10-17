@@ -3,4 +3,7 @@
     <Project Path="src/Chamados.Domain/Chamados.Domain.csproj" />
     <Project Path="src/Chamados.Web/Chamados.Web.csproj" />
   </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/Chamados.Domain.Tests/Chamados.Domain.Tests.csproj" />
+  </Folder>
 </Solution>
