@@ -1,0 +1,38 @@
+@base = http://localhost:5058
+
+### Lista todos, ordenados por prioridade
+GET {{base}}/chamados
+
+### Filtros combinados
+GET {{base}}/chamados?status=Aberto&prioridadeMinima=Alta
+
+### Busca por texto (título ou descrição, sem diferenciar maiúsculas)
+GET {{base}}/chamados?texto=sala
+
+### Estatísticas
+GET {{base}}/chamados/estatisticas
+
+### Inicia atendimento: copie um Id com status Aberto da listagem
+@id = 00000000-0000-0000-0000-000000000000
+POST {{base}}/chamados/{{id}}/atendimento
+Content-Type: application/json
+
+{
+  "responsavel": "Elétrica"
+}
+
+### Resolve: use o Id de um chamado EmAtendimento
+POST {{base}}/chamados/{{id}}/resolucao
+Content-Type: application/json
+
+{
+  "solucao": "Tomada fixada"
+}
+
+### Cancela: use o Id de um chamado Aberto ou EmAtendimento
+POST {{base}}/chamados/{{id}}/cancelamento
+Content-Type: application/json
+
+{
+  "motivo": "Aberto em duplicidade"
+}
