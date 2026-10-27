@@ -1,0 +1,23 @@
+@page
+@model IndexModel
+@{
+    ViewData["Title"] = "Painel";
+}
+
+<h1>Painel</h1>
+<p class="apoio">@Model.Estatisticas.Total chamados registrados.</p>
+
+<section class="cartoes">
+    @foreach (var (status, quantidade) in Model.Estatisticas.PorStatus)
+    {
+        <a class="cartao" asp-page="/Chamados/Index" asp-route-status="@status">
+            <span class="@status.ClasseSelo()">@status.Rotulo()</span>
+            <strong>@quantidade</strong>
+        </a>
+    }
+</section>
+
+<p class="apoio">
+    Tempo médio de resolução:
+    @(Model.Estatisticas.TempoMedioResolucao?.Duracao() ?? "sem chamados resolvidos")
+</p>

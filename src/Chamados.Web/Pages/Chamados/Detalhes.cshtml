@@ -1,0 +1,91 @@
+@page "{id:guid}"
+@model DetalhesModel
+@{
+    var chamado = Model.Chamado;
+    ViewData["Title"] = chamado.Titulo;
+}
+
+<p><a asp-page="./Index">← Voltar para a lista</a></p>
+
+<h1>@chamado.Titulo</h1>
+<p class="selos">
+    <span class="@chamado.Status.ClasseSelo()">@chamado.Status.Rotulo()</span>
+    <span class="@chamado.Prioridade.ClasseSelo()">Prioridade @chamado.Prioridade.Rotulo()</span>
+</p>
+
+<dl class="ficha">
+    <dt>Descrição</dt>
+    <dd>@(chamado.Descricao ?? "—")</dd>
+    <dt>Aberto em</dt>
+    <dd>@chamado.CriadoEm.DataHora()</dd>
+    <dt>Responsável</dt>
+    <dd>@(chamado.Responsavel ?? "—")</dd>
+    @if (chamado.Solucao is not null)
+    {
+        <dt>Solução</dt>
+        <dd>@chamado.Solucao</dd>
+    }
+    @if (chamado.EncerradoEm is { } encerradoEm)
+    {
+        <dt>Encerrado em</dt>
+        <dd>@encerradoEm.DataHora()</dd>
+    }
+</dl>
+
+<div asp-validation-summary="ModelOnly" class="erros"></div>
+
+@if (!chamado.EstaEncerrado)
+{
+    <section class="transicoes">
+        @if (chamado.Status == StatusChamado.Aberto)
+        {
+            <form method="post" asp-page-handler="Iniciar" asp-route-id="@chamado.Id" class="cartao-acao">
+                <h2>Iniciar atendimento</h2>
+                <label for="responsavel">Responsável</label>
+                <input id="responsavel" name="responsavel" autocomplete="off" />
+                @Html.ValidationMessage("responsavel", new { @class = "erro" })
+                <button type="submit">Iniciar</button>
+            </form>
+        }
+        else
+        {
+            <form method="post" asp-page-handler="Resolver" asp-route-id="@chamado.Id" class="cartao-acao">
+                <h2>Resolver</h2>
+                <label for="solucao">Solução aplicada</label>
+                <input id="solucao" name="solucao" autocomplete="off" />
+                @Html.ValidationMessage("solucao", new { @class = "erro" })
+                <button type="submit">Resolver</button>
+            </form>
+        }
+
+        <form method="post" asp-page-handler="Cancelar" asp-route-id="@chamado.Id" class="cartao-acao">
+            <h2>Cancelar</h2>
+            <label for="motivo">Motivo</label>
+            <input id="motivo" name="motivo" autocomplete="off" />
+            @Html.ValidationMessage("motivo", new { @class = "erro" })
+            <button type="submit" class="secundario">Cancelar chamado</button>
+        </form>
+    </section>
+}
+
+<h2>Histórico</h2>
+@if (chamado.Historico.Count == 0)
+{
+    <p class="vazio">Nenhuma mudança de status ainda.</p>
+}
+else
+{
+    <ol class="historico">
+        @foreach (var registro in chamado.Historico)
+        {
+            <li>
+                <time>@registro.Em.DataHora()</time>
+                @registro.De.Rotulo() → <strong>@registro.Para.Rotulo()</strong>
+                @if (registro.Observacao is not null)
+                {
+                    <span class="apoio">· @registro.Observacao</span>
+                }
+            </li>
+        }
+    </ol>
+}

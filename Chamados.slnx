@@ -1,7 +1,7 @@
 <Solution>
   <Folder Name="/src/">
     <Project Path="src/Chamados.Domain/Chamados.Domain.csproj" />
-    <Project Path="src/Chamados.Web/Chamados.Web.csproj" />
+    <Project Path="src/Chamados.Web/Chamados.Web.csproj" DefaultStartup="true" />
   </Folder>
   <Folder Name="/tests/">
     <Project Path="tests/Chamados.Domain.Tests/Chamados.Domain.Tests.csproj" />

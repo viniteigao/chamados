@@ -130,4 +130,20 @@ public class ChamadoServicoTests
         Assert.NotEqual(original, copia);
         Assert.Equal(new FiltroChamados(Status: StatusChamado.Aberto), original);
     }
+
+    [Fact]
+    public async Task ObterAsync_IdExistente_DevolveOChamado()
+    {
+        var aberto = await _servico.AbrirAsync(new NovoChamado("Tomada solta"));
+
+        var encontrado = await _servico.ObterAsync(aberto.Id);
+
+        Assert.Same(aberto, encontrado);
+    }
+
+    [Fact]
+    public async Task ObterAsync_IdInexistente_DevolveNull()
+    {
+        Assert.Null(await _servico.ObterAsync(Guid.NewGuid()));
+    }
 }

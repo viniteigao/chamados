@@ -1,0 +1,97 @@
+/* Chamados · folha de estilo única, sem framework (Bootstrap entra só se o curso decidir). */
+:root {
+    --tinta: #1e1a2e;
+    --apoio: #5e5a6e;
+    --fundo: #f5f3ee;
+    --papel: #fffdf9;
+    --linha: #e2ded5;
+    --roxo: #5b3bd6;
+    --roxo-escuro: #3f27a3;
+    --laranja: #a04f0e;
+    --erro: #b42318;
+    --ok: #146c43;
+    font-family: "Segoe UI", system-ui, -apple-system, sans-serif;
+    color: var(--tinta);
+    background: var(--fundo);
+}
+
+* { box-sizing: border-box; }
+body { margin: 0; line-height: 1.5; }
+a { color: var(--roxo); }
+h1 { font-size: 1.75rem; margin: 0 0 .5rem; }
+h2 { font-size: 1.15rem; margin: 1.5rem 0 .5rem; }
+.apoio { color: var(--apoio); }
+.vazio { color: var(--apoio); font-style: italic; }
+
+/* ---------- moldura ---------- */
+.topo {
+    display: flex; align-items: center; justify-content: space-between; gap: 1rem;
+    padding: .75rem 1.5rem; background: var(--tinta); color: #fff;
+}
+.topo .marca { color: #fff; font-weight: 700; font-size: 1.15rem; text-decoration: none; }
+.topo nav { display: flex; align-items: center; gap: 1rem; }
+.topo nav a { color: #e6e1ff; }
+.conteudo { max-width: 960px; margin: 0 auto; padding: 1.5rem; }
+.rodape { max-width: 960px; margin: 2rem auto; padding: 0 1.5rem; color: var(--apoio); font-size: .85rem; }
+
+/* ---------- botões ---------- */
+button, .botao {
+    display: inline-block; font: inherit; font-weight: 600; cursor: pointer;
+    padding: .5rem 1rem; border: 0; border-radius: 6px;
+    background: var(--roxo); color: #fff !important; text-decoration: none;
+}
+button:hover, .botao:hover { background: var(--roxo-escuro); }
+button.secundario { background: #fff; color: var(--erro) !important; border: 1px solid var(--erro); }
+button.secundario:hover { background: #fdecea; }
+
+/* ---------- formulários ---------- */
+input, select, textarea {
+    font: inherit; width: 100%; padding: .5rem .6rem;
+    border: 1px solid #bdb7aa; border-radius: 6px; background: #fff;
+}
+input:focus, select:focus, textarea:focus { outline: 2px solid var(--roxo); outline-offset: 1px; }
+.formulario { display: grid; gap: 1rem; max-width: 640px; background: var(--papel); padding: 1.5rem; border: 1px solid var(--linha); border-radius: 10px; }
+.campo { display: grid; gap: .3rem; }
+.campo label { font-weight: 600; }
+.acoes { display: flex; align-items: center; gap: 1rem; }
+
+/* Mensagens geradas pelos Tag Helpers de validação */
+.erro, .field-validation-error { color: var(--erro); font-size: .9rem; }
+.input-validation-error { border-color: var(--erro); background: #fff7f6; }
+.erros ul { margin: 0; padding: .75rem 1rem .75rem 2rem; background: #fdecea; color: var(--erro); border-radius: 6px; }
+.validation-summary-valid { display: none; }
+
+.aviso { padding: .75rem 1rem; background: #e7f6ee; color: var(--ok); border-left: 4px solid var(--ok); border-radius: 4px; }
+
+/* ---------- lista ---------- */
+.filtros { display: flex; flex-wrap: wrap; align-items: end; gap: .75rem; margin: 1rem 0; }
+.filtros label { display: grid; gap: .2rem; font-size: .9rem; font-weight: 600; min-width: 160px; }
+.filtros .crescer { flex: 1; }
+.tabela { width: 100%; border-collapse: collapse; background: var(--papel); border: 1px solid var(--linha); }
+.tabela th, .tabela td { text-align: left; padding: .6rem .75rem; border-bottom: 1px solid var(--linha); }
+.tabela td:last-child { white-space: nowrap; }
+.tabela th { background: #ece8df; font-size: .85rem; text-transform: uppercase; letter-spacing: .03em; }
+
+/* ---------- selos ---------- */
+.selo { display: inline-block; white-space: nowrap; padding: .1rem .55rem; border-radius: 999px; font-size: .8rem; font-weight: 600; background: #ece8df; }
+.selo-aberto { background: #e8e3ff; color: var(--roxo-escuro); }
+.selo-ematendimento { background: #fff1db; color: var(--laranja); }
+.selo-resolvido { background: #e7f6ee; color: var(--ok); }
+.selo-cancelado { background: #ecebe8; color: var(--apoio); }
+.selo-critica { background: #fdecea; color: var(--erro); }
+.selo-alta { background: #fff1db; color: var(--laranja); }
+.selos { display: flex; gap: .5rem; }
+
+/* ---------- painel e detalhe ---------- */
+.cartoes { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 1rem; margin: 1rem 0; }
+.cartao { display: grid; gap: .5rem; padding: 1rem; background: var(--papel); border: 1px solid var(--linha); border-radius: 10px; text-decoration: none; color: var(--tinta); }
+.cartao strong { font-size: 2rem; }
+.cartao:hover { border-color: var(--roxo); }
+.ficha { display: grid; grid-template-columns: max-content 1fr; gap: .4rem 1.5rem; background: var(--papel); padding: 1rem 1.25rem; border: 1px solid var(--linha); border-radius: 10px; }
+.ficha dt { font-weight: 600; color: var(--apoio); }
+.ficha dd { margin: 0; }
+.transicoes { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 1rem; margin-top: 1rem; }
+.cartao-acao { display: grid; gap: .5rem; padding: 1rem; background: var(--papel); border: 1px solid var(--linha); border-radius: 10px; }
+.cartao-acao h2 { margin: 0; }
+.historico { padding-left: 1.25rem; }
+.historico time { color: var(--apoio); margin-right: .5rem; font-variant-numeric: tabular-nums; }

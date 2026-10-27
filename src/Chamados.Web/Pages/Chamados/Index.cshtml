@@ -1,0 +1,53 @@
+@page
+@model IndexModel
+@{
+    ViewData["Title"] = "Chamados";
+}
+
+<h1>Chamados</h1>
+
+<form method="get" class="filtros">
+    <label>
+        Status
+        <select asp-for="Status" asp-items="Rotulos.OpcoesStatus()">
+            <option value="">Todos</option>
+        </select>
+    </label>
+    <label>
+        Prioridade mínima
+        <select asp-for="PrioridadeMinima" asp-items="Rotulos.OpcoesPrioridade()">
+            <option value="">Qualquer</option>
+        </select>
+    </label>
+    <label class="crescer">
+        Texto
+        <input asp-for="Texto" type="search" placeholder="título ou descrição" />
+    </label>
+    <button type="submit">Filtrar</button>
+    <a asp-page="./Index">Limpar</a>
+</form>
+
+@if (Model.Chamados.Count == 0)
+{
+    <p class="vazio">Nenhum chamado encontrado com esses filtros.</p>
+}
+else
+{
+    <table class="tabela">
+        <thead>
+            <tr><th>Título</th><th>Prioridade</th><th>Status</th><th>Responsável</th><th>Aberto em</th></tr>
+        </thead>
+        <tbody>
+            @foreach (var chamado in Model.Chamados)
+            {
+                <tr>
+                    <td><a asp-page="./Detalhes" asp-route-id="@chamado.Id">@chamado.Titulo</a></td>
+                    <td><span class="@chamado.Prioridade.ClasseSelo()">@chamado.Prioridade.Rotulo()</span></td>
+                    <td><span class="@chamado.Status.ClasseSelo()">@chamado.Status.Rotulo()</span></td>
+                    <td>@(chamado.Responsavel ?? "—")</td>
+                    <td>@chamado.CriadoEm.DataHora()</td>
+                </tr>
+            }
+        </tbody>
+    </table>
+}

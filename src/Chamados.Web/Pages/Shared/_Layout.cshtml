@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>@ViewData["Title"] · Chamados</title>
+    <link rel="stylesheet" href="~/css/site.css" asp-append-version="true" />
+</head>
+<body>
+    <header class="topo">
+        <a class="marca" asp-page="/Index">Chamados</a>
+        <nav>
+            <a asp-page="/Chamados/Index">Lista</a>
+            <a class="botao" asp-page="/Chamados/Novo">Novo chamado</a>
+        </nav>
+    </header>
+
+    <main class="conteudo">
+        @* Mensagem de uma única leitura: gravada antes do redirect, lida aqui e descartada. *@
+        @if (TempData["Mensagem"] is string mensagem)
+        {
+            <p class="aviso" role="status">@mensagem</p>
+        }
+
+        @RenderBody()
+    </main>
+
+    <footer class="rodape">Chamados · Módulo 3 · ASP.NET Core e Razor Pages</footer>
+</body>
+</html>

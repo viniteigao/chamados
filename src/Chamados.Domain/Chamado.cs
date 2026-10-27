@@ -7,6 +7,11 @@ namespace Chamados.Domain;
 /// </summary>
 public sealed class Chamado
 {
+    // Limites da regra de negócio. O formulário web reusa estas constantes
+    // nos atributos de validação: uma única fonte de verdade.
+    public const int TamanhoMaximoTitulo = 120;
+    public const int TamanhoMaximoDescricao = 2000;
+
     private readonly List<RegistroHistorico> _historico = [];
 
     public Chamado(
@@ -17,8 +22,27 @@ public sealed class Chamado
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(titulo);
 
-        Titulo = titulo.Trim();
-        Descricao = string.IsNullOrWhiteSpace(descricao) ? null : descricao.Trim();
+        titulo = titulo.Trim();
+        descricao = string.IsNullOrWhiteSpace(descricao) ? null : descricao.Trim();
+
+        if (titulo.Length > TamanhoMaximoTitulo)
+        {
+            throw new ArgumentException($"O título deve ter no máximo {TamanhoMaximoTitulo} caracteres.", nameof(titulo));
+        }
+
+        if (descricao?.Length > TamanhoMaximoDescricao)
+        {
+            throw new ArgumentException($"A descrição deve ter no máximo {TamanhoMaximoDescricao} caracteres.", nameof(descricao));
+        }
+
+        // Um enum aceita qualquer inteiro: (Prioridade)99 compila e chega pelo formulário.
+        if (!Enum.IsDefined(prioridade))
+        {
+            throw new ArgumentOutOfRangeException(nameof(prioridade), prioridade, "Prioridade inexistente.");
+        }
+
+        Titulo = titulo;
+        Descricao = descricao;
         Prioridade = prioridade;
         CriadoEm = criadoEm ?? DateTimeOffset.UtcNow;
     }

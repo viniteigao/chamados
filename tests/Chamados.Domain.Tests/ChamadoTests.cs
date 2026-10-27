@@ -124,4 +124,40 @@ public class ChamadoTests
 
         Assert.False(chamado.Historico is List<RegistroHistorico>);
     }
+
+    // --- Módulo 3: limites que o formulário web também exibe ---
+
+    [Fact]
+    public void NovoChamado_TituloAcimaDoLimite_LancaArgumentException()
+    {
+        var titulo = new string('a', Chamado.TamanhoMaximoTitulo + 1);
+
+        var erro = Assert.Throws<ArgumentException>(() => new Chamado(titulo));
+        Assert.Equal("titulo", erro.ParamName);
+    }
+
+    [Fact]
+    public void NovoChamado_TituloNoLimiteComEspacosNasPontas_EhAceito()
+    {
+        // O limite vale para o texto já sem espaços: o Trim acontece antes da verificação.
+        var titulo = "  " + new string('a', Chamado.TamanhoMaximoTitulo) + "  ";
+
+        var chamado = new Chamado(titulo);
+
+        Assert.Equal(Chamado.TamanhoMaximoTitulo, chamado.Titulo.Length);
+    }
+
+    [Fact]
+    public void NovoChamado_DescricaoAcimaDoLimite_LancaArgumentException()
+    {
+        var descricao = new string('a', Chamado.TamanhoMaximoDescricao + 1);
+
+        Assert.Throws<ArgumentException>(() => new Chamado("Tomada solta", descricao: descricao));
+    }
+
+    [Fact]
+    public void NovoChamado_PrioridadeInexistente_LancaArgumentOutOfRange()
+    {
+        Assert.Throws<ArgumentOutOfRangeException>(() => new Chamado("Tomada solta", (Prioridade)99));
+    }
 }
