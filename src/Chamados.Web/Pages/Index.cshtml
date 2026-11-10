@@ -11,7 +11,7 @@
     @foreach (var (status, quantidade) in Model.Estatisticas.PorStatus)
     {
         <a class="cartao" asp-page="/Chamados/Index" asp-route-status="@status">
-            <span class="@status.ClasseSelo()">@status.Rotulo()</span>
+            <selo valor="@status" />
             <strong>@quantidade</strong>
         </a>
     }

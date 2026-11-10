@@ -1,0 +1,21 @@
+{
+  "version": "1.0",
+  "defaultProvider": "unpkg",
+  "libraries": [
+    {
+      "library": "jquery@3.7.1",
+      "destination": "wwwroot/lib/jquery/",
+      "files": [ "dist/jquery.min.js", "LICENSE.txt" ]
+    },
+    {
+      "library": "jquery-validation@1.21.0",
+      "destination": "wwwroot/lib/jquery-validation/",
+      "files": [ "dist/jquery.validate.min.js", "LICENSE.md" ]
+    },
+    {
+      "library": "jquery-validation-unobtrusive@4.0.0",
+      "destination": "wwwroot/lib/jquery-validation-unobtrusive/",
+      "files": [ "dist/jquery.validate.unobtrusive.min.js", "LICENSE.txt" ]
+    }
+  ]
+}

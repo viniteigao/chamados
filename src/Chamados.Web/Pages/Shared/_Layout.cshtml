@@ -9,6 +9,8 @@
 <body>
     <header class="topo">
         <a class="marca" asp-page="/Index">Chamados</a>
+        @* View Component: tem lógica e dependências próprias, ao contrário de uma partial. *@
+        <vc:resumo-status />
         <nav>
             <a asp-page="/Chamados/Index">Lista</a>
             <a class="botao" asp-page="/Chamados/Novo">Novo chamado</a>
@@ -25,6 +27,9 @@
         @RenderBody()
     </main>
 
-    <footer class="rodape">Chamados · Módulo 3 · ASP.NET Core e Razor Pages</footer>
+    <footer class="rodape">Chamados · Módulo 4 · Razor Pages a fundo</footer>
+
+    @* Cada página pode acrescentar scripts aqui com @section Scripts { ... }. *@
+    @await RenderSectionAsync("Scripts", required: false)
 </body>
 </html>

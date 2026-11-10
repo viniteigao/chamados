@@ -4,10 +4,11 @@ using Chamados.Domain;
 namespace Chamados.Web.Pages.Chamados;
 
 /// <summary>
-/// Modelo do formulário: o que a tela recebe, com as regras de validação da tela.
+/// Campos que o usuário preenche para abrir ou editar um chamado.
+/// No Módulo 3 se chamava NovoChamadoInput; agora serve às duas telas.
 /// Não é a entidade: Chamado tem setters privados e nasce já válida.
 /// </summary>
-public sealed class NovoChamadoInput
+public sealed class ChamadoInput
 {
     [Display(Name = "Título")]
     [Required(ErrorMessage = "Informe o título.")]
@@ -23,6 +24,17 @@ public sealed class NovoChamadoInput
     [StringLength(Chamado.TamanhoMaximoDescricao, ErrorMessage = "A descrição deve ter no máximo {1} caracteres.")]
     public string? Descricao { get; set; }
 
-    /// <summary>Converte o que veio da tela no comando que a camada de negócio entende.</summary>
+    /// <summary>Preenche o formulário de edição com os dados atuais do chamado.</summary>
+    public static ChamadoInput De(Chamado chamado) => new()
+    {
+        Titulo = chamado.Titulo,
+        Prioridade = chamado.Prioridade,
+        Descricao = chamado.Descricao
+    };
+
+    /// <summary>Converte o que veio da tela no comando de abertura.</summary>
     public NovoChamado ParaComando() => new(Titulo, Prioridade, Descricao);
+
+    /// <summary>Converte o que veio da tela no comando de edição, com a versão lida.</summary>
+    public EdicaoChamado ParaEdicao(int versaoEsperada) => new(Titulo, Prioridade, Descricao, versaoEsperada);
 }

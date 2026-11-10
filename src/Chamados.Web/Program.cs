@@ -71,6 +71,13 @@ if (!app.Environment.IsDevelopment())
     app.UseHsts();
 }
 
+// Respostas de erro sem corpo (404 de rota inexistente, NotFound() de uma página, 400)
+// são reexecutadas em /Erro/{código}, com o layout do site. Só fora de /api:
+// a API continua respondendo JSON, nunca HTML.
+app.UseWhen(
+    contexto => !contexto.Request.Path.StartsWithSegments("/api"),
+    ramo => ramo.UseStatusCodePagesWithReExecute("/Erro/{0}"));
+
 app.UseHttpsRedirection();
 app.UseRouting();
 

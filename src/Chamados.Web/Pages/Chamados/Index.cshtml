@@ -2,6 +2,7 @@
 @model IndexModel
 @{
     ViewData["Title"] = "Chamados";
+    var pagina = Model.Resultado;
 }
 
 <h1>Chamados</h1>
@@ -19,35 +20,70 @@
             <option value="">Qualquer</option>
         </select>
     </label>
+    <label>
+        Ordenar por
+        <select asp-for="Ordem" asp-items="Rotulos.OpcoesOrdem()"></select>
+    </label>
     <label class="crescer">
         Texto
         <input asp-for="Texto" type="search" placeholder="título ou descrição" />
     </label>
+    @* Sem campo "pagina": filtrar de novo sempre volta para a página 1. *@
     <button type="submit">Filtrar</button>
     <a asp-page="./Index">Limpar</a>
 </form>
 
-@if (Model.Chamados.Count == 0)
+@if (pagina.TotalItens == 0)
 {
     <p class="vazio">Nenhum chamado encontrado com esses filtros.</p>
 }
 else
 {
+    <p class="apoio">
+        @pagina.TotalItens @(pagina.TotalItens == 1 ? "chamado" : "chamados") ·
+        página @pagina.Numero de @pagina.TotalPaginas
+    </p>
+
     <table class="tabela">
         <thead>
             <tr><th>Título</th><th>Prioridade</th><th>Status</th><th>Responsável</th><th>Aberto em</th></tr>
         </thead>
         <tbody>
-            @foreach (var chamado in Model.Chamados)
+            @foreach (var chamado in pagina.Itens)
             {
                 <tr>
                     <td><a asp-page="./Detalhes" asp-route-id="@chamado.Id">@chamado.Titulo</a></td>
-                    <td><span class="@chamado.Prioridade.ClasseSelo()">@chamado.Prioridade.Rotulo()</span></td>
-                    <td><span class="@chamado.Status.ClasseSelo()">@chamado.Status.Rotulo()</span></td>
+                    <td><selo valor="@chamado.Prioridade" /></td>
+                    <td><selo valor="@chamado.Status" /></td>
                     <td>@(chamado.Responsavel ?? "—")</td>
                     <td>@chamado.CriadoEm.DataHora()</td>
                 </tr>
             }
         </tbody>
     </table>
+
+    @if (pagina.TotalPaginas > 1)
+    {
+        <nav class="paginacao" aria-label="Páginas da lista">
+            @if (pagina.TemAnterior)
+            {
+                <a href="@Url.Page("./Index", Model.RotaPara(pagina.Numero - 1))" rel="prev">← Anterior</a>
+            }
+            @for (var n = 1; n <= pagina.TotalPaginas; n++)
+            {
+                if (n == pagina.Numero)
+                {
+                    <span class="atual" aria-current="page">@n</span>
+                }
+                else
+                {
+                    <a href="@Url.Page("./Index", Model.RotaPara(n))">@n</a>
+                }
+            }
+            @if (pagina.TemProxima)
+            {
+                <a href="@Url.Page("./Index", Model.RotaPara(pagina.Numero + 1))" rel="next">Próxima →</a>
+            }
+        </nav>
+    }
 }

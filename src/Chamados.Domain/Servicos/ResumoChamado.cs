@@ -7,7 +7,8 @@ public sealed record ResumoChamado(
     StatusChamado Status,
     Prioridade Prioridade,
     string? Responsavel,
-    DateTimeOffset CriadoEm)
+    DateTimeOffset CriadoEm,
+    int Versao)
 {
     public static ResumoChamado De(Chamado chamado)
     {
@@ -19,6 +20,7 @@ public sealed record ResumoChamado(
             chamado.Status,
             chamado.Prioridade,
             chamado.Responsavel,
-            chamado.CriadoEm);
+            chamado.CriadoEm,
+            chamado.Versao);
     }
 }

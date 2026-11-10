@@ -12,7 +12,7 @@ public sealed class NovoModel(ChamadoServico servico, ILogger<NovoModel> logger)
 {
     // [BindProperty] liga os campos do formulário (name="Input.Titulo"...) a esta propriedade no POST.
     [BindProperty]
-    public NovoChamadoInput Input { get; set; } = new();
+    public ChamadoInput Input { get; set; } = new();
 
     public void OnGet()
     {
@@ -20,7 +20,7 @@ public sealed class NovoModel(ChamadoServico servico, ILogger<NovoModel> logger)
 
     public async Task<IActionResult> OnPostAsync(CancellationToken cancellationToken)
     {
-        // 1. Validação da tela: Data Annotations do NovoChamadoInput, executadas no servidor.
+        // 1. Validação da tela: Data Annotations do ChamadoInput, executadas no servidor.
         if (!ModelState.IsValid)
         {
             return Page();

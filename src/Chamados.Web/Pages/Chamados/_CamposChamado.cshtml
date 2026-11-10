@@ -1,0 +1,22 @@
+@* Partial: os campos comuns a Novo e Editar.
+   Usada com <partial name="_CamposChamado" for="Input" />: o "for" faz os nomes
+   saírem como Input.Titulo, exatamente o que o [BindProperty] Input espera. *@
+@model global::Chamados.Web.Pages.Chamados.ChamadoInput
+
+<div class="campo">
+    <label asp-for="Titulo"></label>
+    <input asp-for="Titulo" autocomplete="off" />
+    <span asp-validation-for="Titulo" class="erro"></span>
+</div>
+
+<div class="campo">
+    <label asp-for="Prioridade"></label>
+    <select asp-for="Prioridade" asp-items="Rotulos.OpcoesPrioridade()"></select>
+    <span asp-validation-for="Prioridade" class="erro"></span>
+</div>
+
+<div class="campo">
+    <label asp-for="Descricao"></label>
+    <textarea asp-for="Descricao" rows="5"></textarea>
+    <span asp-validation-for="Descricao" class="erro"></span>
+</div>

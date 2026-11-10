@@ -1,0 +1,7 @@
+@model global::Chamados.Web.ViewComponents.ResumoStatus
+
+<a class="resumo-status" asp-page="/Chamados/Index" asp-route-status="@StatusChamado.Aberto"
+   title="Chamados abertos e em atendimento">
+    <span><strong>@Model.Abertos</strong> @(Model.Abertos == 1 ? "aberto" : "abertos")</span>
+    <span><strong>@Model.EmAtendimento</strong> em atendimento</span>
+</a>

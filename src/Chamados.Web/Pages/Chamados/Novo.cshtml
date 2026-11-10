@@ -6,30 +6,18 @@
 
 <h1>Novo chamado</h1>
 
-@* method="post" + Tag Helper de formulário = token antifalsificação incluído automaticamente. *@
-<form method="post" class="formulario" novalidate>
+<form method="post" class="formulario">
     <div asp-validation-summary="ModelOnly" class="erros"></div>
 
-    <div class="campo">
-        <label asp-for="Input.Titulo"></label>
-        <input asp-for="Input.Titulo" autocomplete="off" />
-        <span asp-validation-for="Input.Titulo" class="erro"></span>
-    </div>
-
-    <div class="campo">
-        <label asp-for="Input.Prioridade"></label>
-        <select asp-for="Input.Prioridade" asp-items="Rotulos.OpcoesPrioridade()"></select>
-        <span asp-validation-for="Input.Prioridade" class="erro"></span>
-    </div>
-
-    <div class="campo">
-        <label asp-for="Input.Descricao"></label>
-        <textarea asp-for="Input.Descricao" rows="5"></textarea>
-        <span asp-validation-for="Input.Descricao" class="erro"></span>
-    </div>
+    <partial name="_CamposChamado" for="Input" />
 
     <div class="acoes">
         <button type="submit">Abrir chamado</button>
         <a asp-page="./Index">Cancelar</a>
     </div>
 </form>
+
+@* Validação no cliente: conforto para o usuário. O servidor valida de novo no OnPostAsync. *@
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+}

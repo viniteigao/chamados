@@ -12,9 +12,11 @@ public static class EndpointsChamados
         var api = app.MapGroup("/api/chamados")
             .AddEndpointFilter<FiltroExcecoesDominio>();
 
-        api.MapGet("/", (StatusChamado? status, Prioridade? prioridadeMinima, string? texto,
+        api.MapGet("/", (StatusChamado? status, Prioridade? prioridadeMinima, string? texto, OrdemChamados? ordem,
                 ChamadoServico servico, CancellationToken cancellationToken)
-            => servico.ListarAsync(new FiltroChamados(status, prioridadeMinima, texto), cancellationToken));
+            => servico.ListarAsync(
+                new FiltroChamados(status, prioridadeMinima, texto, ordem ?? OrdemChamados.Prioridade),
+                cancellationToken));
 
         api.MapGet("/estatisticas", (ChamadoServico servico, CancellationToken cancellationToken)
             => servico.ObterEstatisticasAsync(cancellationToken));
@@ -29,6 +31,11 @@ public static class EndpointsChamados
             var chamado = await servico.AbrirAsync(comando, cancellationToken);
             return Results.Created($"/api/chamados/{chamado.Id}", ResumoChamado.De(chamado));
         });
+
+        // Edição: o corpo traz a versão lida. Versão desatualizada → 409 pelo filtro.
+        api.MapPut("/{id:guid}", async (Guid id, EdicaoChamado comando, ChamadoServico servico,
+                CancellationToken cancellationToken)
+            => ResumoChamado.De(await servico.EditarAsync(id, comando, cancellationToken)));
 
         // Transições sem try/catch: o FiltroExcecoesDominio responde 404, 409 ou 400.
         api.MapPost("/{id:guid}/atendimento", async (Guid id, IniciarAtendimentoRequest requisicao,

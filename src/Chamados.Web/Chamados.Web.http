@@ -10,6 +10,9 @@ GET {{base}}/api/chamados?status=Aberto&prioridadeMinima=Alta
 ### Busca por texto (título ou descrição, sem diferenciar maiúsculas)
 GET {{base}}/api/chamados?texto=sala
 
+### Ordenação (Módulo 4): Prioridade, MaisRecentes, MaisAntigos ou Titulo
+GET {{base}}/api/chamados?ordem=Titulo
+
 ### Estatísticas
 GET {{base}}/api/chamados/estatisticas
 
@@ -39,6 +42,20 @@ Content-Type: application/json
 {
   "responsavel": "Elétrica"
 }
+
+### Edição com concorrência otimista (Módulo 4): copie id e versao de um chamado da listagem
+@versao = 1
+PUT {{base}}/api/chamados/{{id}}
+Content-Type: application/json
+
+{
+  "titulo": "Título editado pela API",
+  "prioridade": "Alta",
+  "descricao": null,
+  "versaoEsperada": {{versao}}
+}
+
+### Repita o PUT acima sem mudar @versao: a segunda resposta é 409 (versão desatualizada)
 
 ### Resolve: use o Id de um chamado EmAtendimento
 POST {{base}}/api/chamados/{{id}}/resolucao

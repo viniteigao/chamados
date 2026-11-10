@@ -160,4 +160,59 @@ public class ChamadoTests
     {
         Assert.Throws<ArgumentOutOfRangeException>(() => new Chamado("Tomada solta", (Prioridade)99));
     }
+
+    // --- Módulo 4: edição e versão ---
+
+    [Fact]
+    public void NovoChamado_NasceNaVersao1()
+    {
+        Assert.Equal(1, new Chamado("Tomada solta").Versao);
+    }
+
+    [Fact]
+    public void Editar_AlteraDadosEIncrementaVersao()
+    {
+        var chamado = new Chamado("Tomada solta", Prioridade.Baixa, criadoEm: Abertura);
+
+        chamado.Editar("  Tomada solta na recepção  ", Prioridade.Alta, "Perto da porta");
+
+        Assert.Equal("Tomada solta na recepção", chamado.Titulo);
+        Assert.Equal(Prioridade.Alta, chamado.Prioridade);
+        Assert.Equal("Perto da porta", chamado.Descricao);
+        Assert.Equal(2, chamado.Versao);
+    }
+
+    [Fact]
+    public void Editar_TituloInvalido_NaoAlteraNada()
+    {
+        var chamado = new Chamado("Tomada solta", Prioridade.Baixa, "Original");
+
+        Assert.Throws<ArgumentOutOfRangeException>(() => chamado.Editar("Título válido", (Prioridade)99, "Nova"));
+
+        Assert.Equal("Tomada solta", chamado.Titulo);
+        Assert.Equal("Original", chamado.Descricao);
+        Assert.Equal(1, chamado.Versao);
+    }
+
+    [Fact]
+    public void Editar_ChamadoResolvido_LancaChamadoEncerrado()
+    {
+        var chamado = new Chamado("Tomada solta", criadoEm: Abertura);
+        chamado.IniciarAtendimento("Elétrica", Abertura.AddHours(1));
+        chamado.Resolver("Tomada fixada", Abertura.AddHours(2));
+
+        var erro = Assert.Throws<ChamadoEncerradoException>(() => chamado.Editar("Outro título", Prioridade.Alta, null));
+
+        Assert.Equal(StatusChamado.Resolvido, erro.Status);
+    }
+
+    [Fact]
+    public void TransicaoDeStatus_TambemIncrementaVersao()
+    {
+        var chamado = new Chamado("Tomada solta", criadoEm: Abertura);
+
+        chamado.IniciarAtendimento("Elétrica", Abertura.AddHours(1));
+
+        Assert.Equal(2, chamado.Versao);
+    }
 }

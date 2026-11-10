@@ -1,0 +1,44 @@
+@page "{id:guid}"
+@model EditarModel
+@{
+    ViewData["Title"] = "Editar chamado";
+}
+
+<p><a asp-page="./Detalhes" asp-route-id="@RouteData.Values["id"]">← Voltar para o chamado</a></p>
+
+<h1>Editar chamado</h1>
+
+@if (Model.VersaoAtual is { } atual)
+{
+    <section class="conflito" aria-labelledby="titulo-conflito">
+        <h2 id="titulo-conflito">Valores gravados agora (versão @atual.Versao)</h2>
+        <dl class="ficha">
+            <dt>Título</dt>
+            <dd>@atual.Titulo</dd>
+            <dt>Prioridade</dt>
+            <dd><selo valor="@atual.Prioridade" /></dd>
+            <dt>Status</dt>
+            <dd><selo valor="@atual.Status" /></dd>
+            <dt>Descrição</dt>
+            <dd>@(atual.Descricao ?? "—")</dd>
+        </dl>
+    </section>
+}
+
+<form method="post" class="formulario">
+    <div asp-validation-summary="ModelOnly" class="erros"></div>
+
+    @* Versão lida no GET. Volta no POST para o serviço conferir se ainda é a atual. *@
+    <input type="hidden" asp-for="Versao" />
+
+    <partial name="_CamposChamado" for="Input" />
+
+    <div class="acoes">
+        <button type="submit">Salvar alterações</button>
+        <a asp-page="./Detalhes" asp-route-id="@RouteData.Values["id"]">Cancelar</a>
+    </div>
+</form>
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+}

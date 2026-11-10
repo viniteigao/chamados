@@ -24,6 +24,16 @@ public sealed class FiltroExcecoesDominio : IEndpointFilter
             return TypedResults.Problem(ex.Message, statusCode: StatusCodes.Status409Conflict,
                 title: "Transição de status inválida");
         }
+        catch (ConcorrenciaException ex)
+        {
+            return TypedResults.Problem(ex.Message, statusCode: StatusCodes.Status409Conflict,
+                title: "Chamado alterado por outra pessoa");
+        }
+        catch (ChamadoEncerradoException ex)
+        {
+            return TypedResults.Problem(ex.Message, statusCode: StatusCodes.Status409Conflict,
+                title: "Chamado encerrado");
+        }
         catch (ArgumentException ex)
         {
             // Mensagens de ArgumentException vêm das regras do domínio, não de detalhes internos.
