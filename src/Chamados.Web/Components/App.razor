@@ -1,0 +1,20 @@
+@* Componente raiz: o documento HTML das páginas Blazor.
+   Faz o papel que o _Layout.cshtml faz para as Razor Pages. *@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <base href="/" />
+    <link rel="stylesheet" href="@Assets["css/site.css"]" />
+    @* Cada página define o próprio <title> com <PageTitle>; ele é inserido aqui. *@
+    <HeadOutlet />
+</head>
+<body>
+    <Routes />
+
+    @* O script que liga a interatividade: abre a conexão com o servidor
+       para os componentes marcados com @rendermode InteractiveServer. *@
+    <script src="@Assets["_framework/blazor.web.js"]"></script>
+</body>
+</html>

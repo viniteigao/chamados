@@ -1,0 +1,32 @@
+@* Uma coluna da fila. Não sabe o que vai dentro dela: quem usa decide,
+   escrevendo o conteúdo entre <Coluna> e </Coluna> (ChildContent). *@
+<section class="coluna">
+    <header>
+        <h2>@Titulo</h2>
+        <span class="contagem">@Quantidade</span>
+    </header>
+
+    @if (Quantidade == 0)
+    {
+        <p class="vazio">@TextoVazio</p>
+    }
+    else
+    {
+        @ChildContent
+    }
+</section>
+
+@code {
+    [Parameter, EditorRequired]
+    public string Titulo { get; set; } = string.Empty;
+
+    [Parameter]
+    public int Quantidade { get; set; }
+
+    [Parameter]
+    public string TextoVazio { get; set; } = "Nada por aqui.";
+
+    /// <summary>O que foi escrito entre as tags de abertura e fechamento do componente.</summary>
+    [Parameter]
+    public RenderFragment? ChildContent { get; set; }
+}

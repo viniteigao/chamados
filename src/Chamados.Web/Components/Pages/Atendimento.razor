@@ -1,0 +1,111 @@
+@page "/atendimento"
+@rendermode InteractiveServer
+@inject ChamadoServico Servico
+@inject ILogger<Atendimento> Logger
+
+<PageTitle>Atendimento · Chamados</PageTitle>
+
+<h1>Atendimento</h1>
+<p class="apoio">Fila interativa: iniciar, resolver e cancelar sem recarregar a página.</p>
+
+<div class="barra-fila">
+    <label class="crescer">
+        Buscar
+        @* A cada tecla: atualiza "texto" e, em seguida, chama CarregarAsync. *@
+        <input type="search" placeholder="título ou descrição"
+               @bind="texto" @bind:event="oninput" @bind:after="CarregarAsync" />
+    </label>
+    <button type="button" class="secundario" @onclick="CarregarAsync">Atualizar</button>
+</div>
+
+@if (mensagem is not null)
+{
+    <p class="@(mensagemDeErro ? "erros aviso-erro" : "aviso")" role="status">@mensagem</p>
+}
+
+@if (chamados is null)
+{
+    <p class="vazio">Carregando a fila…</p>
+}
+else
+{
+    <div class="fila">
+        <Coluna Titulo="Abertos" Quantidade="Abertos.Count" TextoVazio="Nenhum chamado aguardando.">
+            @foreach (var chamado in Abertos)
+            {
+                <CartaoChamado @key="chamado.Id" Chamado="chamado" AoConfirmar="ExecutarAsync" />
+            }
+        </Coluna>
+
+        <Coluna Titulo="Em atendimento" Quantidade="EmAtendimento.Count" TextoVazio="Nenhum chamado em atendimento.">
+            @foreach (var chamado in EmAtendimento)
+            {
+                <CartaoChamado @key="chamado.Id" Chamado="chamado" AoConfirmar="ExecutarAsync" />
+            }
+        </Coluna>
+    </div>
+}
+
+@code {
+    // null = ainda carregando. Mudar estes campos e terminar o evento basta para a tela se atualizar.
+    private IReadOnlyList<ResumoChamado>? chamados;
+    private string? texto;
+    private string? mensagem;
+    private bool mensagemDeErro;
+
+    private List<ResumoChamado> Abertos
+        => chamados!.Where(c => c.Status == StatusChamado.Aberto).ToList();
+
+    private List<ResumoChamado> EmAtendimento
+        => chamados!.Where(c => c.Status == StatusChamado.EmAtendimento).ToList();
+
+    protected override async Task OnInitializedAsync()
+    {
+        // Com pré-renderização, este método roda duas vezes: uma para montar o HTML inicial
+        // e outra quando a conexão interativa começa. O log mostra as duas.
+        Logger.LogInformation("Atendimento iniciado (interativo: {Interativo})", RendererInfo.IsInteractive);
+        await CarregarAsync();
+    }
+
+    private async Task CarregarAsync()
+    {
+        // O mesmo ChamadoServico das Razor Pages e da API.
+        chamados = await Servico.ListarAsync(new FiltroChamados(Texto: texto));
+    }
+
+    private async Task ExecutarAsync(PedidoTransicao pedido)
+    {
+        try
+        {
+            var chamado = pedido.Tipo switch
+            {
+                TipoTransicao.Iniciar => await Servico.IniciarAtendimentoAsync(pedido.ChamadoId, pedido.Texto),
+                TipoTransicao.Resolver => await Servico.ResolverAsync(pedido.ChamadoId, pedido.Texto),
+                _ => await Servico.CancelarAsync(pedido.ChamadoId, pedido.Texto)
+            };
+
+            Avisar($"\"{chamado.Titulo}\" agora está {chamado.Status.Rotulo().ToLowerInvariant()}.", erro: false);
+        }
+        catch (TransicaoInvalidaException ex)
+        {
+            // Ex.: outro atendente agiu antes. A fila é recarregada logo abaixo.
+            Avisar($"O chamado já está {ex.Atual.Rotulo().ToLowerInvariant()}. A fila foi atualizada.", erro: true);
+        }
+        catch (ChamadoNaoEncontradoException)
+        {
+            Avisar("O chamado não existe mais. A fila foi atualizada.", erro: true);
+        }
+        catch (ArgumentException ex)
+        {
+            Avisar(ex.Message, erro: true);
+        }
+
+        await CarregarAsync();
+    }
+
+    private void Avisar(string texto, bool erro)
+    {
+        mensagem = texto;
+        mensagemDeErro = erro;
+    }
+}

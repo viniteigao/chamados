@@ -1,0 +1,14 @@
+@page "/modos"
+
+<PageTitle>Modos de renderização · Chamados</PageTitle>
+
+<h1>Modos de renderização</h1>
+<p class="apoio">
+    Esta página é estática: o servidor monta o HTML e pronto. Os dois cartões usam o
+    <strong>mesmo componente</strong>; só o segundo recebeu um modo interativo.
+</p>
+
+<section class="transicoes">
+    <Contador Titulo="Estático (sem modo interativo)" />
+    <Contador Titulo="Interativo no servidor" @rendermode="InteractiveServer" />
+</section>

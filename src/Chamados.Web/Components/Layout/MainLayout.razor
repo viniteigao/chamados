@@ -1,0 +1,25 @@
+@* Layout das páginas Blazor. Usa o mesmo site.css e a mesma estrutura do _Layout.cshtml,
+   mas é um componente: @Body no lugar de @RenderBody(). *@
+@inherits LayoutComponentBase
+
+<header class="topo">
+    <a class="marca" href="/">Chamados</a>
+    <nav>
+        @* NavLink acrescenta a classe "active" quando a URL atual é a do link. *@
+        <NavLink href="atendimento">Atendimento</NavLink>
+        <a href="/Chamados">Lista</a>
+        <a class="botao" href="/Chamados/Novo">Novo chamado</a>
+    </nav>
+</header>
+
+<main class="conteudo">
+    @Body
+</main>
+
+<footer class="rodape">Chamados · Módulo 5 · Blazor e componentes Razor</footer>
+
+@* Faixa que o Blazor mostra se um erro não tratado derrubar o circuito. *@
+<div id="blazor-error-ui">
+    Ocorreu um erro inesperado.
+    <a href="." class="reload">Recarregar</a>
+</div>

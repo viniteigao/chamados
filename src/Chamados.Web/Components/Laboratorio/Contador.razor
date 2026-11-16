@@ -1,0 +1,21 @@
+@* O "olá, mundo" do Blazor. Serve para ver, lado a lado, o mesmo componente
+   renderizado de forma estática e de forma interativa (página /modos). *@
+<div class="cartao-acao contador">
+    <h2>@Titulo</h2>
+    <p class="numero">@cliques</p>
+    <button type="button" @onclick="Incrementar">Somar 1</button>
+    <p class="apoio">
+        Renderizador: <strong>@RendererInfo.Name</strong> ·
+        interativo: <strong>@(RendererInfo.IsInteractive ? "sim" : "não")</strong>
+    </p>
+</div>
+
+@code {
+    private int cliques;
+
+    [Parameter, EditorRequired]
+    public string Titulo { get; set; } = string.Empty;
+
+    // Depois de um manipulador de evento, o Blazor renderiza o componente de novo sozinho.
+    private void Incrementar() => cliques++;
+}

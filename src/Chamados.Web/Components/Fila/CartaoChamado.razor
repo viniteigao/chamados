@@ -1,0 +1,103 @@
+@* Um chamado na fila. Recebe dados por parâmetro (pai → filho)
+   e avisa o pai por EventCallback (filho → pai). *@
+<article class="cartao-fila">
+    <header>
+        <a href="/Chamados/Detalhes/@Chamado.Id">@Chamado.Titulo</a>
+        <Selo Valor="Chamado.Prioridade" />
+    </header>
+
+    <p class="apoio">
+        Aberto em @Chamado.CriadoEm.DataHora()
+        @if (Chamado.Responsavel is not null)
+        {
+            <text> · @Chamado.Responsavel</text>
+        }
+    </p>
+
+    @if (acao is null)
+    {
+        <div class="acoes">
+            @if (Chamado.Status == StatusChamado.Aberto)
+            {
+                <button type="button" @onclick="() => Escolher(TipoTransicao.Iniciar)">Iniciar</button>
+            }
+            else
+            {
+                <button type="button" @onclick="() => Escolher(TipoTransicao.Resolver)">Resolver</button>
+            }
+            <button type="button" class="secundario" @onclick="() => Escolher(TipoTransicao.Cancelar)">Cancelar</button>
+        </div>
+    }
+    else
+    {
+        <label>
+            @RotuloDoCampo
+            @* @bind liga o campo à variável nos dois sentidos. *@
+            <input @bind="texto" @bind:event="oninput" @onkeydown="AoTeclar" autocomplete="off" />
+        </label>
+        @if (erro is not null)
+        {
+            <span class="erro">@erro</span>
+        }
+        <div class="acoes">
+            <button type="button" @onclick="ConfirmarAsync">Confirmar</button>
+            <button type="button" class="secundario" @onclick="Desistir">Voltar</button>
+        </div>
+    }
+</article>
+
+@code {
+    // Estado próprio do cartão: qual ação está aberta e o que foi digitado.
+    private TipoTransicao? acao;
+    private string texto = string.Empty;
+    private string? erro;
+
+    [Parameter, EditorRequired]
+    public ResumoChamado Chamado { get; set; } = default!;
+
+    /// <summary>Disparado quando o usuário confirma uma ação com o campo preenchido.</summary>
+    [Parameter]
+    public EventCallback<PedidoTransicao> AoConfirmar { get; set; }
+
+    private string RotuloDoCampo => acao switch
+    {
+        TipoTransicao.Iniciar => "Responsável",
+        TipoTransicao.Resolver => "Solução aplicada",
+        _ => "Motivo do cancelamento"
+    };
+
+    private void Escolher(TipoTransicao tipo)
+    {
+        acao = tipo;
+        texto = string.Empty;
+        erro = null;
+    }
+
+    private void Desistir() => acao = null;
+
+    private async Task AoTeclar(KeyboardEventArgs evento)
+    {
+        if (evento.Key == "Enter")
+        {
+            await ConfirmarAsync();
+        }
+    }
+
+    private async Task ConfirmarAsync()
+    {
+        if (acao is not { } tipo)
+        {
+            return;
+        }
+
+        // Conforto para o usuário. O domínio valida de novo quando a página chamar o serviço.
+        if (string.IsNullOrWhiteSpace(texto))
+        {
+            erro = "Preencha este campo antes de confirmar.";
+            return;
+        }
+
+        acao = null;
+        await AoConfirmar.InvokeAsync(new PedidoTransicao(Chamado.Id, tipo, texto));
+    }
+}

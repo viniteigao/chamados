@@ -1,0 +1,13 @@
+@* O mesmo selo do Tag Helper <selo> do Módulo 4, agora como componente.
+   Uso: <Selo Valor="chamado.Status" /> *@
+<span class="@Valor.ClasseSelo()">@Prefixo@Valor.Rotulo()</span>
+
+@code {
+    /// <summary>Qualquer enum com rótulo: StatusChamado ou Prioridade.</summary>
+    [Parameter, EditorRequired]
+    public Enum Valor { get; set; } = default!;
+
+    /// <summary>Texto opcional antes do rótulo, como "Prioridade ".</summary>
+    [Parameter]
+    public string? Prefixo { get; set; }
+}
