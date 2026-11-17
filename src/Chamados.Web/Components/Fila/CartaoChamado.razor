@@ -26,6 +26,8 @@
                 <button type="button" @onclick="() => Escolher(TipoTransicao.Resolver)">Resolver</button>
             }
             <button type="button" class="secundario" @onclick="() => Escolher(TipoTransicao.Cancelar)">Cancelar</button>
+            <button type="button" class="secundario" aria-label="Histórico de @Chamado.Titulo"
+                    @onclick="() => AoSelecionar.InvokeAsync(Chamado.Id)">Histórico</button>
         </div>
     }
     else
@@ -58,6 +60,10 @@
     /// <summary>Disparado quando o usuário confirma uma ação com o campo preenchido.</summary>
     [Parameter]
     public EventCallback<PedidoTransicao> AoConfirmar { get; set; }
+
+    /// <summary>Disparado pelo botão Histórico: a página abre o painel de detalhe deste chamado.</summary>
+    [Parameter]
+    public EventCallback<Guid> AoSelecionar { get; set; }
 
     private string RotuloDoCampo => acao switch
     {

@@ -37,7 +37,7 @@ O cabeçalho de todas as páginas mostra o contador de pendências (View Compone
 
 | Rota | Componente | O que faz |
 | --- | --- | --- |
-| `/atendimento` | `Components/Pages/Atendimento.razor` | Fila interativa (InteractiveServer): busca, filtro de prioridade mínima (`FiltroPrioridade`), iniciar, resolver e cancelar sem recarregar |
+| `/atendimento` | `Components/Pages/Atendimento.razor` | Fila interativa (InteractiveServer): busca, filtro de prioridade mínima (`FiltroPrioridade`), iniciar, resolver e cancelar sem recarregar; botão Histórico abre o painel de detalhe (`PainelDetalhe`) |
 | `/modos` | `Components/Pages/Modos.razor` | O mesmo `Contador` renderizado de forma estática e interativa, lado a lado |
 
 Razor Pages e Blazor convivem na mesma aplicação: `MapRazorPages()` e `MapRazorComponents<App>()` no `Program.cs`, o mesmo `site.css` e o mesmo `ChamadoServico`.
@@ -102,3 +102,4 @@ No Visual Studio: **Teste > Gerenciador de Testes > Executar Todos** (`Ctrl+R, A
 - **Interatividade por página, não global** (Módulo 5): só `/atendimento` declara `@rendermode InteractiveServer`. O resto continua estático, sem conexão aberta com o servidor.
 - **Componente pede, página executa** (Módulo 5): `CartaoChamado` só avisa a página por `EventCallback<PedidoTransicao>`; quem chama o `ChamadoServico` e trata as exceções é `Atendimento.razor`.
 - **Prazo de atendimento no domínio, exibição no Tag Helper** (atividade C3): `PrazoAtendimento` define os prazos (Crítica 4 h, Alta 8 h, Média 24 h, Baixa 72 h); `<prazo>` recebe o `TimeProvider` por injeção e só escolhe texto e cor.
+- **Painel de detalhe busca sozinho, por revisão** (atividade C5): `PainelDetalhe` recebe só `ChamadoId` e `Revisao` e busca o chamado em `OnParametersSetAsync` apenas quando um dos dois muda; a página incrementa `Revisao` depois de cada ação na fila.

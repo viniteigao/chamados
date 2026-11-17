@@ -32,20 +32,28 @@
 }
 else
 {
-    <div class="fila">
-        <Coluna Titulo="Abertos" Quantidade="Abertos.Count" TextoVazio="Nenhum chamado aguardando.">
-            @foreach (var chamado in Abertos)
-            {
-                <CartaoChamado @key="chamado.Id" Chamado="chamado" AoConfirmar="ExecutarAsync" />
-            }
-        </Coluna>
+    @* Atividade C5: com um chamado escolhido, o painel fica ao lado da fila (abaixo, no celular). *@
+    <div class="mestre-detalhe @(selecionado is null ? null : "com-painel")">
+        <div class="fila">
+            <Coluna Titulo="Abertos" Quantidade="Abertos.Count" TextoVazio="Nenhum chamado aguardando.">
+                @foreach (var chamado in Abertos)
+                {
+                    <CartaoChamado @key="chamado.Id" Chamado="chamado" AoConfirmar="ExecutarAsync" AoSelecionar="Selecionar" />
+                }
+            </Coluna>
 
-        <Coluna Titulo="Em atendimento" Quantidade="EmAtendimento.Count" TextoVazio="Nenhum chamado em atendimento.">
-            @foreach (var chamado in EmAtendimento)
-            {
-                <CartaoChamado @key="chamado.Id" Chamado="chamado" AoConfirmar="ExecutarAsync" />
-            }
-        </Coluna>
+            <Coluna Titulo="Em atendimento" Quantidade="EmAtendimento.Count" TextoVazio="Nenhum chamado em atendimento.">
+                @foreach (var chamado in EmAtendimento)
+                {
+                    <CartaoChamado @key="chamado.Id" Chamado="chamado" AoConfirmar="ExecutarAsync" AoSelecionar="Selecionar" />
+                }
+            </Coluna>
+        </div>
+
+        @if (selecionado is { } id)
+        {
+            <PainelDetalhe ChamadoId="id" Revisao="revisao" AoFechar="Fechar" />
+        }
     </div>
 }
 
@@ -56,6 +64,10 @@ else
     private Prioridade? prioridadeMinima;
     private string? mensagem;
     private bool mensagemDeErro;
+
+    // Painel de detalhe (C5): o chamado escolhido e um contador de alterações feitas nesta página.
+    private Guid? selecionado;
+    private int revisao;
 
     private List<ResumoChamado> Abertos
         => chamados!.Where(c => c.Status == StatusChamado.Aberto).ToList();
@@ -104,8 +116,14 @@ else
             Avisar(ex.Message, erro: true);
         }
 
+        // Nova revisão: o painel de detalhe, se aberto, busca o chamado de novo.
+        revisao++;
         await CarregarAsync();
     }
+
+    private void Selecionar(Guid id) => selecionado = id;
+
+    private void Fechar() => selecionado = null;
 
     private void Avisar(string texto, bool erro)
     {
