@@ -250,4 +250,44 @@ public class ChamadoServicoTests
 
         Assert.Equal("Chamado 03", lista[0].Titulo);
     }
+
+    // --- Atividade C1: reabertura pelo serviço, com o relógio injetado ---
+
+    private async Task<Chamado> AbrirEResolverAsync()
+    {
+        var chamado = await _servico.AbrirAsync(new NovoChamado("Tomada solta"));
+        await _servico.IniciarAtendimentoAsync(chamado.Id, "Elétrica");
+        return await _servico.ResolverAsync(chamado.Id, "Tomada fixada");
+    }
+
+    [Fact]
+    public async Task ReabrirAsync_DentroDoPrazo_UsaHorarioDoRelogio()
+    {
+        var chamado = await AbrirEResolverAsync();
+        _relogio.Avancar(TimeSpan.FromDays(6));
+
+        var reaberto = await _servico.ReabrirAsync(chamado.Id, "Voltou a soltar");
+
+        Assert.Equal(StatusChamado.Aberto, reaberto.Status);
+        Assert.Equal(Inicio.AddDays(6), reaberto.Historico[^1].Em);
+    }
+
+    [Fact]
+    public async Task ReabrirAsync_DepoisDoPrazo_LancaPrazoExpirado()
+    {
+        var chamado = await AbrirEResolverAsync();
+        _relogio.Avancar(TimeSpan.FromDays(8));
+
+        var erro = await Assert.ThrowsAsync<PrazoReaberturaExpiradoException>(
+            () => _servico.ReabrirAsync(chamado.Id, "Voltou a soltar"));
+
+        Assert.Equal(Inicio.AddDays(7), erro.Limite);
+    }
+
+    [Fact]
+    public async Task ReabrirAsync_IdInexistente_LancaChamadoNaoEncontrado()
+    {
+        await Assert.ThrowsAsync<ChamadoNaoEncontradoException>(
+            () => _servico.ReabrirAsync(Guid.NewGuid(), "Voltou"));
+    }
 }

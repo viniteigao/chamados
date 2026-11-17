@@ -12,6 +12,12 @@ public sealed class Chamado
     public const int TamanhoMaximoTitulo = 120;
     public const int TamanhoMaximoDescricao = 2000;
 
+    /// <summary>
+    /// Quanto tempo depois de resolvido um chamado ainda pode ser reaberto.
+    /// TimeSpan não pode ser const em C#; static readonly é o equivalente.
+    /// </summary>
+    public static readonly TimeSpan PrazoReabertura = TimeSpan.FromDays(7);
+
     private readonly List<RegistroHistorico> _historico = [];
 
     public Chamado(
@@ -105,6 +111,34 @@ public sealed class Chamado
         EncerradoEm = em;
     }
 
+    /// <summary>
+    /// Devolve à fila um chamado resolvido cujo problema reapareceu,
+    /// desde que dentro do <see cref="PrazoReabertura"/>.
+    /// </summary>
+    public void Reabrir(string motivo, DateTimeOffset em)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(motivo);
+
+        // Status conferido antes do prazo: um chamado cancelado também tem EncerradoEm,
+        // e o erro certo para ele é a transição inválida, não o prazo.
+        if (Status != StatusChamado.Resolvido)
+        {
+            throw new TransicaoInvalidaException(Id, Status, StatusChamado.Aberto);
+        }
+
+        // Todo chamado resolvido tem EncerradoEm (gravado em Resolver).
+        var limite = EncerradoEm!.Value + PrazoReabertura;
+        if (em > limite)
+        {
+            throw new PrazoReaberturaExpiradoException(Id, limite);
+        }
+
+        MudarStatus(StatusChamado.Aberto, em, motivo.Trim());
+        Responsavel = null;
+        Solucao = null;
+        EncerradoEm = null;
+    }
+
     private void MudarStatus(StatusChamado novo, DateTimeOffset em, string? observacao)
     {
         if (!TransicaoPermitida(Status, novo))
@@ -159,6 +193,7 @@ public sealed class Chamado
         (StatusChamado.Aberto, StatusChamado.EmAtendimento) => true,
         (StatusChamado.EmAtendimento, StatusChamado.Resolvido) => true,
         (StatusChamado.Aberto or StatusChamado.EmAtendimento, StatusChamado.Cancelado) => true,
+        (StatusChamado.Resolvido, StatusChamado.Aberto) => true, // reabertura, com prazo conferido em Reabrir
         _ => false
     };
 }

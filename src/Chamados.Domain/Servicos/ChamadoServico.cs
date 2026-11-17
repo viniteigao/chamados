@@ -49,6 +49,10 @@ public sealed class ChamadoServico(IChamadoRepositorio repositorio, TimeProvider
     public Task<Chamado> CancelarAsync(Guid id, string motivo, CancellationToken cancellationToken = default)
         => AlterarAsync(id, chamado => chamado.Cancelar(motivo, relogio.GetUtcNow()), cancellationToken);
 
+    /// <summary>Reabre um chamado resolvido, com o horário do relógio injetado.</summary>
+    public Task<Chamado> ReabrirAsync(Guid id, string motivo, CancellationToken cancellationToken = default)
+        => AlterarAsync(id, chamado => chamado.Reabrir(motivo, relogio.GetUtcNow()), cancellationToken);
+
     public async Task<IReadOnlyList<ResumoChamado>> ListarAsync(
         FiltroChamados filtro,
         CancellationToken cancellationToken = default)
