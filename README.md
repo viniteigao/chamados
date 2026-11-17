@@ -37,7 +37,7 @@ O cabeçalho de todas as páginas mostra o contador de pendências (View Compone
 
 | Rota | Componente | O que faz |
 | --- | --- | --- |
-| `/atendimento` | `Components/Pages/Atendimento.razor` | Fila interativa (InteractiveServer): busca, iniciar, resolver e cancelar sem recarregar |
+| `/atendimento` | `Components/Pages/Atendimento.razor` | Fila interativa (InteractiveServer): busca, filtro de prioridade mínima (`FiltroPrioridade`), iniciar, resolver e cancelar sem recarregar |
 | `/modos` | `Components/Pages/Modos.razor` | O mesmo `Contador` renderizado de forma estática e interativa, lado a lado |
 
 Razor Pages e Blazor convivem na mesma aplicação: `MapRazorPages()` e `MapRazorComponents<App>()` no `Program.cs`, o mesmo `site.css` e o mesmo `ChamadoServico`.

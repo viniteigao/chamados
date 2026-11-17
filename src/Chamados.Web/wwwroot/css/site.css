@@ -134,3 +134,7 @@ input:focus, select:focus, textarea:focus { outline: 2px solid var(--roxo); outl
 /* ---------- Atividade C3 · Prazo de atendimento ---------- */
 .selo-no-prazo { background: #e7f6ee; color: var(--ok); }
 .selo-atrasado { background: #fdecea; color: var(--erro); }
+
+/* ---------- Atividade C4 · Filtro de prioridade na fila ---------- */
+.filtro-prioridade { display: flex; flex-wrap: wrap; gap: .5rem; margin: 0 0 1rem; }
+.filtro-prioridade button[aria-pressed="true"] { box-shadow: 0 0 0 2px var(--papel), 0 0 0 4px var(--roxo); }

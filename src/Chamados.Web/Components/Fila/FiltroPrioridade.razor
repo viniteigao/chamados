@@ -1,0 +1,34 @@
+@* Botões de prioridade mínima da fila. Segue a convenção do @bind de componentes:
+   Valor desce do pai e ValorChanged sobe, então o pai escreve @bind-Valor="campo". *@
+<div class="filtro-prioridade" role="group" aria-label="Prioridade mínima">
+    @foreach (var opcao in Opcoes)
+    {
+        var escolhida = opcao.Prioridade == Valor;
+        <button type="button" class="@(escolhida ? null : "secundario")"
+                aria-pressed="@(escolhida ? "true" : "false")"
+                @onclick="() => EscolherAsync(opcao.Prioridade)">
+            @opcao.Rotulo
+        </button>
+    }
+</div>
+
+@code {
+    private static readonly (string Rotulo, Prioridade? Prioridade)[] Opcoes =
+    [
+        ("Todas", null),
+        ("Média ou mais", Prioridade.Media),
+        ("Alta ou mais", Prioridade.Alta),
+        ("Crítica", Prioridade.Critica)
+    ];
+
+    /// <summary>Prioridade mínima escolhida; null mostra todas.</summary>
+    [Parameter]
+    public Prioridade? Valor { get; set; }
+
+    /// <summary>Avisa o pai da nova escolha. O componente não altera Valor sozinho.</summary>
+    [Parameter]
+    public EventCallback<Prioridade?> ValorChanged { get; set; }
+
+    private Task EscolherAsync(Prioridade? prioridade)
+        => prioridade == Valor ? Task.CompletedTask : ValorChanged.InvokeAsync(prioridade);
+}

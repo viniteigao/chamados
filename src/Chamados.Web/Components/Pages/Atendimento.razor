@@ -18,6 +18,9 @@
     <button type="button" class="secundario" @onclick="CarregarAsync">Atualizar</button>
 </div>
 
+@* Atividade C4: mesmo padrão da busca. @bind-Valor atualiza o campo e, depois, CarregarAsync. *@
+<FiltroPrioridade @bind-Valor="prioridadeMinima" @bind-Valor:after="CarregarAsync" />
+
 @if (mensagem is not null)
 {
     <p class="@(mensagemDeErro ? "erros aviso-erro" : "aviso")" role="status">@mensagem</p>
@@ -50,6 +53,7 @@ else
     // null = ainda carregando. Mudar estes campos e terminar o evento basta para a tela se atualizar.
     private IReadOnlyList<ResumoChamado>? chamados;
     private string? texto;
+    private Prioridade? prioridadeMinima;
     private string? mensagem;
     private bool mensagemDeErro;
 
@@ -69,8 +73,8 @@ else
 
     private async Task CarregarAsync()
     {
-        // O mesmo ChamadoServico das Razor Pages e da API.
-        chamados = await Servico.ListarAsync(new FiltroChamados(Texto: texto));
+        // O mesmo ChamadoServico das Razor Pages e da API. Texto e prioridade se combinam.
+        chamados = await Servico.ListarAsync(new FiltroChamados(PrioridadeMinima: prioridadeMinima, Texto: texto));
     }
 
     private async Task ExecutarAsync(PedidoTransicao pedido)
