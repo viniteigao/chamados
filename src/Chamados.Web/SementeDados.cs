@@ -47,5 +47,14 @@ public static class SementeDados
         await servico.AbrirAsync(
             new NovoChamado("Ar-condicionado da biblioteca pingando", Prioridade.Alta, "Goteira sobre as mesas"),
             cancellationToken);
+
+        // Atividade C2: um chamado resolvido há 9 dias, fora do prazo de reabertura (7 dias).
+        // O serviço sempre usa a hora atual; para datar no passado, o chamado é montado
+        // pelos métodos do domínio e gravado direto no repositório.
+        var agora = escopo.ServiceProvider.GetRequiredService<TimeProvider>().GetUtcNow();
+        var persiana = new Chamado("Persiana da sala 305 emperrada", Prioridade.Baixa, criadoEm: agora.AddDays(-10));
+        persiana.IniciarAtendimento("Manutenção", agora.AddDays(-10).AddHours(2));
+        persiana.Resolver("Trilho lubrificado", agora.AddDays(-9));
+        await escopo.ServiceProvider.GetRequiredService<IChamadoRepositorio>().AdicionarAsync(persiana, cancellationToken);
     }
 }

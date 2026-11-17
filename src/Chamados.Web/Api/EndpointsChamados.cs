@@ -50,6 +50,11 @@ public static class EndpointsChamados
                 ChamadoServico servico, CancellationToken cancellationToken)
             => ResumoChamado.De(await servico.CancelarAsync(id, requisicao.Motivo, cancellationToken)));
 
+        // Atividade C2: prazo encerrado, status errado ou motivo em branco saem pelo filtro.
+        api.MapPost("/{id:guid}/reabertura", async (Guid id, ReabrirRequest requisicao,
+                ChamadoServico servico, CancellationToken cancellationToken)
+            => ResumoChamado.De(await servico.ReabrirAsync(id, requisicao.Motivo, cancellationToken)));
+
         return api;
     }
 }
@@ -59,3 +64,5 @@ public sealed record IniciarAtendimentoRequest(string Responsavel);
 public sealed record ResolverRequest(string Solucao);
 
 public sealed record CancelarRequest(string Motivo);
+
+public sealed record ReabrirRequest(string Motivo);

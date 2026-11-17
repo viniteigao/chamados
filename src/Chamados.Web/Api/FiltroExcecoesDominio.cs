@@ -24,6 +24,11 @@ public sealed class FiltroExcecoesDominio : IEndpointFilter
             return TypedResults.Problem(ex.Message, statusCode: StatusCodes.Status409Conflict,
                 title: "Transição de status inválida");
         }
+        catch (PrazoReaberturaExpiradoException ex)
+        {
+            return TypedResults.Problem(ex.Message, statusCode: StatusCodes.Status409Conflict,
+                title: "Prazo de reabertura encerrado");
+        }
         catch (ConcorrenciaException ex)
         {
             return TypedResults.Problem(ex.Message, statusCode: StatusCodes.Status409Conflict,

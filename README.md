@@ -18,7 +18,7 @@ dotnet run --project src/Chamados.Web --launch-profile https
 dotnet test
 ```
 
-Em Development a base em memória recebe 12 chamados de exemplo (três páginas de 5 na lista).
+Em Development a base em memória recebe 13 chamados de exemplo (três páginas de 5 na lista), um deles resolvido há 9 dias para testar o prazo de reabertura.
 
 ### Páginas (Razor Pages)
 
@@ -54,6 +54,7 @@ Razor Pages e Blazor convivem na mesma aplicação: `MapRazorPages()` e `MapRazo
 | `POST /api/chamados/{id}/atendimento` | Inicia atendimento (corpo: `{"responsavel": "..."}`) |
 | `POST /api/chamados/{id}/resolucao` | Resolve (corpo: `{"solucao": "..."}`) |
 | `POST /api/chamados/{id}/cancelamento` | Cancela (corpo: `{"motivo": "..."}`) |
+| `POST /api/chamados/{id}/reabertura` | Reabre um chamado resolvido há no máximo 7 dias (corpo: `{"motivo": "..."}`; fora do prazo → 409) |
 | `GET /api/status`, `GET /api/ambiente` | Herdadas do Módulo 1 (`/api/ambiente` só em Development) |
 
 Erros de domínio na API voltam como Problem Details (RFC 9457): 400, 404 ou 409. A API nunca recebe as páginas de erro em HTML. Exemplos em `src/Chamados.Web/Chamados.Web.http`.

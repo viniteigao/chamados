@@ -80,3 +80,63 @@ Content-Type: application/json
 {
   "motivo": "Teste"
 }
+
+# ============ Atividade C2: POST /api/chamados/{id}/reabertura ============
+# Cada caso começa com uma busca nomeada (# @name): execute a busca e depois a reabertura,
+# que lê o Id da resposta da busca. Base de Development recém-iniciada.
+
+### Busca: chamado resolvido há pouco (semente: "Vazamento na copa")
+# @name resolvido
+GET {{base}}/api/chamados?status=Resolvido&texto=Vazamento
+
+### C2.1 Resolvido, dentro do prazo → 200, com "status": "Aberto"
+POST {{base}}/api/chamados/{{resolvido.response.body.$[0].id}}/reabertura
+Content-Type: application/json
+
+{
+  "motivo": "Voltou a vazar"
+}
+
+### C2.2 Id inexistente → 404 (Chamado não encontrado)
+POST {{base}}/api/chamados/00000000-0000-0000-0000-000000000000/reabertura
+Content-Type: application/json
+
+{
+  "motivo": "Voltou a vazar"
+}
+
+### Busca: chamado aberto (semente: "Tomada solta na recepção")
+# @name aberto
+GET {{base}}/api/chamados?status=Aberto&texto=Tomada
+
+### C2.3 Chamado que não está resolvido → 409 (Transição de status inválida)
+POST {{base}}/api/chamados/{{aberto.response.body.$[0].id}}/reabertura
+Content-Type: application/json
+
+{
+  "motivo": "Voltou a soltar"
+}
+
+### Busca: chamado resolvido há 9 dias (semente: "Persiana da sala 305 emperrada")
+# @name antigo
+GET {{base}}/api/chamados?status=Resolvido&texto=Persiana
+
+### C2.4 Prazo de reabertura encerrado → 409, com título "Prazo de reabertura encerrado"
+POST {{base}}/api/chamados/{{antigo.response.body.$[0].id}}/reabertura
+Content-Type: application/json
+
+{
+  "motivo": "Emperrou de novo"
+}
+
+### Busca: outro resolvido dentro do prazo (semente: "Lâmpada queimada no estacionamento")
+# @name lampada
+GET {{base}}/api/chamados?status=Resolvido&texto=estacionamento
+
+### C2.5 Motivo em branco → 400 (Dados inválidos)
+POST {{base}}/api/chamados/{{lampada.response.body.$[0].id}}/reabertura
+Content-Type: application/json
+
+{
+  "motivo": "   "
+}
