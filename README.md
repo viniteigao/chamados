@@ -25,7 +25,7 @@ Em Development a base em memória recebe 13 chamados de exemplo (três páginas 
 | Rota | Página | O que faz |
 | --- | --- | --- |
 | `/` | `Pages/Index` | Painel com totais por status (`ObterEstatisticasAsync`) |
-| `/Chamados?status=&prioridadeMinima=&texto=&ordem=&pagina=` | `Pages/Chamados/Index` | Lista com filtros, ordenação e paginação (`ListarPaginaAsync`) |
+| `/Chamados?status=&prioridadeMinima=&texto=&ordem=&pagina=` | `Pages/Chamados/Index` | Lista com filtros, ordenação, paginação (`ListarPaginaAsync`) e coluna Prazo (Tag Helper `<prazo>`) |
 | `/Chamados/Novo` | `Pages/Chamados/Novo` | Formulário de abertura (`AbrirAsync`), validação no cliente e no servidor, Post/Redirect/Get |
 | `/Chamados/Detalhes/{id}` | `Pages/Chamados/Detalhes` | Detalhe, histórico e handlers Iniciar, Resolver e Cancelar |
 | `/Chamados/Editar/{id}` | `Pages/Chamados/Editar` | Edição com concorrência otimista (`EditarAsync`) |
@@ -101,3 +101,4 @@ No Visual Studio: **Teste > Gerenciador de Testes > Executar Todos** (`Ctrl+R, A
 - **Blazor no mesmo projeto Web** (Módulo 5): Razor Pages ficam com os formulários de cadastro; a fila de atendimento, que muda o tempo todo, vira um componente interativo no servidor (`InteractiveServer`). Nenhum projeto novo.
 - **Interatividade por página, não global** (Módulo 5): só `/atendimento` declara `@rendermode InteractiveServer`. O resto continua estático, sem conexão aberta com o servidor.
 - **Componente pede, página executa** (Módulo 5): `CartaoChamado` só avisa a página por `EventCallback<PedidoTransicao>`; quem chama o `ChamadoServico` e trata as exceções é `Atendimento.razor`.
+- **Prazo de atendimento no domínio, exibição no Tag Helper** (atividade C3): `PrazoAtendimento` define os prazos (Crítica 4 h, Alta 8 h, Média 24 h, Baixa 72 h); `<prazo>` recebe o `TimeProvider` por injeção e só escolhe texto e cor.

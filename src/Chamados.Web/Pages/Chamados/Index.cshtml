@@ -46,7 +46,7 @@ else
 
     <table class="tabela">
         <thead>
-            <tr><th>Título</th><th>Prioridade</th><th>Status</th><th>Responsável</th><th>Aberto em</th></tr>
+            <tr><th>Título</th><th>Prioridade</th><th>Status</th><th>Responsável</th><th>Aberto em</th><th>Prazo</th></tr>
         </thead>
         <tbody>
             @foreach (var chamado in pagina.Itens)
@@ -57,6 +57,7 @@ else
                     <td><selo valor="@chamado.Status" /></td>
                     <td>@(chamado.Responsavel ?? "—")</td>
                     <td>@chamado.CriadoEm.DataHora()</td>
+                    <td><prazo criado-em="@chamado.CriadoEm" prioridade="@chamado.Prioridade" status="@chamado.Status" /></td>
                 </tr>
             }
         </tbody>
