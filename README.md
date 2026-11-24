@@ -1,6 +1,6 @@
 # Chamados
 
-Sistema de chamados (ordens de serviço) para uma empresa de manutenção predial. Estado: Módulo 5.
+Sistema de chamados (ordens de serviço) para uma empresa de manutenção predial. Estado: Módulo 6.
 
 ## Requisitos
 
@@ -33,14 +33,16 @@ Em Development a base em memória recebe 12 chamados de exemplo (três páginas 
 
 O cabeçalho de todas as páginas mostra o contador de pendências (View Component `ResumoStatus`).
 
-### Páginas Blazor (componentes Razor, Módulo 5)
+### Páginas Blazor (componentes Razor, Módulos 5 e 6)
 
 | Rota | Componente | O que faz |
 | --- | --- | --- |
-| `/atendimento` | `Components/Pages/Atendimento.razor` | Fila interativa (InteractiveServer): busca, iniciar, resolver e cancelar sem recarregar |
+| `/atendimento` | `Components/Pages/Atendimento.razor` | Fila interativa (InteractiveServer): busca com cancelamento, iniciar, resolver, cancelar, abrir e editar (EditForm) sem recarregar |
 | `/modos` | `Components/Pages/Modos.razor` | O mesmo `Contador` renderizado de forma estática e interativa, lado a lado |
 
 Razor Pages e Blazor convivem na mesma aplicação: `MapRazorPages()` e `MapRazorComponents<App>()` no `Program.cs`, o mesmo `site.css` e o mesmo `ChamadoServico`.
+
+Componentes acrescentados no Módulo 6: `Formularios/FormularioChamado` (EditForm com Data Annotations, validação personalizada e erros do servidor), `Layout/ResumoFila` (totais no cabeçalho das páginas Blazor, alimentados pelo serviço `Estado/EstadoFila`) e o módulo JavaScript `wwwroot/js/preferencias.js` (lembra o responsável no `localStorage`).
 
 ### API JSON (em `/api` desde o Módulo 3)
 
@@ -60,11 +62,16 @@ Erros de domínio na API voltam como Problem Details (RFC 9457): 400, 404 ou 409
 
 ### Configuração
 
-`Simulacao:LatenciaMs` (0 a 10000) atrasa a listagem para observar cancelamento. Valor fora da faixa impede a aplicação de iniciar (`ValidateOnStart`). Para testar sem editar arquivo:
+`Simulacao:LatenciaMs` (0 a 10000) atrasa a listagem para observar carregamento e cancelamento; em Development vale 600. `Simulacao:FalhaNaListagemACada` (0 a 100) faz uma listagem a cada N falhar de propósito, para testar o tratamento de erro; 0 desliga. Valor fora da faixa impede a aplicação de iniciar (`ValidateOnStart`). Para testar sem editar arquivo:
 
 ```powershell
 $env:Simulacao__LatenciaMs = "20000"; dotnet run --project src/Chamados.Web
+$env:Simulacao__FalhaNaListagemACada = "3"; dotnet run --project src/Chamados.Web
 ```
+
+No Visual Studio, o perfil **https-falha** (em `launchSettings.json`) já liga `Simulacao__FalhaNaListagemACada = 3` e abre em `/atendimento`; pela CLI: `dotnet run --project src/Chamados.Web --launch-profile https-falha`.
+
+Datas e números saem em pt-BR também no servidor de hospedagem (`UseRequestLocalization("pt-BR")`).
 
 ### Bibliotecas do lado do cliente
 
@@ -98,5 +105,10 @@ No Visual Studio: **Teste > Gerenciador de Testes > Executar Todos** (`Ctrl+R, A
 - **Partial para o que só exibe, View Component para o que busca dados, Tag Helper para marcação repetida** (Módulo 4): `_CamposChamado`, `ResumoStatus` e `<selo>`.
 - **Páginas de status só fora de `/api`** (Módulo 4): `UseWhen` cria um ramo do pipeline para que a API continue respondendo JSON.
 - **Blazor no mesmo projeto Web** (Módulo 5): Razor Pages ficam com os formulários de cadastro; a fila de atendimento, que muda o tempo todo, vira um componente interativo no servidor (`InteractiveServer`). Nenhum projeto novo.
-- **Interatividade por página, não global** (Módulo 5): só `/atendimento` declara `@rendermode InteractiveServer`. O resto continua estático, sem conexão aberta com o servidor.
+- **Interatividade por página, não global** (Módulo 5): só `/atendimento` declara `@rendermode InteractiveServer`. O resto continua estático, sem conexão aberta com o servidor. No Módulo 6, o `ResumoFila` do cabeçalho das páginas Blazor também é interativo, com a própria raiz no circuito.
 - **Componente pede, página executa** (Módulo 5): `CartaoChamado` só avisa a página por `EventCallback<PedidoTransicao>`; quem chama o `ChamadoServico` e trata as exceções é `Atendimento.razor`.
+- **`ChamadoInput` também no Blazor** (Módulo 6): o `EditForm` usa o mesmo modelo e as mesmas Data Annotations das Razor Pages. A regra nova, `[TextoSignificativo]`, vale nas duas telas.
+- **Erros do servidor no `EditContext`** (Módulo 6): concorrência e regras do domínio entram por um `ValidationMessageStore` e aparecem no `ValidationSummary`. O envio usa `OnSubmit` com `Validate()` manual, para limpar esses erros antes de validar de novo.
+- **Estado compartilhado em serviço Scoped com evento** (Módulo 6): `EstadoFila` liga a página de atendimento ao resumo do cabeçalho sem relação pai e filho. Quem se inscreve no evento cancela a inscrição no `Dispose`.
+- **JavaScript só no `OnAfterRenderAsync`, em módulo ES isolado** (Módulo 6): nada de JS na pré-renderização; o `localStorage` guarda só preferência de tela, nunca dado sensível.
+- **Fila sem busca duplicada** (Módulo 6): `[PersistentState]` leva a lista carregada na pré-renderização para o circuito; cada busca nova cancela a anterior com `CancellationTokenSource`.

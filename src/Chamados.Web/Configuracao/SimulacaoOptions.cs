@@ -14,4 +14,8 @@ public sealed class SimulacaoOptions
     /// <summary>Atraso artificial da listagem, em milissegundos.</summary>
     [Range(0, 10_000, ErrorMessage = "Simulacao:LatenciaMs deve ficar entre {1} e {2}.")]
     public int LatenciaMs { get; set; }
+
+    /// <summary>A cada N listagens, uma falha proposital (0 = nunca). Só para testar o tratamento de erro.</summary>
+    [Range(0, 100, ErrorMessage = "Simulacao:FalhaNaListagemACada deve ficar entre {1} e {2}.")]
+    public int FalhaNaListagemACada { get; set; }
 }

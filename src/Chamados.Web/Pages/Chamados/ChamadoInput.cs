@@ -1,11 +1,13 @@
 using System.ComponentModel.DataAnnotations;
 using Chamados.Domain;
+using Chamados.Web.Validacao;
 
 namespace Chamados.Web.Pages.Chamados;
 
 /// <summary>
 /// Campos que o usuário preenche para abrir ou editar um chamado.
 /// No Módulo 3 se chamava NovoChamadoInput; agora serve às duas telas.
+/// No Módulo 6 ganha o [TextoSignificativo] e passa a servir também ao EditForm do Blazor.
 /// Não é a entidade: Chamado tem setters privados e nasce já válida.
 /// </summary>
 public sealed class ChamadoInput
@@ -14,6 +16,7 @@ public sealed class ChamadoInput
     [Required(ErrorMessage = "Informe o título.")]
     [StringLength(Chamado.TamanhoMaximoTitulo, MinimumLength = 5,
         ErrorMessage = "O título deve ter entre {2} e {1} caracteres.")]
+    [TextoSignificativo]
     public string Titulo { get; set; } = string.Empty;
 
     [Display(Name = "Prioridade")]

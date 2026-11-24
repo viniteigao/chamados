@@ -1,0 +1,155 @@
+@* Formulário Blazor para abrir (ChamadoId nulo) ou editar um chamado.
+   Reaproveita o ChamadoInput das Razor Pages: as mesmas Data Annotations valem aqui. *@
+@using Chamados.Web.Pages.Chamados
+@inject ChamadoServico Servico
+
+@if (modelo is null || contexto is null)
+{
+    <p class="vazio" aria-busy="true">Carregando o chamado…</p>
+}
+else
+{
+    @if (abertoEm is not null)
+    {
+        <p class="apoio">Aberto em @abertoEm</p>
+    }
+
+    @* EditContext explícito: precisamos dele para acrescentar erros vindos do servidor. *@
+    <EditForm EditContext="contexto" OnSubmit="EnviarAsync" class="formulario formulario-painel">
+        <DataAnnotationsValidator />
+        <ValidationSummary />
+
+        <div class="campo">
+            <label for="titulo">Título</label>
+            <InputText id="titulo" @bind-Value="modelo.Titulo" autocomplete="off" />
+            <ValidationMessage For="() => modelo.Titulo" />
+        </div>
+
+        <div class="campo">
+            <label for="prioridade">Prioridade</label>
+            <InputSelect id="prioridade" @bind-Value="modelo.Prioridade">
+                @foreach (var prioridade in Enum.GetValues<Prioridade>())
+                {
+                    <option value="@prioridade">@prioridade.Rotulo()</option>
+                }
+            </InputSelect>
+            <ValidationMessage For="() => modelo.Prioridade" />
+        </div>
+
+        <div class="campo">
+            <label for="descricao">Descrição <span class="apoio">(opcional)</span></label>
+            <InputTextArea id="descricao" @bind-Value="modelo.Descricao" rows="4" />
+            <ValidationMessage For="() => modelo.Descricao" />
+        </div>
+
+        <div class="acoes">
+            <button type="submit" disabled="@salvando">@(salvando ? "Salvando…" : TextoDoBotao)</button>
+            <button type="button" class="neutro" @onclick="AoFechar">Fechar</button>
+        </div>
+    </EditForm>
+}
+
+@code {
+    private ChamadoInput? modelo;
+    private EditContext? contexto;
+    private ValidationMessageStore? errosDoServidor;
+    private int versao;
+    private string? abertoEm;
+    private bool salvando;
+
+    /// <summary>Id do chamado a editar; nulo para abrir um chamado novo.</summary>
+    [Parameter]
+    public Guid? ChamadoId { get; set; }
+
+    /// <summary>Disparado depois de gravar com sucesso.</summary>
+    [Parameter]
+    public EventCallback<ResumoChamado> AoSalvar { get; set; }
+
+    [Parameter]
+    public EventCallback AoFechar { get; set; }
+
+    private string TextoDoBotao => ChamadoId is null ? "Abrir chamado" : "Salvar alterações";
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (ChamadoId is not { } id)
+        {
+            Preparar(new ChamadoInput());
+            return;
+        }
+
+        var chamado = await Servico.ObterAsync(id);
+        if (chamado is null)
+        {
+            await AoFechar.InvokeAsync();
+            return;
+        }
+
+        versao = chamado.Versao;
+        // "D": data por extenso na cultura atual (pt-BR pelo UseRequestLocalization).
+        abertoEm = chamado.CriadoEm.ToLocalTime().ToString("D");
+        Preparar(ChamadoInput.De(chamado));
+    }
+
+    private void Preparar(ChamadoInput novoModelo)
+    {
+        modelo = novoModelo;
+        contexto = new EditContext(modelo);
+        errosDoServidor = new ValidationMessageStore(contexto);
+
+        // Quando o usuário mexe num campo, o aviso do servidor deixa de valer.
+        contexto.OnFieldChanged += (_, _) => errosDoServidor.Clear();
+    }
+
+    private async Task EnviarAsync()
+    {
+        // OnSubmit, e não OnValidSubmit: os erros do servidor da tentativa anterior
+        // precisam sair antes da validação, senão o formulário nunca mais seria válido.
+        errosDoServidor!.Clear();
+        if (!contexto!.Validate())
+        {
+            return;
+        }
+
+        salvando = true;
+        try
+        {
+            var chamado = ChamadoId is { } id
+                ? await Servico.EditarAsync(id, modelo!.ParaEdicao(versao))
+                : await Servico.AbrirAsync(modelo!.ParaComando());
+
+            await AoSalvar.InvokeAsync(ResumoChamado.De(chamado));
+        }
+        catch (ConcorrenciaException ex)
+        {
+            var atual = await Servico.ObterAsync(ex.ChamadoId);
+            versao = ex.VersaoAtual;
+            AdicionarErro(atual is null
+                ? "Outra pessoa alterou este chamado."
+                : $"Outra pessoa alterou este chamado enquanto você editava. Agora ele está assim: " +
+                  $"\"{atual.Titulo}\", prioridade {atual.Prioridade.Rotulo()}, {atual.Status.Rotulo().ToLowerInvariant()}. " +
+                  "Revise e salve de novo para manter a sua versão.");
+        }
+        catch (ChamadoEncerradoException)
+        {
+            AdicionarErro("Este chamado foi encerrado e não pode mais ser editado.");
+        }
+        catch (ArgumentException ex)
+        {
+            // Regra do domínio que a tela não conhecia: a mensagem é a do próprio domínio,
+            // sem o sufixo " (Parameter 'titulo')" que o .NET acrescenta.
+            AdicionarErro(ex.ParamName is null ? ex.Message : ex.Message.Replace($" (Parameter '{ex.ParamName}')", ""));
+        }
+        finally
+        {
+            salvando = false;
+        }
+    }
+
+    private void AdicionarErro(string mensagem)
+    {
+        // Campo vazio (string.Empty) = erro do formulário inteiro: aparece no ValidationSummary.
+        errosDoServidor!.Add(new FieldIdentifier(modelo!, string.Empty), mensagem);
+        contexto!.NotifyValidationStateChanged();
+    }
+}

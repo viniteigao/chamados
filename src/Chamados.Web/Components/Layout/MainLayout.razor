@@ -4,6 +4,8 @@
 
 <header class="topo">
     <a class="marca" href="/">Chamados</a>
+    @* Componente interativo dentro de um layout estático: ganha a própria raiz no circuito. *@
+    <ResumoFila @rendermode="InteractiveServer" />
     <nav>
         @* NavLink acrescenta a classe "active" quando a URL atual é a do link. *@
         <NavLink href="atendimento">Atendimento</NavLink>
@@ -16,7 +18,7 @@
     @Body
 </main>
 
-<footer class="rodape">Chamados · Módulo 5 · Blazor e componentes Razor</footer>
+<footer class="rodape">Chamados · Módulo 6 · Formulários, estado e interatividade</footer>
 
 @* Faixa que o Blazor mostra se um erro não tratado derrubar o circuito. *@
 <div id="blazor-error-ui">

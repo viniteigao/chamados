@@ -1,0 +1,31 @@
+@* Totais da fila no cabeçalho. Não é pai nem filho da página de atendimento:
+   os dois conversam pelo serviço EstadoFila, compartilhado no circuito. *@
+@implements IDisposable
+@inject EstadoFila Estado
+
+@if (Estado.Estatisticas is not null)
+{
+    <a class="resumo-status" href="/atendimento" aria-live="polite">
+        <span><strong>@Estado.Contar(StatusChamado.Aberto)</strong> @(Estado.Contar(StatusChamado.Aberto) == 1 ? "aberto" : "abertos")</span>
+        <span><strong>@Estado.Contar(StatusChamado.EmAtendimento)</strong> em atendimento</span>
+    </a>
+}
+
+@code {
+    protected override async Task OnInitializedAsync()
+    {
+        Estado.Mudou += AoMudar;
+
+        if (Estado.Estatisticas is null)
+        {
+            await Estado.AtualizarAsync();
+        }
+    }
+
+    // O evento pode vir de outro componente. InvokeAsync agenda a renderização
+    // no contexto deste componente; StateHasChanged avisa que algo mudou.
+    private void AoMudar() => InvokeAsync(StateHasChanged);
+
+    // Sem cancelar a inscrição, o serviço guardaria referência a um componente morto.
+    public void Dispose() => Estado.Mudou -= AoMudar;
+}

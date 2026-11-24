@@ -130,3 +130,31 @@ input:focus, select:focus, textarea:focus { outline: 2px solid var(--roxo); outl
 .aviso-erro { padding: .75rem 1rem; background: #fdecea; color: var(--erro); border-left: 4px solid var(--erro); border-radius: 4px; }
 .contador .numero { font-size: 3rem; font-weight: 800; color: var(--roxo); margin: 0; line-height: 1; }
 #blazor-error-ui { display: none; position: fixed; inset: auto 0 0 0; padding: .75rem 1.5rem; background: #fdecea; color: var(--erro); border-top: 2px solid var(--erro); z-index: 1000; }
+
+/* ---------- Módulo 6 · Formulários e estado ---------- */
+.painel { margin: 1rem 0 1.5rem; padding: 1rem 1.25rem; background: #ece8df; border-radius: 10px; }
+.painel > h2 { margin: 0 0 .75rem; }
+.formulario-painel { max-width: none; }
+.validation-message { color: var(--erro); font-size: .9rem; }
+.validation-errors { margin: 0; padding: .75rem 1rem .75rem 2rem; background: #fdecea; color: var(--erro); border-radius: 6px; }
+input.invalid, select.invalid, textarea.invalid, input[aria-invalid="true"] { border-color: var(--erro); }
+.carregando { min-height: 1.4em; margin: 0 0 .5rem; color: var(--apoio); font-size: .9rem; }
+.carregando:not(:empty)::before { content: ""; display: inline-block; width: .8em; height: .8em; margin-right: .5em; border: 2px solid var(--roxo); border-right-color: transparent; border-radius: 50%; vertical-align: -.1em; animation: girar .8s linear infinite; }
+@keyframes girar { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) { .carregando:not(:empty)::before { animation: none; } }
+.fila[aria-busy="true"] { opacity: .6; transition: opacity .2s; }
+button:disabled { opacity: .55; cursor: not-allowed; }
+button.link { background: none; border: none; color: var(--roxo) !important; padding: .35rem .25rem; text-decoration: underline; margin-left: auto; }
+:focus-visible { outline: 3px solid var(--roxo); outline-offset: 2px; }
+/* Celular: o cabeçalho quebra em duas linhas e a tabela da lista rola dentro dela mesma. */
+@media (max-width: 560px) {
+  .topo { flex-wrap: wrap; padding: .75rem 1rem; }
+  .topo nav { gap: .75rem; }
+  .topo .resumo-status { order: 3; width: 100%; margin: 0; justify-content: center; }
+  .conteudo { padding: 1rem; }
+  .barra-fila > button { flex: 1; }
+  .tabela { display: block; overflow-x: auto; }
+}
+button.link:hover { background: none; color: var(--roxo-escuro) !important; }
+button.neutro { background: #fff; color: var(--tinta) !important; border: 1px solid var(--linha); }
+button.neutro:hover { background: #ece8df; }
