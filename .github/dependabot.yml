@@ -1,0 +1,21 @@
+# Módulo 8: o GitHub abre pull requests quando sai versão nova de um pacote NuGet do projeto.
+# Cada pull request passa pelos testes antes de entrar; nada é atualizado sozinho.
+version: 2
+updates:
+  - package-ecosystem: "nuget"
+    directories:
+      - "/src/*"
+      - "/tests/*"
+    schedule:
+      interval: "weekly"
+    groups:
+      # Pacotes da mesma família sobem juntos: EF Core 10.0.15 e Identity 10.0.15, por exemplo.
+      aspnetcore-efcore:
+        patterns:
+          - "Microsoft.AspNetCore.*"
+          - "Microsoft.EntityFrameworkCore*"
+      testes:
+        patterns:
+          - "xunit*"
+          - "Microsoft.NET.Test.Sdk"
+          - "coverlet.collector"

@@ -27,4 +27,7 @@ public interface IChamadoRepositorio
         FiltroChamados filtro, int pular = 0, int? pegar = null, CancellationToken cancellationToken = default);
 
     Task<EstatisticasChamados> ObterEstatisticasAsync(CancellationToken cancellationToken = default);
+
+    /// <summary>Resumos dos chamados de um responsável (comparação exata), por prioridade.</summary>
+    Task<IReadOnlyList<ResumoChamado>> ListarPorResponsavelAsync(string responsavel, CancellationToken cancellationToken = default);
 }

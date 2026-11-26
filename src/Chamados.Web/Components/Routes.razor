@@ -1,7 +1,13 @@
-@* Roteador: procura neste assembly os componentes com @page e mostra o que casar com a URL. *@
+@* Roteador: procura neste assembly os componentes com @page e mostra o que casar com a URL.
+   Módulo 8: AuthorizeRouteView confere o [Authorize] da página também na navegação interativa.
+   Na primeira requisição, quem barra é o middleware de autorização (redireciona para o login). *@
 <Router AppAssembly="typeof(Program).Assembly">
     <Found Context="routeData">
-        <RouteView RouteData="routeData" DefaultLayout="typeof(MainLayout)" />
+        <AuthorizeRouteView RouteData="routeData" DefaultLayout="typeof(MainLayout)">
+            <NotAuthorized>
+                <p class="erros" role="alert">Sua conta não tem permissão para esta página.</p>
+            </NotAuthorized>
+        </AuthorizeRouteView>
         <FocusOnNavigate RouteData="routeData" Selector="h1" />
     </Found>
 </Router>

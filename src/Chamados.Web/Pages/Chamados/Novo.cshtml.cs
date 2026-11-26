@@ -1,4 +1,5 @@
 using Chamados.Domain;
+using Chamados.Web.Diagnostico;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
 
@@ -32,7 +33,7 @@ public sealed class NovoModel(ChamadoServico servico, ILogger<NovoModel> logger)
             var chamado = await servico.AbrirAsync(Input.ParaComando(), cancellationToken);
 
             // Log estruturado: Id e prioridade, nunca o texto digitado (pode conter dados pessoais).
-            logger.LogInformation("Chamado {ChamadoId} aberto com prioridade {Prioridade}", chamado.Id, chamado.Prioridade);
+            Registro.ChamadoAberto(logger, chamado.Id, chamado.Prioridade);
 
             // 3. Post/Redirect/Get: a mensagem sobrevive ao redirect via TempData.
             TempData["Mensagem"] = $"Chamado \"{chamado.Titulo}\" aberto.";

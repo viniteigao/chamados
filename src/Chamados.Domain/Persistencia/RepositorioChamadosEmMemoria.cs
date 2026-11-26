@@ -92,6 +92,14 @@ public sealed class RepositorioChamadosEmMemoria(TimeProvider relogio, TimeSpan 
         return new EstatisticasChamados(chamados.Count, porStatus, porPrioridade, tempoMedio);
     }
 
+    public async Task<IReadOnlyList<ResumoChamado>> ListarPorResponsavelAsync(string responsavel, CancellationToken cancellationToken = default)
+    {
+        await SimularLatenciaAsync(cancellationToken);
+        return Ordenar(_chamados.Values.Where(c => c.Responsavel == responsavel), OrdemChamados.Prioridade)
+            .Select(ResumoChamado.De)
+            .ToList();
+    }
+
     private IEnumerable<Chamado> Filtrar(FiltroChamados filtro) => _chamados.Values
         .Where(c => filtro.Status is null || c.Status == filtro.Status)
         .Where(c => filtro.PrioridadeMinima is null || c.Prioridade >= filtro.PrioridadeMinima)

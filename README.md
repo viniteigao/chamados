@@ -1,10 +1,31 @@
 # Chamados
 
-Sistema de chamados (ordens de serviço) para uma empresa de manutenção predial. Estado: Módulo 7.
+Sistema de chamados (ordens de serviço) para uma empresa de manutenção predial. Estado: Módulo 8.
 
 ## Requisitos
 
 - .NET SDK 10.0.402 ou superior na faixa 10.0 (fixado em `global.json`)
+
+## Primeira execução: senha dos usuários de exemplo (Módulo 8)
+
+A aplicação exige login. Em Development ela cria três usuários de exemplo, mas a senha deles **não está no repositório**: vem dos Segredos do Usuário, guardados no seu perfil, fora da pasta do projeto. Sem ela, a aplicação para ao iniciar com uma mensagem explicando o que fazer.
+
+No Visual Studio: botão direito em `Chamados.Web` › **Gerenciar Segredos do Usuário** e grave:
+
+```json
+{ "Semente:SenhaInicial": "escolha-uma-senha-forte" }
+```
+
+Pela CLI: `dotnet user-secrets set "Semente:SenhaInicial" "escolha-uma-senha-forte" --project src/Chamados.Web`.
+A senha precisa ter 10 caracteres ou mais, com maiúscula, minúscula, número e símbolo (regras do Identity no `Program.cs`).
+
+| Usuário | Papel ou claim | Pode |
+| --- | --- | --- |
+| `ana@chamados.local` | papel `Atendente` | tudo o que um usuário conectado faz, mais a fila de atendimento, editar e mudar status |
+| `bruno@chamados.local` | nenhum | abrir chamados, ver a lista e os detalhes |
+| `carla@chamados.local` | claim `cargo = Coordenacao` | o que o bruno faz, mais os indicadores |
+
+Os usuários são criados uma vez; para trocar a senha depois, apague `chamados.db` e execute de novo.
 
 ## Como executar
 
@@ -80,9 +101,13 @@ Componentes acrescentados no Módulo 6: `Formularios/FormularioChamado` (EditFor
 | `POST /api/chamados/{id}/atendimento` | Inicia atendimento (corpo: `{"responsavel": "..."}`) |
 | `POST /api/chamados/{id}/resolucao` | Resolve (corpo: `{"solucao": "..."}`) |
 | `POST /api/chamados/{id}/cancelamento` | Cancela (corpo: `{"motivo": "..."}`) |
+| `GET /api/chamados/por-responsavel?nome=` | Chamados de um responsável (Módulo 8; SQL escrito à mão com `FromSql`, parametrizado) |
+| `POST /api/conta/token` | Troca e-mail e senha por um token de acesso (Módulo 8; corpo `{"email": "...", "senha": "..."}`) |
 | `GET /api/status`, `GET /api/ambiente` | Herdadas do Módulo 1 (`/api/ambiente` só em Development) |
 
 Erros de domínio na API voltam como Problem Details (RFC 9457): 400, 404 ou 409. A API nunca recebe as páginas de erro em HTML. Exemplos em `src/Chamados.Web/Chamados.Web.http`. Em Development, o documento OpenAPI fica em `/openapi/v1.json`.
+
+Desde o Módulo 8, toda a API exige autenticação, pelo cookie do navegador ou pelo cabeçalho `Authorization: Bearer <token>`. Sem nenhum dos dois: 401. Conectado sem permissão: 403. Editar e as três mudanças de status (atendimento, resolução e cancelamento) exigem a política `Atender`; estatísticas, a política `VerIndicadores`. O arquivo `Chamados.Web.http` pede o token primeiro; escolha o ambiente **dev**, cujo arquivo `http-client.env.json` lê a senha dos Segredos do Usuário.
 
 ### Configuração
 
@@ -99,13 +124,23 @@ No Visual Studio, o perfil **https-falha** (em `launchSettings.json`) já liga `
 
 Datas e números saem em pt-BR também no servidor de hospedagem (`UseRequestLocalization("pt-BR")`).
 
+### Segurança e observabilidade (Módulo 8)
+
+- **Login**: `/Conta/Entrar` (ASP.NET Core Identity, senha guardada só como hash, bloqueio de 5 minutos após 5 erros seguidos). Logout por POST em `/Conta/Sair`.
+- **Autorização**: política de fallback exige login em tudo; exceções explícitas com `[AllowAnonymous]` (login e páginas de erro). Políticas em `Seguranca/Politicas.cs`.
+- **Cabeçalhos**: `Content-Security-Policy`, `X-Content-Type-Options`, `X-Frame-Options` e `Referrer-Policy` em todas as respostas (`Seguranca/CabecalhosSeguranca.cs`).
+- **Logs estruturados**: eventos com Id e campos nomeados em `Diagnostico/Registro.cs`. O perfil **https-json** mostra o log em JSON, com `TraceId` em cada linha; o mesmo `traceId` volta nas respostas de erro (Problem Details).
+- **Métricas**: medidor `Chamados` com `chamados.abertos` (por prioridade) e `chamados.transicoes` (por status). Para ver ao vivo: `dotnet tool install --global dotnet-counters` e `dotnet-counters monitor --name Chamados.Web --counters Chamados,Microsoft.AspNetCore.Hosting`.
+- **Análise estática**: `Directory.Build.props` liga `AnalysisLevel=latest-recommended` em todos os projetos e transforma em erro os avisos de injeção de SQL (`EF1002`, `EF1003`) e de comando SQL montado com texto (`CA2100`).
+- **Dependências**: a restauração audita os pacotes, inclusive os transitivos (`NuGetAuditMode=all`). Conferência manual: `dotnet package list --vulnerable --include-transitive` e `dotnet package list --outdated`. O `.github/dependabot.yml` pede atualizações semanais.
+
 ### Bibliotecas do lado do cliente
 
 `wwwroot/lib` traz jQuery 3.7.1, jQuery Validation 1.21.0 e jQuery Validation Unobtrusive 4.0.0 (licenças MIT e Apache 2.0, arquivos de licença incluídos), usados só pela validação no cliente. O `libman.json` registra a origem; no Visual Studio, botão direito em `libman.json` › **Restaurar Bibliotecas do Lado do Cliente** baixa de novo.
 
 ## Testar
 
-No Visual Studio: **Teste > Gerenciador de Testes > Executar Todos** (`Ctrl+R, A`). Pela CLI: `dotnet test`. São 51 testes: 43 do domínio e 8 de integração com o banco.
+No Visual Studio: **Teste > Gerenciador de Testes > Executar Todos** (`Ctrl+R, A`). Pela CLI: `dotnet test`. São 70 testes: 43 do domínio, 9 de integração com o banco e 18 da aplicação web (integração com `WebApplicationFactory`, componentes com `HtmlRenderer` e unidade das políticas de autorização).
 
 ## Estrutura
 
@@ -116,6 +151,7 @@ No Visual Studio: **Teste > Gerenciador de Testes > Executar Todos** (`Ctrl+R, A
 | `src/Chamados.Web` | Páginas Razor, componentes Blazor, API JSON, composição e pipeline | Domain, Infra |
 | `tests/Chamados.Domain.Tests` | Testes xUnit do domínio (repositório em memória) | Domain |
 | `tests/Chamados.Infra.Tests` | Testes de integração do repositório com SQLite em memória | Infra |
+| `tests/Chamados.Web.Tests` | Aplicação inteira em memória (`WebApplicationFactory`), componentes e políticas | Web |
 
 ## Decisões
 
@@ -148,3 +184,11 @@ No Visual Studio: **Teste > Gerenciador de Testes > Executar Todos** (`Ctrl+R, A
 - **DateTimeOffset gravado como número** (Módulo 7, `DateTimeOffsetToBinaryConverter`): o SQLite não ordena nem compara datas com fuso guardadas como texto. O custo é a precisão: frações abaixo do milissegundo se perdem na gravação.
 - **API com DTOs, validação automática e OpenAPI** (Módulo 7): a entidade nunca é serializada; `AddValidation()` confere as Data Annotations do corpo (o mesmo `ChamadoInput` das telas); o documento OpenAPI é publicado só em Development.
 - **Toda mudança de esquema por migration** (Módulo 7): nada de `EnsureCreated` nem de editar o banco à mão. Se o modelo muda sem migration, o `MigrateAsync` recusa iniciar (`PendingModelChangesWarning`) e um teste de integração (`HasPendingModelChanges`) acusa antes.
+- **ASP.NET Core Identity com EF Core, no mesmo banco** (Módulo 8): usuários, papéis e claims nas tabelas `AspNet*`, criadas pela migration `Identidade`. Login próprio, em Razor Pages, sem a interface pronta do Identity: menos código para ler e nenhum cadastro aberto.
+- **Política de fallback** (Módulo 8): tudo exige login, e o que é público declara `[AllowAnonymous]`. Esquecer de proteger uma página nova não a deixa aberta.
+- **Papel para quem atende, claim para quem coordena** (Módulo 8): `Atender` exige o papel `Atendente`; `VerIndicadores`, a claim `cargo = Coordenacao`. Mostrar ou esconder links é conforto; quem protege são as páginas, os handlers e os endpoints. Os endpoints próprios deste projeto (`/resolucao` e `/cancelamento`) também exigem `Atender`, como os handlers da página Detalhes.
+- **Cookie para o navegador, token para outros clientes** (Módulo 8): a API aceita os dois esquemas (`Politicas.Api`) e responde 401/403, nunca redireciona. O token sai de `POST /api/conta/token`, não de `MapIdentityApi`, para não publicar cadastro aberto.
+- **Nenhum segredo no repositório** (Módulo 8): a senha dos usuários de exemplo vem dos Segredos do Usuário; sem ela a aplicação não inicia. O arquivo `.http` lê a mesma chave pelo `http-client.env.json`.
+- **SQL à mão só com parâmetros** (Módulo 8): `FromSql` com string interpolada vira parâmetro; `FromSqlRaw` com texto montado é bloqueado na compilação (`EF1002`/`EF1003` como erro).
+- **Observabilidade sem pacotes extras** (Módulo 8): logs com `[LoggerMessage]`, correlação por `TraceId` e métricas com `System.Diagnostics.Metrics`. Exportar para um painel (OpenTelemetry) fica para quando houver onde guardar os dados.
+- **Teste de componente com `HtmlRenderer`** (Módulo 8), que vem no ASP.NET Core: confere o HTML de cada estado. Interação (clique, digitação) pede a biblioteca bUnit, da comunidade, não usada aqui.

@@ -1,3 +1,12 @@
+@using global::Chamados.Web.Seguranca
+@using Microsoft.AspNetCore.Authorization
+@inject IAuthorizationService Autorizacao
+@{
+    // Módulo 8: os links seguem as políticas; quem protege de fato são as páginas e a API.
+    var podeAtender = (await Autorizacao.AuthorizeAsync(User, Politicas.Atender)).Succeeded;
+    var podeVerIndicadores = (await Autorizacao.AuthorizeAsync(User, Politicas.VerIndicadores)).Succeeded;
+    var conectado = User.Identity?.IsAuthenticated == true;
+}
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
@@ -10,14 +19,27 @@
     <header class="topo">
         <a class="marca" asp-page="/Index">Chamados</a>
         @* View Component: tem lógica e dependências próprias, ao contrário de uma partial. *@
-        <vc:resumo-status />
-        <nav>
-            @* Página Blazor (Módulo 5): link comum, porque não é uma Razor Page. *@
-            <a href="/atendimento">Atendimento</a>
-            <a href="/indicadores">Indicadores</a>
-            <a asp-page="/Chamados/Index">Lista</a>
-            <a class="botao" asp-page="/Chamados/Novo">Novo chamado</a>
-        </nav>
+        @if (conectado)
+        {
+            <vc:resumo-status />
+            <nav>
+                @* Página Blazor (Módulo 5): link comum, porque não é uma Razor Page. *@
+                @if (podeAtender)
+                {
+                    <a href="/atendimento">Atendimento</a>
+                }
+                @if (podeVerIndicadores)
+                {
+                    <a href="/indicadores">Indicadores</a>
+                }
+                <a asp-page="/Chamados/Index">Lista</a>
+                <a class="botao" asp-page="/Chamados/Novo">Novo chamado</a>
+            </nav>
+            <form method="post" asp-page="/Conta/Sair" class="sessao">
+                <span>@User.Identity!.Name</span>
+                <button type="submit" class="link">Sair</button>
+            </form>
+        }
     </header>
 
     <main class="conteudo">
@@ -30,7 +52,7 @@
         @RenderBody()
     </main>
 
-    <footer class="rodape">Chamados · Módulo 7 · EF Core, banco de dados e APIs</footer>
+    <footer class="rodape">Chamados · Módulo 8 · Segurança, testes e qualidade</footer>
 
     @* Cada página pode acrescentar scripts aqui com @section Scripts { ... }. *@
     @await RenderSectionAsync("Scripts", required: false)

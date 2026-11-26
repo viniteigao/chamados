@@ -125,6 +125,23 @@ public sealed class RepositorioChamadosEf(IDbContextFactory<ChamadosDbContext> f
         return new EstatisticasChamados(porStatus.Values.Sum(), porStatus, porPrioridade, tempoMedio);
     }
 
+    public async Task<IReadOnlyList<ResumoChamado>> ListarPorResponsavelAsync(
+        string responsavel, CancellationToken cancellationToken = default)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(responsavel);
+        await using var db = await fabrica.CreateDbContextAsync(cancellationToken);
+
+        // Módulo 8: SQL escrito à mão, e mesmo assim seguro. FromSql recebe uma string interpolada
+        // (FormattableString) e transforma cada {valor} num parâmetro (@p0): o texto digitado nunca
+        // vira parte do comando. A versão vulnerável, com FromSqlRaw e concatenação, está no roteiro.
+        return await db.Chamados
+            .FromSql($"SELECT * FROM \"Chamados\" WHERE \"Responsavel\" = {responsavel}")
+            .AsNoTracking()
+            .OrderByDescending(c => c.Prioridade).ThenBy(c => c.CriadoEm)
+            .Select(c => new ResumoChamado(c.Id, c.Titulo, c.Status, c.Prioridade, c.Responsavel, c.CriadoEm, c.Versao))
+            .ToListAsync(cancellationToken);
+    }
+
     private static IQueryable<Chamado> Filtrar(IQueryable<Chamado> chamados, FiltroChamados filtro)
     {
         // Cada Where vira uma condição no WHERE do SQL; nada é filtrado em memória.

@@ -1,4 +1,5 @@
 using Chamados.Domain;
+using Chamados.Web.Diagnostico;
 
 namespace Chamados.Web.Estado;
 
@@ -28,7 +29,7 @@ public sealed class EstadoFila(ChamadoServico servico, ILogger<EstadoFila> logge
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
             // Os totais são informação de apoio: numa falha, ficam os últimos conhecidos.
-            logger.LogWarning(ex, "Não foi possível atualizar os totais da fila.");
+            Registro.FalhaAoAtualizarTotais(logger, ex);
         }
     }
 }

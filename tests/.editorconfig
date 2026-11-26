@@ -1,0 +1,7 @@
+# Regras de análise só para os projetos de teste (Módulo 8).
+
+[*.cs]
+# Nomes de teste com sublinhado descrevem o cenário (Metodo_Situacao_Resultado): convenção aceita em testes.
+dotnet_diagnostic.CA1707.severity = none
+# Arrays literais em Assert rodam uma vez por teste; um campo estático não traria ganho.
+dotnet_diagnostic.CA1861.severity = none

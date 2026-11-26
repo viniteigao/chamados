@@ -11,7 +11,7 @@
 <p class="selos">
     <selo valor="@chamado.Status" />
     <selo valor="@chamado.Prioridade" prefixo="Prioridade " />
-    @if (!chamado.EstaEncerrado)
+    @if (!chamado.EstaEncerrado && Model.PodeAtender)
     {
         <a class="editar" asp-page="./Editar" asp-route-id="@chamado.Id">Editar dados</a>
     }
@@ -19,7 +19,9 @@
 
 <dl class="ficha">
     <dt>Descrição</dt>
-    <dd>@(chamado.Descricao ?? "—")</dd>
+    @* Módulo 8: @ codifica o texto em HTML. Uma descrição com <script> aparece como texto,
+       não executa. Html.Raw aqui abriria a porta para XSS. *@
+    <dd class="texto-livre">@(chamado.Descricao ?? "—")</dd>
     <dt>Aberto em</dt>
     <dd>@chamado.CriadoEm.DataHora()</dd>
     <dt>Responsável</dt>
@@ -38,7 +40,7 @@
 
 <div asp-validation-summary="ModelOnly" class="erros"></div>
 
-@if (!chamado.EstaEncerrado)
+@if (!chamado.EstaEncerrado && Model.PodeAtender)
 {
     <section class="transicoes">
         @if (chamado.Status == StatusChamado.Aberto)

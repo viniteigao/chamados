@@ -1,6 +1,9 @@
 using System.ComponentModel.DataAnnotations;
 using Chamados.Domain;
 using Chamados.Web.Apresentacao;
+using Chamados.Web.Diagnostico;
+using Chamados.Web.Seguranca;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
 
@@ -9,12 +12,19 @@ namespace Chamados.Web.Pages.Chamados;
 /// <summary>
 /// Detalhe e mudança de status. Uma página, três formulários, três handlers nomeados:
 /// asp-page-handler="Iniciar" chama OnPostIniciarAsync, e assim por diante.
+/// Módulo 8: qualquer usuário conectado vê o chamado; só atendentes mudam o status.
+/// Razor Pages não aceitam [Authorize] por handler, então a regra é conferida no código
+/// (autorização imperativa), com a mesma política usada no resto do sistema.
 /// </summary>
-public sealed class DetalhesModel(ChamadoServico servico) : PageModel
+public sealed class DetalhesModel(ChamadoServico servico, IAuthorizationService autorizacao,
+    ILogger<DetalhesModel> logger) : PageModel
 {
     private const string Obrigatorio = "Preencha este campo antes de confirmar.";
 
     public Chamado Chamado { get; private set; } = null!;
+
+    /// <summary>A página mostra os formulários de transição só quando isto é verdadeiro.</summary>
+    public bool PodeAtender { get; private set; }
 
     public async Task<IActionResult> OnGetAsync(Guid id, CancellationToken cancellationToken)
     {
@@ -24,6 +34,7 @@ public sealed class DetalhesModel(ChamadoServico servico) : PageModel
         }
 
         Chamado = chamado;
+        PodeAtender = (await autorizacao.AuthorizeAsync(User, Politicas.Atender)).Succeeded;
         return Page();
     }
 
@@ -31,22 +42,29 @@ public sealed class DetalhesModel(ChamadoServico servico) : PageModel
     // cada formulário envia um campo diferente.
     public Task<IActionResult> OnPostIniciarAsync(Guid id, [Required(ErrorMessage = Obrigatorio)] string responsavel,
         CancellationToken cancellationToken)
-        => TransicionarAsync(id, () => servico.IniciarAtendimentoAsync(id, responsavel, cancellationToken),
+        => TransicionarAsync(id, "Iniciar", () => servico.IniciarAtendimentoAsync(id, responsavel, cancellationToken),
             "Atendimento iniciado.", cancellationToken);
 
     public Task<IActionResult> OnPostResolverAsync(Guid id, [Required(ErrorMessage = Obrigatorio)] string solucao,
         CancellationToken cancellationToken)
-        => TransicionarAsync(id, () => servico.ResolverAsync(id, solucao, cancellationToken),
+        => TransicionarAsync(id, "Resolver", () => servico.ResolverAsync(id, solucao, cancellationToken),
             "Chamado resolvido.", cancellationToken);
 
     public Task<IActionResult> OnPostCancelarAsync(Guid id, [Required(ErrorMessage = Obrigatorio)] string motivo,
         CancellationToken cancellationToken)
-        => TransicionarAsync(id, () => servico.CancelarAsync(id, motivo, cancellationToken),
+        => TransicionarAsync(id, "Cancelar", () => servico.CancelarAsync(id, motivo, cancellationToken),
             "Chamado cancelado.", cancellationToken);
 
-    private async Task<IActionResult> TransicionarAsync(Guid id, Func<Task<Chamado>> transicao, string sucesso,
+    private async Task<IActionResult> TransicionarAsync(Guid id, string acao, Func<Task<Chamado>> transicao, string sucesso,
         CancellationToken cancellationToken)
     {
+        // Esconder o formulário não basta: um POST pode ser montado à mão. A regra vale aqui.
+        if (!(await autorizacao.AuthorizeAsync(User, Politicas.Atender)).Succeeded)
+        {
+            Registro.AcaoNegada(logger, acao, id, Politicas.Atender);
+            return Forbid();   // logado sem permissão: o cookie leva para /Conta/AcessoNegado
+        }
+
         if (ModelState.IsValid)
         {
             try

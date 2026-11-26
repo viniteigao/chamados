@@ -2,9 +2,10 @@ namespace Chamados.Domain;
 
 /// <summary>
 /// Casos de uso dos chamados. Depende de abstrações recebidas por injeção:
-/// o repositório (onde guardar) e o relógio (que horas são).
+/// o repositório (onde guardar), o relógio (que horas são) e, desde o Módulo 8,
+/// as métricas (opcionais: os testes do domínio passam sem elas).
 /// </summary>
-public sealed class ChamadoServico(IChamadoRepositorio repositorio, TimeProvider relogio)
+public sealed class ChamadoServico(IChamadoRepositorio repositorio, TimeProvider relogio, MetricasChamados? metricas = null)
 {
     public async Task<Chamado> AbrirAsync(NovoChamado comando, CancellationToken cancellationToken = default)
     {
@@ -12,6 +13,7 @@ public sealed class ChamadoServico(IChamadoRepositorio repositorio, TimeProvider
 
         var chamado = new Chamado(comando.Titulo, comando.Prioridade, comando.Descricao, relogio.GetUtcNow());
         await repositorio.AdicionarAsync(chamado, cancellationToken);
+        metricas?.ChamadoAberto(chamado.Prioridade);
         return chamado;
     }
 
@@ -39,13 +41,20 @@ public sealed class ChamadoServico(IChamadoRepositorio repositorio, TimeProvider
     }
 
     public Task<Chamado> IniciarAtendimentoAsync(Guid id, string responsavel, CancellationToken cancellationToken = default)
-        => AlterarAsync(id, chamado => chamado.IniciarAtendimento(responsavel, relogio.GetUtcNow()), cancellationToken);
+        => TransicionarAsync(id, chamado => chamado.IniciarAtendimento(responsavel, relogio.GetUtcNow()), cancellationToken);
 
     public Task<Chamado> ResolverAsync(Guid id, string solucao, CancellationToken cancellationToken = default)
-        => AlterarAsync(id, chamado => chamado.Resolver(solucao, relogio.GetUtcNow()), cancellationToken);
+        => TransicionarAsync(id, chamado => chamado.Resolver(solucao, relogio.GetUtcNow()), cancellationToken);
 
     public Task<Chamado> CancelarAsync(Guid id, string motivo, CancellationToken cancellationToken = default)
-        => AlterarAsync(id, chamado => chamado.Cancelar(motivo, relogio.GetUtcNow()), cancellationToken);
+        => TransicionarAsync(id, chamado => chamado.Cancelar(motivo, relogio.GetUtcNow()), cancellationToken);
+
+    /// <summary>Chamados atribuídos a um responsável (Módulo 8), do mais urgente ao menos.</summary>
+    public Task<IReadOnlyList<ResumoChamado>> ListarPorResponsavelAsync(string responsavel, CancellationToken cancellationToken = default)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(responsavel);
+        return repositorio.ListarPorResponsavelAsync(responsavel.Trim(), cancellationToken);
+    }
 
     public Task<IReadOnlyList<ResumoChamado>> ListarAsync(
         FiltroChamados filtro,
@@ -86,4 +95,12 @@ public sealed class ChamadoServico(IChamadoRepositorio repositorio, TimeProvider
     // com banco de dados, é ali que o EF Core rastreia o objeto e confere a versão.
     private Task<Chamado> AlterarAsync(Guid id, Action<Chamado> alteracao, CancellationToken cancellationToken)
         => repositorio.AlterarAsync(id, alteracao, cancellationToken);
+
+    // A métrica só conta depois de gravar: uma transição recusada pelo domínio ou pelo banco não entra.
+    private async Task<Chamado> TransicionarAsync(Guid id, Action<Chamado> transicao, CancellationToken cancellationToken)
+    {
+        var chamado = await AlterarAsync(id, transicao, cancellationToken);
+        metricas?.StatusMudou(chamado.Status);
+        return chamado;
+    }
 }

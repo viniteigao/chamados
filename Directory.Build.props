@@ -1,0 +1,19 @@
+<Project>
+  <!-- Vale para todos os projetos da solução (o MSBuild procura este arquivo nas pastas acima de cada .csproj). -->
+  <PropertyGroup>
+    <!-- Módulo 8 · Análise estática: as regras recomendadas dos analisadores do .NET (pacote nenhum:
+         vêm com o SDK). Os avisos aparecem na Lista de Erros do Visual Studio e na compilação. -->
+    <AnalysisLevel>latest-recommended</AnalysisLevel>
+
+    <!-- Avisos de segurança não podem passar despercebidos: viram erro de compilação.
+         EF1002 e EF1003: texto interpolado ou concatenado em FromSqlRaw/ExecuteSqlRaw (injeção de SQL).
+         CA2100: comando SQL montado com texto variável. CA5350/CA5351: algoritmos de hash fracos. -->
+    <WarningsAsErrors>$(WarningsAsErrors);EF1002;EF1003;CA2100;CA5350;CA5351</WarningsAsErrors>
+
+    <!-- Módulo 8 · Dependências: na restauração, o NuGet confere cada pacote, inclusive os
+         transitivos, contra a base de vulnerabilidades conhecidas (avisos NU1901 a NU1904). -->
+    <NuGetAudit>true</NuGetAudit>
+    <NuGetAuditMode>all</NuGetAuditMode>
+    <NuGetAuditLevel>low</NuGetAuditLevel>
+  </PropertyGroup>
+</Project>

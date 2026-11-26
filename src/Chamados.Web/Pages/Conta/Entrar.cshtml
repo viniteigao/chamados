@@ -1,0 +1,26 @@
+@page
+@model EntrarModel
+@{
+    ViewData["Title"] = "Entrar";
+}
+
+<section class="entrada">
+    <h1>Entrar</h1>
+    <p class="apoio">Use a conta que a coordenação criou para você.</p>
+
+    <form method="post" class="cartao-acao">
+        <div asp-validation-summary="ModelOnly" class="erros" role="alert"></div>
+
+        <label asp-for="Entrada.Email"></label>
+        <input asp-for="Entrada.Email" autocomplete="username" autofocus />
+        <span asp-validation-for="Entrada.Email" class="erro"></span>
+
+        <label asp-for="Entrada.Senha"></label>
+        @* type="password" vem de [DataType(DataType.Password)]; o valor nunca volta preenchido. *@
+        <input asp-for="Entrada.Senha" autocomplete="current-password" />
+        <span asp-validation-for="Entrada.Senha" class="erro"></span>
+
+        <input type="hidden" asp-for="ReturnUrl" />
+        <button type="submit">Entrar</button>
+    </form>
+</section>

@@ -1,3 +1,4 @@
+using System.Globalization;
 using Chamados.Domain;
 using Microsoft.AspNetCore.Mvc.Rendering;
 
@@ -66,6 +67,9 @@ public static class Rotulos
         _ => $"{(int)tempo.TotalHours} h {tempo.Minutes:00} min"
     };
 
+    private static readonly CultureInfo PtBr = CultureInfo.GetCultureInfo("pt-BR");
+
     /// <summary>Data no fuso do servidor, formato brasileiro.</summary>
-    public static string DataHora(this DateTimeOffset momento) => momento.ToLocalTime().ToString("dd/MM/yyyy HH:mm");
+    // Cultura explícita (CA1305): o resultado não depende da configuração da máquina.
+    public static string DataHora(this DateTimeOffset momento) => momento.ToLocalTime().ToString("dd/MM/yyyy HH:mm", PtBr);
 }

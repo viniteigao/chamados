@@ -1,0 +1,58 @@
+using Chamados.Domain;
+using Chamados.Web.Components.Fila;
+using Microsoft.AspNetCore.Components;
+using Microsoft.AspNetCore.Components.Web;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging.Abstractions;
+
+namespace Chamados.Web.Tests;
+
+/// <summary>
+/// Testes de componente com o HtmlRenderer, que já vem no ASP.NET Core: renderiza o componente
+/// fora do navegador e devolve o HTML. Serve para conferir o que é exibido em cada estado.
+/// Para simular cliques e digitação, a ferramenta usual é a biblioteca bUnit (da comunidade).
+/// </summary>
+public sealed class ComponentesTests
+{
+    private static async Task<string> RenderizarAsync<TComponente>(Dictionary<string, object?> parametros)
+        where TComponente : IComponent
+    {
+        await using var servicos = new ServiceCollection().BuildServiceProvider();
+        await using var renderizador = new HtmlRenderer(servicos, NullLoggerFactory.Instance);
+        return await renderizador.Dispatcher.InvokeAsync(async () =>
+            (await renderizador.RenderComponentAsync<TComponente>(ParameterView.FromDictionary(parametros))).ToHtmlString());
+    }
+
+    private static ResumoChamado Resumo(string titulo, StatusChamado status)
+        => new(Guid.NewGuid(), titulo, status, Prioridade.Alta, null, DateTimeOffset.UtcNow, 1);
+
+    [Fact]
+    public async Task Selo_mostra_o_rotulo_em_portugues()
+    {
+        var html = await RenderizarAsync<Selo>(new() { [nameof(Selo.Valor)] = StatusChamado.EmAtendimento });
+
+        Assert.Contains("Em atendimento", html, StringComparison.Ordinal);
+    }
+
+    [Theory]
+    [InlineData(StatusChamado.Aberto, "Iniciar")]
+    [InlineData(StatusChamado.EmAtendimento, "Resolver")]
+    public async Task Cartao_oferece_a_acao_que_cabe_ao_status(StatusChamado status, string acao)
+    {
+        var html = await RenderizarAsync<CartaoChamado>(new() { [nameof(CartaoChamado.Chamado)] = Resumo("Projetor", status) });
+
+        Assert.Contains($">{acao}</button>", html, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task Cartao_codifica_html_vindo_do_titulo()
+    {
+        var html = await RenderizarAsync<CartaoChamado>(new()
+        {
+            [nameof(CartaoChamado.Chamado)] = Resumo("<img src=x onerror=alert(1)>", StatusChamado.Aberto),
+        });
+
+        Assert.Contains("&lt;img src=x onerror=alert(1)&gt;", html, StringComparison.Ordinal);
+        Assert.DoesNotContain("<img", html, StringComparison.Ordinal);
+    }
+}

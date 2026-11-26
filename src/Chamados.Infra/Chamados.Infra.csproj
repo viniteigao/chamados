@@ -13,6 +13,8 @@
   <ItemGroup>
     <!-- Provedor SQLite do EF Core. Versão fixa, da mesma linha 10.0 do runtime. -->
     <PackageReference Include="Microsoft.EntityFrameworkCore.Sqlite" Version="10.0.15" />
+    <!-- Módulo 8: as tabelas do ASP.NET Core Identity (usuários, papéis, claims) no mesmo banco. -->
+    <PackageReference Include="Microsoft.AspNetCore.Identity.EntityFrameworkCore" Version="10.0.15" />
   </ItemGroup>
 
 </Project>

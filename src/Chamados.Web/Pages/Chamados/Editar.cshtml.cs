@@ -1,4 +1,5 @@
 using Chamados.Domain;
+using Chamados.Web.Diagnostico;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
 
@@ -48,7 +49,7 @@ public sealed class EditarModel(ChamadoServico servico, ILogger<EditarModel> log
         {
             await servico.EditarAsync(id, Input.ParaEdicao(Versao), cancellationToken);
 
-            logger.LogInformation("Chamado {ChamadoId} editado (versão lida {Versao})", id, Versao);
+            Registro.ChamadoEditado(logger, id, Versao);
             TempData["Mensagem"] = "Alterações salvas.";
             return RedirectToPage("./Detalhes", new { id });
         }

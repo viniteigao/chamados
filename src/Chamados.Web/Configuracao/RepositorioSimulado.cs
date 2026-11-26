@@ -33,6 +33,9 @@ public sealed class RepositorioSimulado(IChamadoRepositorio interno, TimeProvide
         return await interno.ContarAsync(filtro, cancellationToken);
     }
 
+    public Task<IReadOnlyList<ResumoChamado>> ListarPorResponsavelAsync(string responsavel, CancellationToken cancellationToken = default)
+        => interno.ListarPorResponsavelAsync(responsavel, cancellationToken);
+
     // Leituras e gravações de um chamado só repassam ao repositório real.
     public Task<Chamado?> ObterAsync(Guid id, CancellationToken cancellationToken = default)
         => interno.ObterAsync(id, cancellationToken);

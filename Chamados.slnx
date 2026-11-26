@@ -7,5 +7,6 @@
   <Folder Name="/tests/">
     <Project Path="tests/Chamados.Domain.Tests/Chamados.Domain.Tests.csproj" />
     <Project Path="tests/Chamados.Infra.Tests/Chamados.Infra.Tests.csproj" />
+    <Project Path="tests/Chamados.Web.Tests/Chamados.Web.Tests.csproj" />
   </Folder>
 </Solution>

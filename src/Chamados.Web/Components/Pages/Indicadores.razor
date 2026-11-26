@@ -1,7 +1,9 @@
 @page "/indicadores"
 @attribute [StreamRendering]
+@attribute [Authorize(Policy = Politicas.VerIndicadores)]
 @inject ChamadosApiCliente Api
 @inject ILogger<Indicadores> Logger
+@using Chamados.Web.Diagnostico
 
 <PageTitle>Indicadores · Chamados</PageTitle>
 
@@ -72,7 +74,7 @@ else
         catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException or System.Text.Json.JsonException)
         {
             // Página estática: não há circuito para cair, mas a falha da API precisa virar mensagem.
-            Logger.LogError(ex, "Falha ao consultar a API de indicadores.");
+            Registro.FalhaApiIndicadores(Logger, ex);
             falha = "Não foi possível consultar a API agora.";
         }
     }

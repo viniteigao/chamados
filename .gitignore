@@ -485,3 +485,6 @@ $RECYCLE.BIN/
 *.db
 *.db-shm
 *.db-wal
+
+# Variáveis pessoais do editor de .http (Módulo 8). A senha mora nos Segredos do Usuário, fora do repositório.
+*.env.json.user

@@ -28,6 +28,9 @@
 
   <PropertyGroup>
     <TargetFramework>net10.0</TargetFramework>
+    <!-- Módulo 8: identifica a pasta dos Segredos do Usuário deste projeto, fora do repositório
+         (%APPDATA%\Microsoft\UserSecrets\<id>\secrets.json). O Id não é segredo; o arquivo, sim. -->
+    <UserSecretsId>a91cf707-efe0-494e-909b-d942310e0699</UserSecretsId>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
   </PropertyGroup>

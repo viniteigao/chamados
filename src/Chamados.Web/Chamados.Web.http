@@ -1,24 +1,55 @@
 # Requisições da API JSON. As páginas (formulários) são testadas no navegador.
-@base = http://localhost:5058
+# Módulo 8: a API exige login. Escolha o ambiente "dev" no canto superior direito do editor:
+# ele vem de http-client.env.json, e a senha é lida dos Segredos do Usuário (nunca escrita aqui).
+
+### 1. Token: troca e-mail e senha por um token de acesso (ana é atendente).
+# Envie este primeiro: as requisições abaixo usam o token da resposta.
+# @name token
+POST {{base}}/api/conta/token
+Content-Type: application/json
+
+{
+  "email": "ana@chamados.local",
+  "senha": "{{senha}}"
+}
+
+### Sem token: 401 Unauthorized
+GET {{base}}/api/chamados
 
 ### Lista todos, ordenados por prioridade
 GET {{base}}/api/chamados
+Authorization: Bearer {{token.response.body.$.accessToken}}
 
 ### Filtros combinados
 GET {{base}}/api/chamados?status=Aberto&prioridadeMinima=Alta
+Authorization: Bearer {{token.response.body.$.accessToken}}
 
 ### Busca por texto (título ou descrição, sem diferenciar maiúsculas)
 GET {{base}}/api/chamados?texto=sala
+Authorization: Bearer {{token.response.body.$.accessToken}}
 
 ### Ordenação (Módulo 4): Prioridade, MaisRecentes, MaisAntigos ou Titulo
 GET {{base}}/api/chamados?ordem=Titulo
+Authorization: Bearer {{token.response.body.$.accessToken}}
 
-### Estatísticas
+### Estatísticas: ana não é da coordenação, então 403 Forbidden
 GET {{base}}/api/chamados/estatisticas
+Authorization: Bearer {{token.response.body.$.accessToken}}
+
+### Módulo 8: chamados de um responsável
+GET {{base}}/api/chamados/por-responsavel?nome=Redes
+Authorization: Bearer {{token.response.body.$.accessToken}}
+
+### Módulo 8: a tentativa de injeção de SQL do laboratório. Corrigido, responde lista vazia.
+# O valor de nome, antes da codificação para URL:
+#   x' UNION SELECT "Id", "Email" || ' ' || "PasswordHash", NULL, 1, 1, 'Aberto', NULL, NULL, 0, NULL FROM "AspNetUsers" --
+GET {{base}}/api/chamados/por-responsavel?nome=x%27%20UNION%20SELECT%20%22Id%22%2C%20%22Email%22%20%7C%7C%20%27%20%27%20%7C%7C%20%22PasswordHash%22%2C%20NULL%2C%201%2C%201%2C%20%27Aberto%27%2C%20NULL%2C%20NULL%2C%200%2C%20NULL%20FROM%20%22AspNetUsers%22%20--
+Authorization: Bearer {{token.response.body.$.accessToken}}
 
 ### Abre um chamado pela API (o mesmo ChamadoServico do formulário)
 POST {{base}}/api/chamados
 Content-Type: application/json
+Authorization: Bearer {{token.response.body.$.accessToken}}
 
 {
   "titulo": "Aberto pela API",
@@ -28,6 +59,7 @@ Content-Type: application/json
 ### Módulo 7: título inválido. A validação automática (AddValidation) responde 400 com "errors" por campo
 POST {{base}}/api/chamados
 Content-Type: application/json
+Authorization: Bearer {{token.response.body.$.accessToken}}
 
 {
   "titulo": "!!!!!!",
@@ -37,6 +69,7 @@ Content-Type: application/json
 ### Prioridade inexistente: o domínio recusa e o filtro responde 400 (Problem Details)
 POST {{base}}/api/chamados
 Content-Type: application/json
+Authorization: Bearer {{token.response.body.$.accessToken}}
 
 {
   "titulo": "Prioridade inválida",
@@ -46,10 +79,12 @@ Content-Type: application/json
 ### Módulo 7: detalhe com histórico (DTO DetalheChamadoResposta). Copie um Id da listagem
 @id = 00000000-0000-0000-0000-000000000000
 GET {{base}}/api/chamados/{{id}}
+Authorization: Bearer {{token.response.body.$.accessToken}}
 
-### Inicia atendimento: use um Id com status Aberto
+### Inicia atendimento: use um Id com status Aberto (só atendentes; bruno receberia 403)
 POST {{base}}/api/chamados/{{id}}/atendimento
 Content-Type: application/json
+Authorization: Bearer {{token.response.body.$.accessToken}}
 
 {
   "responsavel": "Elétrica"
@@ -59,6 +94,7 @@ Content-Type: application/json
 @versao = 1
 PUT {{base}}/api/chamados/{{id}}
 Content-Type: application/json
+Authorization: Bearer {{token.response.body.$.accessToken}}
 
 {
   "titulo": "Título editado pela API",
@@ -69,17 +105,19 @@ Content-Type: application/json
 
 ### Repita o PUT acima sem mudar @versao: a segunda resposta é 409 (versão desatualizada)
 
-### Resolve: use o Id de um chamado EmAtendimento
+### Resolve: use o Id de um chamado EmAtendimento (só atendentes)
 POST {{base}}/api/chamados/{{id}}/resolucao
 Content-Type: application/json
+Authorization: Bearer {{token.response.body.$.accessToken}}
 
 {
   "solucao": "Tomada fixada"
 }
 
-### Cancela: use o Id de um chamado Aberto ou EmAtendimento
+### Cancela: use o Id de um chamado Aberto ou EmAtendimento (só atendentes)
 POST {{base}}/api/chamados/{{id}}/cancelamento
 Content-Type: application/json
+Authorization: Bearer {{token.response.body.$.accessToken}}
 
 {
   "motivo": "Aberto em duplicidade"
@@ -88,6 +126,7 @@ Content-Type: application/json
 ### Id inexistente: o filtro responde 404 (Problem Details)
 POST {{base}}/api/chamados/00000000-0000-0000-0000-000000000000/cancelamento
 Content-Type: application/json
+Authorization: Bearer {{token.response.body.$.accessToken}}
 
 {
   "motivo": "Teste"
@@ -95,3 +134,4 @@ Content-Type: application/json
 
 ### Módulo 7: documento OpenAPI (só em Development)
 GET {{base}}/openapi/v1.json
+Authorization: Bearer {{token.response.body.$.accessToken}}

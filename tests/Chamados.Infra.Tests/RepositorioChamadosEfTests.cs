@@ -114,6 +114,24 @@ public class RepositorioChamadosEfTests
     }
 
     [Fact]
+    public async Task Listar_por_responsavel_trata_o_texto_como_valor_e_nao_como_sql()
+    {
+        await using var banco = await BancoEmMemoria.CriarAsync();
+        var repositorio = new RepositorioChamadosEf(banco);
+        var chamado = new Chamado("Tomada solta", criadoEm: Abertura);
+        chamado.IniciarAtendimento("O'Brien", Abertura.AddMinutes(5));   // apóstrofo de verdade no nome
+        await repositorio.AdicionarAsync(chamado);
+        await repositorio.AdicionarAsync(new Chamado("Cadeira quebrada", criadoEm: Abertura));
+
+        var doOBrien = await repositorio.ListarPorResponsavelAsync("O'Brien");
+        var injecao = await repositorio.ListarPorResponsavelAsync("x' OR '1'='1");
+
+        // Com texto concatenado, o primeiro quebraria o SQL e o segundo devolveria todos os chamados.
+        Assert.Equal("Tomada solta", Assert.Single(doOBrien).Titulo);
+        Assert.Empty(injecao);
+    }
+
+    [Fact]
     public async Task Estatisticas_contam_no_banco_e_calculam_o_tempo_medio()
     {
         await using var banco = await BancoEmMemoria.CriarAsync();

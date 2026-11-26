@@ -8,18 +8,32 @@
     <ResumoFila @rendermode="InteractiveServer" />
     <nav>
         @* NavLink acrescenta a classe "active" quando a URL atual é a do link. *@
-        <NavLink href="atendimento">Atendimento</NavLink>
-        <NavLink href="indicadores">Indicadores</NavLink>
+        @* Módulo 8: cada link só aparece para quem pode usá-lo. Esconder não protege nada:
+           quem protege é o [Authorize] da página. Esconder evita o clique que daria "acesso negado". *@
+        <AuthorizeView Policy="@Politicas.Atender">
+            <NavLink href="atendimento">Atendimento</NavLink>
+        </AuthorizeView>
+        <AuthorizeView Policy="@Politicas.VerIndicadores">
+            <NavLink href="indicadores">Indicadores</NavLink>
+        </AuthorizeView>
         <a href="/Chamados">Lista</a>
         <a class="botao" href="/Chamados/Novo">Novo chamado</a>
     </nav>
+    <AuthorizeView>
+        <form method="post" action="/Conta/Sair" class="sessao">
+            @* O mesmo token antifalsificação que as Razor Pages conferem. *@
+            <AntiforgeryToken />
+            <span>@context.User.Identity?.Name</span>
+            <button type="submit" class="link">Sair</button>
+        </form>
+    </AuthorizeView>
 </header>
 
 <main class="conteudo">
     @Body
 </main>
 
-<footer class="rodape">Chamados · Módulo 7 · EF Core, banco de dados e APIs</footer>
+<footer class="rodape">Chamados · Módulo 8 · Segurança, testes e qualidade</footer>
 
 @* Faixa que o Blazor mostra se um erro não tratado derrubar o circuito. *@
 <div id="blazor-error-ui">

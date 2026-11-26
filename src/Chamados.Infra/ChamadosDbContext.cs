@@ -1,4 +1,6 @@
 using Chamados.Domain;
+using Microsoft.AspNetCore.Identity;
+using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
@@ -8,14 +10,21 @@ namespace Chamados.Infra;
 /// A sessão com o banco: sabe quais classes viram tabelas (DbSet), como mapeá-las
 /// (OnModelCreating) e rastreia o que mudou até o SaveChanges.
 /// Vida curta: no Blazor Server, uma instância por operação, criada pela fábrica.
+/// Módulo 8: herda de IdentityDbContext, que acrescenta as tabelas AspNetUsers, AspNetRoles,
+/// AspNetUserRoles, AspNetUserClaims e outras do ASP.NET Core Identity.
 /// </summary>
-public sealed class ChamadosDbContext(DbContextOptions<ChamadosDbContext> options) : DbContext(options)
+public sealed class ChamadosDbContext(DbContextOptions<ChamadosDbContext> options) : IdentityDbContext<IdentityUser>(options)
 {
     public DbSet<Chamado> Chamados => Set<Chamado>();
 
-    protected override void OnModelCreating(ModelBuilder modelBuilder)
-        // Cada entidade tem sua classe de configuração (Fluent API) na pasta Configuracoes.
-        => modelBuilder.ApplyConfigurationsFromAssembly(typeof(ChamadosDbContext).Assembly);
+    protected override void OnModelCreating(ModelBuilder builder)
+    {
+        // Primeiro o mapeamento do Identity: sem esta linha, as tabelas de usuários ficam sem chaves.
+        base.OnModelCreating(builder);
+
+        // Cada entidade nossa tem sua classe de configuração (Fluent API) na pasta Configuracoes.
+        builder.ApplyConfigurationsFromAssembly(typeof(ChamadosDbContext).Assembly);
+    }
 
     protected override void ConfigureConventions(ModelConfigurationBuilder configurationBuilder)
     {

@@ -1,7 +1,9 @@
 @page "/atendimento"
+@attribute [Authorize(Policy = Politicas.Atender)]
 @rendermode InteractiveServer
 @implements IAsyncDisposable
 @inject ChamadoServico Servico
+@using Chamados.Web.Diagnostico
 @inject EstadoFila Estado
 @inject IJSRuntime JS
 @inject ILogger<Atendimento> Logger
@@ -116,8 +118,7 @@ else
 
     protected override async Task OnInitializedAsync()
     {
-        Logger.LogInformation("Atendimento iniciado (interativo: {Interativo}, fila restaurada: {Restaurada})",
-            RendererInfo.IsInteractive, Chamados is not null);
+        Registro.AtendimentoIniciado(Logger, RendererInfo.IsInteractive, Chamados is not null);
 
         if (Chamados is null)
         {
@@ -161,12 +162,12 @@ else
         catch (OperationCanceledException) when (esta.IsCancellationRequested)
         {
             // Esperado: outra busca começou (ou a página foi fechada). Nada a mostrar.
-            Logger.LogInformation("Busca anterior cancelada.");
+            Registro.BuscaCancelada(Logger);
         }
         catch (Exception ex)
         {
             // Mensagem amigável na tela; detalhes técnicos só no log.
-            Logger.LogError(ex, "Falha ao carregar a fila.");
+            Registro.FalhaAoCarregarFila(Logger, ex);
             falha = "Não foi possível carregar a fila agora. Os dados na tela podem estar desatualizados.";
         }
         finally

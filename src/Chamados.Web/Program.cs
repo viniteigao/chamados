@@ -6,8 +6,11 @@ using Chamados.Web;
 using Chamados.Web.Api;
 using Chamados.Web.Components;
 using Chamados.Web.Configuracao;
+using Chamados.Web.Diagnostico;
 using Chamados.Web.Estado;
+using Chamados.Web.Seguranca;
 using Chamados.Infra;
+using Microsoft.AspNetCore.Identity;
 using Microsoft.Extensions.Options;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -42,11 +45,57 @@ builder.Services.AddSingleton<IChamadoRepositorio>(sp =>
 });
 builder.Services.AddScoped<ChamadoServico>();
 
+// Métricas de negócio (Módulo 8): medidor "Chamados", lido por dotnet-counters ou OpenTelemetry.
+builder.Services.AddSingleton<MetricasChamados>();
+
+// ============ Segurança (Módulo 8) ============
+
+// ASP.NET Core Identity: usuários, senhas (só o hash), papéis e claims, guardados pelo EF Core
+// nas tabelas AspNet* do mesmo banco. AddIdentity também registra o login por cookie.
+builder.Services.AddIdentity<IdentityUser, IdentityRole>(opcoes =>
+    {
+        opcoes.Password.RequiredLength = 10;
+        opcoes.Lockout.MaxFailedAccessAttempts = 5;
+        opcoes.Lockout.DefaultLockoutTimeSpan = TimeSpan.FromMinutes(5);
+        opcoes.User.RequireUniqueEmail = true;
+    })
+    .AddEntityFrameworkStores<ChamadosDbContext>()
+    .AddDefaultTokenProviders();
+
+builder.Services.ConfigureApplicationCookie(opcoes =>
+{
+    opcoes.Cookie.Name = EncaminharCookieHandler.NomeDoCookie;
+    opcoes.Cookie.HttpOnly = true;                        // JavaScript não lê o cookie (padrão; aqui, explícito)
+    opcoes.Cookie.SameSite = SameSiteMode.Lax;            // não vai em POST vindo de outro site
+    opcoes.LoginPath = "/Conta/Entrar";
+    opcoes.LogoutPath = "/Conta/Sair";
+    opcoes.AccessDeniedPath = "/Conta/AcessoNegado";
+    opcoes.ExpireTimeSpan = TimeSpan.FromHours(8);        // um turno de trabalho
+    opcoes.SlidingExpiration = true;
+});
+
+// Token para clientes que não são navegador (o .http hoje, o app MAUI no Módulo 10).
+// Opaco e protegido pela Data Protection do ASP.NET Core, como o cookie.
+builder.Services.AddAuthentication()
+    .AddBearerToken(IdentityConstants.BearerScheme, opcoes => opcoes.BearerTokenExpiration = TimeSpan.FromHours(1));
+
+// Políticas de autorização (Seguranca/Politicas.cs), com fallback: tudo exige login.
+builder.Services.AddPoliticasChamados();
+
+// Blazor: o estado de autenticação chega aos componentes como parâmetro em cascata.
+builder.Services.AddCascadingAuthenticationState();
+
 // Estado compartilhado entre componentes Blazor. Scoped = um por circuito (uma aba conectada).
 builder.Services.AddScoped<EstadoFila>();
 
 // Interface web: Razor Pages (formulários) e JSON da API.
-builder.Services.AddRazorPages()
+builder.Services.AddRazorPages(opcoes =>
+    {
+        // Exceções à política de fallback: login e erro abertos; edição só para atendentes.
+        opcoes.Conventions.AllowAnonymousToFolder("/Conta");
+        opcoes.Conventions.AllowAnonymousToPage("/Erro");
+        opcoes.Conventions.AuthorizePage("/Chamados/Editar", Politicas.Atender);
+    })
     .AddMvcOptions(options =>
     {
         // Erros de conversão do model binding ("abc" num campo numérico, valor fora do enum)
@@ -69,9 +118,13 @@ builder.Services.AddValidation();
 builder.Services.AddOpenApi();
 
 // Cliente HTTP tipado da própria API. A página /indicadores o usa, e o app MAUI do Módulo 10 usará o mesmo contrato.
+// Módulo 8: a API exige login; o handler leva o cookie do usuário na chamada feita pelo servidor.
+builder.Services.AddHttpContextAccessor();
+builder.Services.AddTransient<EncaminharCookieHandler>();
 builder.Services.AddHttpClient<ChamadosApiCliente>(cliente =>
-    cliente.BaseAddress = new Uri(builder.Configuration["Api:UrlBase"]
-        ?? throw new InvalidOperationException("Configure Api:UrlBase.")));
+        cliente.BaseAddress = new Uri(builder.Configuration["Api:UrlBase"]
+            ?? throw new InvalidOperationException("Configure Api:UrlBase.")))
+    .AddHttpMessageHandler<EncaminharCookieHandler>();
 
 var app = builder.Build();
 
@@ -81,20 +134,26 @@ if (app.Environment.IsDevelopment())
     // Em produção, as migrations são aplicadas por script revisado, não na inicialização.
     await app.Services.AplicarMigrationsAsync();
     await SementeDados.PopularAsync(app.Services);
+    await SementeUsuarios.PopularAsync(app.Services, app.Configuration);
 }
 
 // ============ 2. Pipeline: por onde cada requisição passa, nesta ordem ============
 
 // Middleware próprio: mede cada requisição. Registra método, caminho e status;
 // nunca a query string nem o corpo, que podem carregar dados pessoais.
+var registroRequisicoes = app.Logger;
 app.Use(async (contexto, proximo) =>
 {
     var inicio = Stopwatch.GetTimestamp();
     await proximo(contexto);
-    app.Logger.LogInformation("{Metodo} {Caminho} respondeu {Status} em {Duracao:F1} ms",
-        contexto.Request.Method, contexto.Request.Path, contexto.Response.StatusCode,
-        Stopwatch.GetElapsedTime(inicio).TotalMilliseconds);
+    // Valores simples nos argumentos (CA1873): o método gerado confere o nível antes de formatar.
+    var duracao = Stopwatch.GetElapsedTime(inicio);
+    Registro.RequisicaoConcluida(registroRequisicoes, contexto.Request.Method, contexto.Request.Path.Value ?? "/",
+        contexto.Response.StatusCode, duracao.TotalMilliseconds);
 });
+
+// Cabeçalhos de segurança (CSP, nosniff, frame) em todas as respostas.
+app.UseCabecalhosSeguranca(app.Environment.IsDevelopment());
 
 if (!app.Environment.IsDevelopment())
 {
@@ -118,34 +177,42 @@ app.UseRequestLocalization("pt-BR");
 app.UseHttpsRedirection();
 app.UseRouting();
 
+// Quem é o usuário (cookie ou token) e o que ele pode fazer. Depois do roteamento,
+// porque a autorização precisa saber qual endpoint foi escolhido e quais regras ele declara.
+app.UseAuthentication();
+app.UseAuthorization();
+
 // Exigido pelos endpoints de componentes Razor: confere o token dos formulários Blazor.
 // As Razor Pages continuam validando o próprio token como antes.
 app.UseAntiforgery();
 
 // ============ 3. Endpoints: quem responde a cada rota ============
 
-app.MapStaticAssets();
+// CSS, JavaScript e o blazor.web.js: públicos, senão a própria página de login sairia sem estilo.
+app.MapStaticAssets().AllowAnonymous();
 app.MapRazorPages().WithStaticAssets();
 app.MapApiChamados();
+app.MapApiConta();
 
 // Páginas Blazor (componentes com @page), convivendo com as Razor Pages na mesma aplicação.
 app.MapRazorComponents<App>()
     .AddInteractiveServerRenderMode();
 
-app.MapGet("/api/status", () => Enum.GetNames<StatusChamado>());
+app.MapGet("/api/status", () => Enum.GetNames<StatusChamado>())
+    .RequireAuthorization(Politicas.Api);
 
 // Diagnóstico exposto somente em Development:
 // em produção, revelar a versão do runtime ajuda um atacante.
 if (app.Environment.IsDevelopment())
 {
     // Documento OpenAPI só em Development: em produção, publicar a descrição da API é uma decisão explícita.
-    app.MapOpenApi();
+    app.MapOpenApi().RequireAuthorization(Politicas.Api);
 
     app.MapGet("/api/ambiente", (IHostEnvironment env) => new
     {
         env.EnvironmentName,
         Runtime = RuntimeInformation.FrameworkDescription
-    });
+    }).RequireAuthorization(Politicas.Api);
 }
 
 app.Run();
