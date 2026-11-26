@@ -206,6 +206,11 @@ else
         {
             Avisar("O chamado não existe mais. A fila foi atualizada.", erro: true);
         }
+        catch (ConcorrenciaException)
+        {
+            // Módulo 7: duas abas agiram no mesmo instante; o banco aceitou só a primeira gravação.
+            Avisar("Outra pessoa alterou este chamado no mesmo instante. A fila foi atualizada.", erro: true);
+        }
         catch (ArgumentException ex)
         {
             Avisar(ex.Message, erro: true);

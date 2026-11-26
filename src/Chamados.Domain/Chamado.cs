@@ -27,6 +27,14 @@ public sealed class Chamado
         CriadoEm = criadoEm ?? DateTimeOffset.UtcNow;
     }
 
+    // Módulo 7: construtor sem parâmetros, privado, para o Entity Framework Core materializar
+    // chamados lidos do banco. Os valores chegam das colunas, já validados quando o chamado nasceu.
+    // O EF não consegue usar o construtor público porque o parâmetro criadoEm é anulável e a propriedade não.
+    private Chamado()
+    {
+        Titulo = string.Empty;
+    }
+
     public Guid Id { get; } = Guid.NewGuid();
 
     public string Titulo { get; private set; }

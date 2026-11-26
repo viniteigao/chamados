@@ -2,6 +2,28 @@
 
   <ItemGroup>
     <ProjectReference Include="..\Chamados.Domain\Chamados.Domain.csproj" />
+    <ProjectReference Include="..\Chamados.Infra\Chamados.Infra.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- Documento OpenAPI da API (Módulo 7), em /openapi/v1.json. -->
+    <PackageReference Include="Microsoft.AspNetCore.OpenApi" Version="10.0.15" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- Ferramentas do EF Core, só para desenvolvimento.
+         Design: o que a CLI (dotnet ef) e o Visual Studio usam para gerar e aplicar migrations.
+         Tools: os comandos do Console do Gerenciador de Pacotes (Add-Migration, Update-Database).
+         PrivateAssets="all" mantém as duas neste projeto, sem passar para quem o referencia, e,
+         sem "compile" em IncludeAssets, o código da aplicação não enxerga essas classes. -->
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="10.0.15">
+      <PrivateAssets>all</PrivateAssets>
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+    </PackageReference>
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Tools" Version="10.0.15">
+      <PrivateAssets>all</PrivateAssets>
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+    </PackageReference>
   </ItemGroup>
 
   <PropertyGroup>

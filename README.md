@@ -1,6 +1,6 @@
 # Chamados
 
-Sistema de chamados (ordens de serviço) para uma empresa de manutenção predial. Estado: Módulo 6.
+Sistema de chamados (ordens de serviço) para uma empresa de manutenção predial. Estado: Módulo 7.
 
 ## Requisitos
 
@@ -18,7 +18,30 @@ dotnet run --project src/Chamados.Web --launch-profile https
 dotnet test
 ```
 
-Em Development a base em memória recebe 12 chamados de exemplo (três páginas de 5 na lista).
+Portas fixas: https 7270, http 5058. Na primeira execução com o perfil https, aceite a confiança no certificado de desenvolvimento: a página Indicadores chama a API por HTTPS.
+
+### Banco de dados (Módulo 7)
+
+Os chamados ficam num arquivo SQLite, `src/Chamados.Web/chamados.db` (string de conexão `ConnectionStrings:Chamados`). Em Development, a aplicação aplica as migrations pendentes ao iniciar e, se o banco estiver vazio, grava 12 chamados de exemplo (três páginas de 5 na lista). Para recomeçar do zero, pare a aplicação e apague `chamados.db`, `chamados.db-shm` e `chamados.db-wal`. O arquivo não vai para o Git (`.gitignore`).
+
+Migrations no Visual Studio (**Ferramentas › Gerenciador de Pacotes do NuGet › Console do Gerenciador de Pacotes**, com o projeto padrão `Chamados.Infra` e `Chamados.Web` como projeto de inicialização). Os comandos vêm do pacote `Microsoft.EntityFrameworkCore.Tools`, já referenciado no `Chamados.Web`:
+
+```powershell
+Add-Migration NomeDaMudanca
+Update-Database
+Script-Migration -Idempotent   # SQL revisável, para produção
+```
+
+Pela CLI (ferramenta `dotnet-ef`, instalada uma vez com `dotnet tool install --global dotnet-ef --version 10.0.15`):
+
+```bash
+dotnet ef migrations add NomeDaMudanca --project src/Chamados.Infra --startup-project src/Chamados.Web
+dotnet ef database update --project src/Chamados.Infra --startup-project src/Chamados.Web
+```
+
+O projeto traz duas migrations: `Inicial` (tabelas `Chamados` e `HistoricoChamados`) e `IndicePrioridade` (um índice criado depois, para mostrar o banco evoluindo sem perder dados). Um banco criado só com a primeira recebe a segunda no próximo início.
+
+Em Development, o log mostra cada comando SQL (categoria `Microsoft.EntityFrameworkCore.Database.Command`), com os valores dos parâmetros ocultos.
 
 ### Páginas (Razor Pages)
 
@@ -33,12 +56,13 @@ Em Development a base em memória recebe 12 chamados de exemplo (três páginas 
 
 O cabeçalho de todas as páginas mostra o contador de pendências (View Component `ResumoStatus`).
 
-### Páginas Blazor (componentes Razor, Módulos 5 e 6)
+### Páginas Blazor (componentes Razor, Módulos 5 a 7)
 
 | Rota | Componente | O que faz |
 | --- | --- | --- |
 | `/atendimento` | `Components/Pages/Atendimento.razor` | Fila interativa (InteractiveServer): busca com cancelamento, iniciar, resolver, cancelar, abrir e editar (EditForm) sem recarregar |
 | `/modos` | `Components/Pages/Modos.razor` | O mesmo `Contador` renderizado de forma estática e interativa, lado a lado |
+| `/indicadores` | `Components/Pages/Indicadores.razor` | Totais lidos pela API com o cliente tipado `ChamadosApiCliente` (Módulo 7), com renderização em fluxo (`[StreamRendering]`) |
 
 Razor Pages e Blazor convivem na mesma aplicação: `MapRazorPages()` e `MapRazorComponents<App>()` no `Program.cs`, o mesmo `site.css` e o mesmo `ChamadoServico`.
 
@@ -50,19 +74,21 @@ Componentes acrescentados no Módulo 6: `Formularios/FormularioChamado` (EditFor
 | --- | --- |
 | `GET /api/chamados?status=&prioridadeMinima=&texto=&ordem=` | Lista com filtros e ordenação (`Prioridade`, `MaisRecentes`, `MaisAntigos`, `Titulo`) |
 | `GET /api/chamados/estatisticas` | Totais e tempo médio de resolução |
-| `GET /api/chamados/{id}` | Um chamado (inclui `versao`) |
-| `POST /api/chamados` | Abre chamado (corpo: `{"titulo": "...", "prioridade": "Alta"}`) |
+| `GET /api/chamados/{id}` | Um chamado com o histórico (DTO `DetalheChamadoResposta`, inclui `versao`); id inexistente → 404 |
+| `POST /api/chamados` | Abre chamado (corpo: `{"titulo": "...", "prioridade": "Alta"}`); corpo inválido → 400 com erros por campo |
 | `PUT /api/chamados/{id}` | Edita (corpo com `versaoEsperada`; versão desatualizada → 409, chamado encerrado → 409) |
 | `POST /api/chamados/{id}/atendimento` | Inicia atendimento (corpo: `{"responsavel": "..."}`) |
 | `POST /api/chamados/{id}/resolucao` | Resolve (corpo: `{"solucao": "..."}`) |
 | `POST /api/chamados/{id}/cancelamento` | Cancela (corpo: `{"motivo": "..."}`) |
 | `GET /api/status`, `GET /api/ambiente` | Herdadas do Módulo 1 (`/api/ambiente` só em Development) |
 
-Erros de domínio na API voltam como Problem Details (RFC 9457): 400, 404 ou 409. A API nunca recebe as páginas de erro em HTML. Exemplos em `src/Chamados.Web/Chamados.Web.http`.
+Erros de domínio na API voltam como Problem Details (RFC 9457): 400, 404 ou 409. A API nunca recebe as páginas de erro em HTML. Exemplos em `src/Chamados.Web/Chamados.Web.http`. Em Development, o documento OpenAPI fica em `/openapi/v1.json`.
 
 ### Configuração
 
-`Simulacao:LatenciaMs` (0 a 10000) atrasa a listagem para observar carregamento e cancelamento; em Development vale 600. `Simulacao:FalhaNaListagemACada` (0 a 100) faz uma listagem a cada N falhar de propósito, para testar o tratamento de erro; 0 desliga. Valor fora da faixa impede a aplicação de iniciar (`ValidateOnStart`). Para testar sem editar arquivo:
+`ConnectionStrings:Chamados` aponta para o arquivo SQLite. `Api:UrlBase` é o endereço que o cliente HTTP da página Indicadores usa: `https://localhost:7270/` no perfil `https`; o perfil `http` troca para `http://localhost:5058/` pela variável `Api__UrlBase` do `launchSettings.json`.
+
+`Simulacao:LatenciaMs` (0 a 10000) atrasa as consultas (lista, contagem e estatísticas) para observar carregamento e cancelamento; em Development vale 300. `Simulacao:FalhaNaListagemACada` (0 a 100) faz uma listagem a cada N falhar de propósito, para testar o tratamento de erro; 0 desliga. Valor fora da faixa impede a aplicação de iniciar (`ValidateOnStart`). Para testar sem editar arquivo:
 
 ```powershell
 $env:Simulacao__LatenciaMs = "20000"; dotnet run --project src/Chamados.Web
@@ -79,21 +105,23 @@ Datas e números saem em pt-BR também no servidor de hospedagem (`UseRequestLoc
 
 ## Testar
 
-No Visual Studio: **Teste > Gerenciador de Testes > Executar Todos** (`Ctrl+R, A`). Pela CLI: `dotnet test` (43 testes).
+No Visual Studio: **Teste > Gerenciador de Testes > Executar Todos** (`Ctrl+R, A`). Pela CLI: `dotnet test`. São 51 testes: 43 do domínio e 8 de integração com o banco.
 
 ## Estrutura
 
 | Projeto | Papel | Depende de |
 | --- | --- | --- |
 | `src/Chamados.Domain` | Entidades, regras e casos de uso | — |
-| `src/Chamados.Web` | Páginas Razor, API JSON, composição e pipeline | Domain |
-| `tests/Chamados.Domain.Tests` | Testes xUnit do domínio | Domain |
+| `src/Chamados.Infra` | EF Core: `ChamadosDbContext`, mapeamento (Fluent API), migrations e `RepositorioChamadosEf` | Domain |
+| `src/Chamados.Web` | Páginas Razor, componentes Blazor, API JSON, composição e pipeline | Domain, Infra |
+| `tests/Chamados.Domain.Tests` | Testes xUnit do domínio (repositório em memória) | Domain |
+| `tests/Chamados.Infra.Tests` | Testes de integração do repositório com SQLite em memória | Infra |
 
 ## Decisões
 
 - **.NET 10 (LTS) como alvo**: versão com suporte até 14/11/2028, cobrindo todo o curso.
 - **Formato `.slnx`**: padrão do `dotnet new sln` no SDK 10; XML enxuto, sem GUIDs. `Chamados.Web` é o projeto de inicialização (`DefaultStartup="true"`).
-- **Interface `IChamadoRepositorio`**: existe porque há uma segunda implementação prevista. Hoje os dados ficam em memória; no Módulo 7 entra o Entity Framework Core. A troca muda uma linha no `Program.cs`, sem alterar o serviço nem os testes. O `ChamadoServico` não tem interface porque não há segunda implementação prevista para ele.
+- **Interface `IChamadoRepositorio`**: existe porque havia uma segunda implementação prevista. Até o Módulo 6 os dados ficavam em memória; no Módulo 7 entrou o Entity Framework Core, escolhido no `Program.cs`, e a versão em memória continua servindo aos testes do domínio. O `ChamadoServico` não tem interface porque não há segunda implementação prevista para ele.
 - **`TimeProvider` injetado**: o serviço e o repositório recebem o relógio pelo construtor em vez de ler `DateTimeOffset.UtcNow`. Em produção é usado `TimeProvider.System`; nos testes, o `RelogioFixo`, que torna datas e durações previsíveis.
 - **Casos de uso no Domain, sem camada Application**: o `ChamadoServico` fica em `Chamados.Domain/Servicos` enquanto o projeto é pequeno. Separar em mais projetos só se justifica quando chegar o banco de dados (Módulo 7).
 - **Razor Pages para os formulários** (Módulo 3): uma página por tela, com o `PageModel` chamando só o `ChamadoServico`, nunca o repositório.
@@ -112,3 +140,11 @@ No Visual Studio: **Teste > Gerenciador de Testes > Executar Todos** (`Ctrl+R, A
 - **Estado compartilhado em serviço Scoped com evento** (Módulo 6): `EstadoFila` liga a página de atendimento ao resumo do cabeçalho sem relação pai e filho. Quem se inscreve no evento cancela a inscrição no `Dispose`.
 - **JavaScript só no `OnAfterRenderAsync`, em módulo ES isolado** (Módulo 6): nada de JS na pré-renderização; o `localStorage` guarda só preferência de tela, nunca dado sensível.
 - **Fila sem busca duplicada** (Módulo 6): `[PersistentState]` leva a lista carregada na pré-renderização para o circuito; cada busca nova cancela a anterior com `CancellationTokenSource`.
+- **EF Core com SQLite num projeto próprio** (Módulo 7): `Chamados.Infra` implementa `IChamadoRepositorio`; o domínio continua sem referência a EF. A única concessão é um construtor privado sem parâmetros no `Chamado`, para o EF materializar objetos lidos do banco.
+- **Mapeamento só por Fluent API** (Módulo 7), numa classe `IEntityTypeConfiguration` por entidade; o histórico é entidade *owned* (tabela `HistoricoChamados`), carregada e gravada sempre com o chamado.
+- **Consultas no banco, não em memória** (Módulo 7): o repositório recebe o filtro e devolve resumos projetados; `Where`, `ORDER BY`, `LIMIT/OFFSET` e `GROUP BY` viram SQL. O texto buscado vai como parâmetro do `LIKE`, com `%` e `_` escapados. O repositório em memória mantém a mesma regra para os testes do domínio.
+- **Um DbContext por operação, criado por `IDbContextFactory`** (Módulo 7): no Blazor Server, um contexto por circuito seria usado por dois componentes ao mesmo tempo (a fila e o resumo do cabeçalho), o que o EF não permite.
+- **Concorrência no banco** (Módulo 7): `Versao` é token de concorrência; o UPDATE leva `WHERE Versao = <lida>` e a falha vira `ConcorrenciaException`, tratada também na página de detalhes e na fila.
+- **DateTimeOffset gravado como número** (Módulo 7, `DateTimeOffsetToBinaryConverter`): o SQLite não ordena nem compara datas com fuso guardadas como texto. O custo é a precisão: frações abaixo do milissegundo se perdem na gravação.
+- **API com DTOs, validação automática e OpenAPI** (Módulo 7): a entidade nunca é serializada; `AddValidation()` confere as Data Annotations do corpo (o mesmo `ChamadoInput` das telas); o documento OpenAPI é publicado só em Development.
+- **Toda mudança de esquema por migration** (Módulo 7): nada de `EnsureCreated` nem de editar o banco à mão. Se o modelo muda sem migration, o `MigrateAsync` recusa iniciar (`PendingModelChangesWarning`) e um teste de integração (`HasPendingModelChanges`) acusa antes.

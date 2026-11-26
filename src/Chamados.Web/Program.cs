@@ -7,6 +7,7 @@ using Chamados.Web.Api;
 using Chamados.Web.Components;
 using Chamados.Web.Configuracao;
 using Chamados.Web.Estado;
+using Chamados.Infra;
 using Microsoft.Extensions.Options;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -21,17 +22,22 @@ builder.Services.AddOptions<SimulacaoOptions>()
 
 // Camada de negócio (Módulo 2).
 builder.Services.AddSingleton(TimeProvider.System);
+
+// Persistência (Módulo 7): EF Core com SQLite. A string de conexão vem da configuração,
+// nunca do código: em produção, de variável de ambiente ou de um cofre de segredos.
+var stringDeConexao = builder.Configuration.GetConnectionString("Chamados")
+    ?? throw new InvalidOperationException("Configure ConnectionStrings:Chamados.");
+builder.Services.AddPersistenciaChamados(stringDeConexao);
+
 builder.Services.AddSingleton<IChamadoRepositorio>(sp =>
 {
-    var simulacao = sp.GetRequiredService<IOptions<SimulacaoOptions>>().Value;
-    IChamadoRepositorio repositorio = new RepositorioChamadosEmMemoria(
-        sp.GetRequiredService<TimeProvider>(),
-        TimeSpan.FromMilliseconds(simulacao.LatenciaMs));
+    IChamadoRepositorio repositorio = sp.GetRequiredService<RepositorioChamadosEf>();
 
-    // Módulo 6: falhas simuladas na listagem, para exercitar o tratamento de erro da fila.
-    // Decorator: mesma interface, comportamento acrescentado por fora do domínio.
-    return simulacao.FalhaNaListagemACada > 0
-        ? new RepositorioComFalhaSimulada(repositorio, simulacao.FalhaNaListagemACada)
+    // Módulo 6: latência e falhas simuladas, só quando configuradas (Development).
+    // Decorator: mesma interface, comportamento acrescentado por fora do repositório real.
+    var simulacao = sp.GetRequiredService<IOptions<SimulacaoOptions>>().Value;
+    return simulacao.LatenciaMs > 0 || simulacao.FalhaNaListagemACada > 0
+        ? new RepositorioSimulado(repositorio, sp.GetRequiredService<TimeProvider>(), simulacao)
         : repositorio;
 });
 builder.Services.AddScoped<ChamadoServico>();
@@ -58,10 +64,22 @@ builder.Services.AddRazorComponents()
 builder.Services.ConfigureHttpJsonOptions(options =>
     options.SerializerOptions.Converters.Add(new JsonStringEnumConverter()));
 
+// Módulo 7: validação automática dos corpos das Minimal APIs (Data Annotations) e documento OpenAPI.
+builder.Services.AddValidation();
+builder.Services.AddOpenApi();
+
+// Cliente HTTP tipado da própria API. A página /indicadores o usa, e o app MAUI do Módulo 10 usará o mesmo contrato.
+builder.Services.AddHttpClient<ChamadosApiCliente>(cliente =>
+    cliente.BaseAddress = new Uri(builder.Configuration["Api:UrlBase"]
+        ?? throw new InvalidOperationException("Configure Api:UrlBase.")));
+
 var app = builder.Build();
 
 if (app.Environment.IsDevelopment())
 {
+    // Development: cria ou atualiza o banco (migrations pendentes) e, se estiver vazio, popula.
+    // Em produção, as migrations são aplicadas por script revisado, não na inicialização.
+    await app.Services.AplicarMigrationsAsync();
     await SementeDados.PopularAsync(app.Services);
 }
 
@@ -120,6 +138,9 @@ app.MapGet("/api/status", () => Enum.GetNames<StatusChamado>());
 // em produção, revelar a versão do runtime ajuda um atacante.
 if (app.Environment.IsDevelopment())
 {
+    // Documento OpenAPI só em Development: em produção, publicar a descrição da API é uma decisão explícita.
+    app.MapOpenApi();
+
     app.MapGet("/api/ambiente", (IHostEnvironment env) => new
     {
         env.EnvironmentName,

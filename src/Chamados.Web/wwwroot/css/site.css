@@ -158,3 +158,9 @@ button.link { background: none; border: none; color: var(--roxo) !important; pad
 button.link:hover { background: none; color: var(--roxo-escuro) !important; }
 button.neutro { background: #fff; color: var(--tinta) !important; border: 1px solid var(--linha); }
 button.neutro:hover { background: #ece8df; }
+
+/* ---------- Módulo 7 · Indicadores ---------- */
+.indicadores { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 1rem; margin: 1rem 0; }
+.tabelas-indicadores { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 1rem; align-items: start; }
+.tabela caption { text-align: left; font-weight: 700; padding: 0 0 .5rem; }
+.indicadores .numero { font-size: 2.5rem; font-weight: 800; color: var(--roxo); margin: .25rem 0; line-height: 1.1; }

@@ -66,6 +66,12 @@ public sealed class DetalhesModel(ChamadoServico servico) : PageModel
                     $"O chamado está {ex.Atual.Rotulo().ToLowerInvariant()} e não pode passar para " +
                     $"{ex.Pretendido.Rotulo().ToLowerInvariant()}. A página foi atualizada.");
             }
+            catch (ConcorrenciaException)
+            {
+                // Módulo 7: o banco recusou a gravação porque outra pessoa alterou o chamado antes.
+                ModelState.AddModelError(string.Empty,
+                    "Outra pessoa alterou este chamado ao mesmo tempo. A página foi atualizada; tente de novo.");
+            }
             catch (ArgumentException ex)
             {
                 ModelState.AddModelError(string.Empty, ex.Message);

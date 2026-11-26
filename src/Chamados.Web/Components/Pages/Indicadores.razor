@@ -1,0 +1,79 @@
+@page "/indicadores"
+@attribute [StreamRendering]
+@inject ChamadosApiCliente Api
+@inject ILogger<Indicadores> Logger
+
+<PageTitle>Indicadores · Chamados</PageTitle>
+
+<h1>Indicadores</h1>
+<p class="apoio">
+    Lidos pela API (<code>GET /api/chamados/estatisticas</code>), e não direto do serviço:
+    é assim que o aplicativo MAUI do Módulo 10 vai consultar os mesmos números.
+</p>
+
+@if (falha is not null)
+{
+    <p class="erros aviso-erro" role="alert">@falha</p>
+}
+else if (estatisticas is null)
+{
+    @* Com [StreamRendering], o servidor envia esta parte logo e o resto quando a API responder. *@
+    <p class="vazio" aria-busy="true">Consultando a API…</p>
+}
+else
+{
+    <section class="indicadores">
+        <article class="cartao-acao">
+            <h2>Total</h2>
+            <p class="numero">@estatisticas.Total</p>
+            <p class="apoio">chamados registrados</p>
+        </article>
+        <article class="cartao-acao">
+            <h2>Tempo médio de resolução</h2>
+            <p class="numero">@(estatisticas.TempoMedioResolucao?.Duracao() ?? "—")</p>
+            <p class="apoio">da abertura até resolver</p>
+        </article>
+    </section>
+
+    <div class="tabelas-indicadores">
+        <table class="tabela">
+            <caption>Por status</caption>
+            <thead><tr><th scope="col">Status</th><th scope="col">Chamados</th></tr></thead>
+            <tbody>
+                @foreach (var (status, total) in estatisticas.PorStatus)
+                {
+                    <tr><td><Selo Valor="status" /></td><td>@total</td></tr>
+                }
+            </tbody>
+        </table>
+        <table class="tabela">
+            <caption>Por prioridade</caption>
+            <thead><tr><th scope="col">Prioridade</th><th scope="col">Chamados</th></tr></thead>
+            <tbody>
+                @foreach (var (prioridade, total) in estatisticas.PorPrioridade.OrderByDescending(p => p.Key))
+                {
+                    <tr><td><Selo Valor="prioridade" /></td><td>@total</td></tr>
+                }
+            </tbody>
+        </table>
+    </div>
+}
+
+@code {
+    private EstatisticasChamados? estatisticas;
+    private string? falha;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            estatisticas = await Api.ObterEstatisticasAsync();
+        }
+        catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException or System.Text.Json.JsonException)
+        {
+            // Página estática: não há circuito para cair, mas a falha da API precisa virar mensagem.
+            Logger.LogError(ex, "Falha ao consultar a API de indicadores.");
+            falha = "Não foi possível consultar a API agora.";
+        }
+    }
+}

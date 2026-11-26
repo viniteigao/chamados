@@ -25,6 +25,15 @@ Content-Type: application/json
   "prioridade": "Alta"
 }
 
+### Módulo 7: título inválido. A validação automática (AddValidation) responde 400 com "errors" por campo
+POST {{base}}/api/chamados
+Content-Type: application/json
+
+{
+  "titulo": "!!!!!!",
+  "prioridade": "Alta"
+}
+
 ### Prioridade inexistente: o domínio recusa e o filtro responde 400 (Problem Details)
 POST {{base}}/api/chamados
 Content-Type: application/json
@@ -34,8 +43,11 @@ Content-Type: application/json
   "prioridade": 99
 }
 
-### Inicia atendimento: copie um Id com status Aberto da listagem
+### Módulo 7: detalhe com histórico (DTO DetalheChamadoResposta). Copie um Id da listagem
 @id = 00000000-0000-0000-0000-000000000000
+GET {{base}}/api/chamados/{{id}}
+
+### Inicia atendimento: use um Id com status Aberto
 POST {{base}}/api/chamados/{{id}}/atendimento
 Content-Type: application/json
 
@@ -80,3 +92,6 @@ Content-Type: application/json
 {
   "motivo": "Teste"
 }
+
+### Módulo 7: documento OpenAPI (só em Development)
+GET {{base}}/openapi/v1.json

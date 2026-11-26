@@ -2,7 +2,7 @@ using Chamados.Domain;
 
 namespace Chamados.Web;
 
-/// <summary>Popula a base em memória com exemplos, apenas em Development.</summary>
+/// <summary>Popula o banco com exemplos, apenas em Development e só se ele estiver vazio.</summary>
 public static class SementeDados
 {
     public static async Task PopularAsync(IServiceProvider services, CancellationToken cancellationToken = default)
@@ -10,6 +10,12 @@ public static class SementeDados
         // ChamadoServico é Scoped: fora de uma requisição, é preciso criar um escopo.
         await using var escopo = services.CreateAsyncScope();
         var servico = escopo.ServiceProvider.GetRequiredService<ChamadoServico>();
+
+        // Módulo 7: o banco sobrevive ao reinício. Sem esta verificação, cada F5 duplicaria os exemplos.
+        if ((await servico.ListarPaginaAsync(FiltroChamados.Todos, 1, 1, cancellationToken)).TotalItens > 0)
+        {
+            return;
+        }
 
         await servico.AbrirAsync(new NovoChamado("Trocar lâmpada do corredor", Prioridade.Baixa), cancellationToken);
 

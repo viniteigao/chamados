@@ -1,5 +1,3 @@
-using System.Globalization;
-
 namespace Chamados.Domain;
 
 /// <summary>
@@ -49,19 +47,18 @@ public sealed class ChamadoServico(IChamadoRepositorio repositorio, TimeProvider
     public Task<Chamado> CancelarAsync(Guid id, string motivo, CancellationToken cancellationToken = default)
         => AlterarAsync(id, chamado => chamado.Cancelar(motivo, relogio.GetUtcNow()), cancellationToken);
 
-    public async Task<IReadOnlyList<ResumoChamado>> ListarAsync(
+    public Task<IReadOnlyList<ResumoChamado>> ListarAsync(
         FiltroChamados filtro,
         CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(filtro);
-
-        var chamados = await repositorio.ListarAsync(cancellationToken);
-        return Consultar(chamados, filtro).Select(ResumoChamado.De).ToList();
+        return repositorio.ListarAsync(filtro, cancellationToken: cancellationToken);
     }
 
     /// <summary>
     /// Uma página da listagem. Número de página fora do intervalo é ajustado
     /// para o mais próximo válido: ?pagina=99 mostra a última, não um erro.
+    /// Duas consultas: uma conta, outra traz só os itens da página.
     /// </summary>
     public async Task<Pagina<ResumoChamado>> ListarPaginaAsync(
         FiltroChamados filtro,
@@ -72,75 +69,21 @@ public sealed class ChamadoServico(IChamadoRepositorio repositorio, TimeProvider
         ArgumentNullException.ThrowIfNull(filtro);
         ArgumentOutOfRangeException.ThrowIfLessThan(tamanhoPagina, 1);
 
-        var chamados = await repositorio.ListarAsync(cancellationToken);
-        var resultado = Consultar(chamados, filtro).ToList();
-
-        var totalPaginas = Math.Max(1, (resultado.Count + tamanhoPagina - 1) / tamanhoPagina);
+        var total = await repositorio.ContarAsync(filtro, cancellationToken);
+        var totalPaginas = Math.Max(1, (total + tamanhoPagina - 1) / tamanhoPagina);
         numero = Math.Clamp(numero, 1, totalPaginas);
 
-        var itens = resultado
-            .Skip((numero - 1) * tamanhoPagina)
-            .Take(tamanhoPagina)
-            .Select(ResumoChamado.De)
-            .ToList();
+        var itens = await repositorio.ListarAsync(
+            filtro, (numero - 1) * tamanhoPagina, tamanhoPagina, cancellationToken);
 
-        return new Pagina<ResumoChamado>(itens, numero, tamanhoPagina, resultado.Count);
+        return new Pagina<ResumoChamado>(itens, numero, tamanhoPagina, total);
     }
 
-    public async Task<EstatisticasChamados> ObterEstatisticasAsync(CancellationToken cancellationToken = default)
-    {
-        var chamados = await repositorio.ListarAsync(cancellationToken);
+    public Task<EstatisticasChamados> ObterEstatisticasAsync(CancellationToken cancellationToken = default)
+        => repositorio.ObterEstatisticasAsync(cancellationToken);
 
-        // Todos os status aparecem, mesmo com zero: parte do enum, não dos dados.
-        var porStatus = Enum.GetValues<StatusChamado>()
-            .ToDictionary(status => status, status => chamados.Count(c => c.Status == status));
-
-        // Só as prioridades presentes aparecem: GroupBy agrupa o que existe.
-        var porPrioridade = chamados
-            .GroupBy(c => c.Prioridade)
-            .ToDictionary(grupo => grupo.Key, grupo => grupo.Count());
-
-        var temposDeResolucao = chamados
-            .Where(c => c.Status == StatusChamado.Resolvido)
-            .Select(c => c.TempoAteEncerramento!.Value)
-            .ToList();
-
-        TimeSpan? tempoMedio = temposDeResolucao.Count == 0
-            ? null
-            : TimeSpan.FromTicks((long)temposDeResolucao.Average(t => t.Ticks));
-
-        return new EstatisticasChamados(chamados.Count, porStatus, porPrioridade, tempoMedio);
-    }
-
-    // Comparação de textos em português: "Água" fica junto de "agua", antes de "Bebedouro".
-    private static readonly StringComparer ComparadorTitulo =
-        StringComparer.Create(CultureInfo.GetCultureInfo("pt-BR"), ignoreCase: true);
-
-    private static IEnumerable<Chamado> Consultar(IEnumerable<Chamado> chamados, FiltroChamados filtro)
-    {
-        var filtrados = chamados
-            .Where(c => filtro.Status is null || c.Status == filtro.Status)
-            .Where(c => filtro.PrioridadeMinima is null || c.Prioridade >= filtro.PrioridadeMinima)
-            .Where(c => string.IsNullOrWhiteSpace(filtro.Texto)
-                        || c.Titulo.Contains(filtro.Texto, StringComparison.OrdinalIgnoreCase)
-                        || (c.Descricao?.Contains(filtro.Texto, StringComparison.OrdinalIgnoreCase) ?? false));
-
-        return filtro.Ordem switch
-        {
-            OrdemChamados.MaisRecentes => filtrados.OrderByDescending(c => c.CriadoEm),
-            OrdemChamados.MaisAntigos => filtrados.OrderBy(c => c.CriadoEm),
-            OrdemChamados.Titulo => filtrados.OrderBy(c => c.Titulo, ComparadorTitulo),
-            _ => filtrados.OrderByDescending(c => c.Prioridade).ThenBy(c => c.CriadoEm)
-        };
-    }
-
-    private async Task<Chamado> AlterarAsync(Guid id, Action<Chamado> alteracao, CancellationToken cancellationToken)
-    {
-        var chamado = await repositorio.ObterAsync(id, cancellationToken)
-            ?? throw new ChamadoNaoEncontradoException(id);
-
-        alteracao(chamado);
-        await repositorio.AtualizarAsync(chamado, cancellationToken);
-        return chamado;
-    }
+    // Carregar, alterar e gravar numa só unidade de trabalho é tarefa do repositório:
+    // com banco de dados, é ali que o EF Core rastreia o objeto e confere a versão.
+    private Task<Chamado> AlterarAsync(Guid id, Action<Chamado> alteracao, CancellationToken cancellationToken)
+        => repositorio.AlterarAsync(id, alteracao, cancellationToken);
 }
