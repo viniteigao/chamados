@@ -1,0 +1,79 @@
+@page "{id}"
+@model EditarModel
+@{
+    var usuario = Model.Usuario;
+    ViewData["Title"] = usuario.Nome;
+}
+
+<p><a asp-page="./Index">← Voltar para os usuários</a></p>
+<h1>@usuario.Nome</h1>
+<p class="apoio">
+    Login: @usuario.Email ·
+    @if (usuario.Ativo)
+    {
+        <text>conta ativa</text>
+    }
+    else
+    {
+        <span class="situacao-desativado">conta desativada</span>
+    }
+</p>
+
+<div asp-validation-summary="ModelOnly" class="erros" role="alert"></div>
+
+<div class="cartoes-perfil">
+    <form method="post" asp-route-id="@usuario.Id" class="cartao-acao">
+        <h2>Perfil</h2>
+        <label asp-for="Perfil.Nome"></label>
+        <input asp-for="Perfil.Nome" autocomplete="off" />
+        <span asp-validation-for="Perfil.Nome" class="erro"></span>
+
+        <label class="marcar-opcao"><input asp-for="Perfil.Atende" /> @Html.DisplayNameFor(m => m.Perfil.Atende)</label>
+        @if (Model.EhVoceMesmo)
+        {
+            @* Desmarcado e desabilitado, o navegador não enviaria o campo: o valor vai escondido. *@
+            <label class="marcar-opcao"><input type="checkbox" checked disabled /> @Html.DisplayNameFor(m => m.Perfil.Coordena)</label>
+            <input type="hidden" name="Perfil.Coordena" value="true" />
+            <span class="apoio">Você não pode tirar a sua própria coordenação.</span>
+        }
+        else
+        {
+            <label class="marcar-opcao"><input asp-for="Perfil.Coordena" /> @Html.DisplayNameFor(m => m.Perfil.Coordena)</label>
+        }
+        <button type="submit">Salvar perfil</button>
+    </form>
+
+    <form method="post" asp-page-handler="RedefinirSenha" asp-route-id="@usuario.Id" class="cartao-acao">
+        <h2>Redefinir senha</h2>
+        <p class="apoio">Para quem esqueceu a senha. As sessões abertas com a senha antiga são encerradas.</p>
+        <label asp-for="NovaSenha.Senha"></label>
+        <input asp-for="NovaSenha.Senha" autocomplete="new-password" />
+        <span asp-validation-for="NovaSenha.Senha" class="erro"></span>
+        <label asp-for="NovaSenha.Confirmacao"></label>
+        <input asp-for="NovaSenha.Confirmacao" autocomplete="new-password" />
+        <span asp-validation-for="NovaSenha.Confirmacao" class="erro"></span>
+        <button type="submit">Redefinir senha</button>
+    </form>
+
+    <section class="cartao-acao">
+        <h2>Situação</h2>
+        @if (Model.EhVoceMesmo)
+        {
+            <p class="apoio">Você não pode desativar a sua própria conta.</p>
+        }
+        else if (usuario.Ativo)
+        {
+            <p class="apoio">A pessoa deixa de entrar no sistema. Os chamados e mensagens dela continuam como estão.</p>
+            <form method="post" asp-page-handler="Desativar" asp-route-id="@usuario.Id">
+                <button type="submit" class="secundario">Desativar conta</button>
+            </form>
+        }
+        else
+        {
+            <p class="apoio">A conta está desativada. Reativar devolve o acesso com o mesmo perfil e a mesma senha.</p>
+            <form method="post" asp-page-handler="Reativar" asp-route-id="@usuario.Id">
+                <button type="submit">Reativar conta</button>
+            </form>
+        }
+    </section>
+</div>

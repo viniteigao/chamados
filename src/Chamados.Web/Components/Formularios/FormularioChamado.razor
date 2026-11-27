@@ -2,6 +2,7 @@
    Reaproveita o ChamadoInput das Razor Pages: as mesmas Data Annotations valem aqui. *@
 @using Chamados.Web.Pages.Chamados
 @inject ChamadoServico Servico
+@inject IAuthorizationService Autorizacao
 
 @if (modelo is null || contexto is null)
 {
@@ -115,11 +116,22 @@ else
             return;
         }
 
+        // Gestão de usuários: a permissão é conferida no clique. Com a sessão encerrada (conta desativada,
+        // acesso alterado), o circuito já tem um usuário anônimo: abrir exige login, editar exige Atender.
+        var usuario = Autenticacao is null ? null : (await Autenticacao).User;
+        var permitido = usuario?.Identity?.IsAuthenticated == true
+            && (ChamadoId is null || (await Autorizacao.AuthorizeAsync(usuario, Politicas.Atender)).Succeeded);
+        if (!permitido)
+        {
+            AdicionarErro("Sua sessão terminou ou o seu acesso mudou. Entre de novo.");
+            return;
+        }
+
         salvando = true;
         try
         {
             // Quem abre ou edita: o usuário conectado (histórico das edições).
-            var autor = Autenticacao is null ? null : (await Autenticacao).User.ComoAutor();
+            var autor = usuario!.ComoAutor();
             var chamado = ChamadoId is { } id
                 ? await Servico.EditarAsync(id, modelo!.ParaEdicao(versao), autor)
                 : await Servico.AbrirAsync(modelo!.ParaComando(autor));

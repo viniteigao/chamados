@@ -10,6 +10,7 @@ using Chamados.Web.Diagnostico;
 using Chamados.Web.Estado;
 using Chamados.Web.Seguranca;
 using Chamados.Infra;
+using Microsoft.AspNetCore.Components.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.Extensions.Options;
 
@@ -68,7 +69,16 @@ builder.Services.AddIdentity<IdentityUser, IdentityRole>(opcoes =>
         opcoes.User.RequireUniqueEmail = true;
     })
     .AddEntityFrameworkStores<ChamadosDbContext>()
-    .AddDefaultTokenProviders();
+    .AddDefaultTokenProviders()
+    .AddErrorDescriber<ErrosDoIdentityEmPortugues>();   // Gestão de usuários: erros em português
+
+// Gestão de usuários: cadastro, perfil, desativação e senha (Seguranca/GestaoDeUsuarios.cs).
+builder.Services.AddScoped<GestaoDeUsuarios>();
+
+// Gestão de usuários: o cookie confere o carimbo de segurança a cada minuto (o padrão é 30). Uma conta
+// desativada ou com o acesso alterado perde a sessão em até 1 minuto; com o carimbo igual, as claims são
+// recarregadas (um nome novo aparece). API e Blazor: Seguranca/RevalidacaoDeSessao.cs.
+builder.Services.Configure<SecurityStampValidatorOptions>(opcoes => opcoes.ValidationInterval = RevalidacaoDeSessao.Intervalo);
 
 builder.Services.ConfigureApplicationCookie(opcoes =>
 {
@@ -95,6 +105,8 @@ builder.Services.AddLimiteDeLogin();
 
 // Blazor: o estado de autenticação chega aos componentes como parâmetro em cascata.
 builder.Services.AddCascadingAuthenticationState();
+// Gestão de usuários: o circuito confere o carimbo de segurança a cada minuto.
+builder.Services.AddScoped<AuthenticationStateProvider, RevalidacaoDeSessaoBlazor>();
 
 // Estado compartilhado entre componentes Blazor. Scoped = um por circuito (uma aba conectada).
 builder.Services.AddScoped<EstadoFila>();
@@ -106,6 +118,8 @@ builder.Services.AddRazorPages(opcoes =>
         opcoes.Conventions.AllowAnonymousToFolder("/Conta");
         opcoes.Conventions.AllowAnonymousToPage("/Erro");
         opcoes.Conventions.AuthorizePage("/Chamados/Editar", Politicas.Atender);
+        // Gestão de usuários: a pasta inteira é da coordenação.
+        opcoes.Conventions.AuthorizeFolder("/Usuarios", Politicas.GerenciarUsuarios);
     })
     .AddMvcOptions(options =>
     {
@@ -157,6 +171,9 @@ if (app.Environment.IsDevelopment())
     await SementeUsuarios.PopularAsync(app.Services, app.Configuration);
     await SementeDados.PopularAsync(app.Services);
 }
+
+// Gestão de usuários: o primeiro coordenador, se configurado (em qualquer ambiente; ver Seguranca/PrimeiroCoordenador.cs).
+await PrimeiroCoordenador.GarantirAsync(app.Services, app.Configuration);
 
 // ============ 2. Pipeline: por onde cada requisição passa, nesta ordem ============
 

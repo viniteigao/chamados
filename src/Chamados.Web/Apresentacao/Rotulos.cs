@@ -128,6 +128,15 @@ public static class Rotulos
     // Cultura explícita (CA1305): o resultado não depende da configuração da máquina.
     public static string DataHora(this DateTimeOffset momento) => momento.ToLocalTime().ToString("dd/MM/yyyy HH:mm", PtBr);
 
+    /// <summary>Gestão de usuários: o que a pessoa pode fazer, em poucas palavras.</summary>
+    public static string Perfil(bool atende, bool coordena) => (atende, coordena) switch
+    {
+        (true, true) => "Atende e coordena",
+        (true, false) => "Atende chamados",
+        (false, true) => "Coordenação",
+        _ => "Abre chamados",
+    };
+
     /// <summary>Comentários: "1 mensagem", "3 mensagens".</summary>
     public static string Mensagens(this int quantidade)
         => quantidade == 1 ? "1 mensagem" : $"{quantidade} mensagens";

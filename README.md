@@ -25,7 +25,7 @@ A senha precisa ter 10 caracteres ou mais, com maiúscula, minúscula, número e
 | `bruno@chamados.local` | Bruno | nenhum | abrir chamados e acompanhar só os que abriu ("Meus chamados") |
 | `carla@chamados.local` | Carla | claim `cargo = Coordenacao` | ver todos os chamados e os indicadores |
 
-O login é pelo e-mail; nas telas e na API aparece o nome (veja "Nome de exibição"). Os usuários são criados uma vez; para trocar a senha depois, apague `chamados.db` e execute de novo.
+O login é pelo e-mail; nas telas e na API aparece o nome (veja "Nome de exibição"). Os usuários de exemplo são criados uma vez; depois, cada um troca a própria senha em **Meu perfil** (clique no nome, no cabeçalho), e a coordenação cadastra outras pessoas em **Usuários** (veja "Gestão de usuários").
 
 ## Como executar
 
@@ -73,6 +73,8 @@ Em Development, o log mostra cada comando SQL (categoria `Microsoft.EntityFramew
 | `/Chamados/Novo` | `Pages/Chamados/Novo` | Formulário de abertura (`AbrirAsync`), validação no cliente e no servidor, Post/Redirect/Get |
 | `/Chamados/Detalhes/{id}` | `Pages/Chamados/Detalhes` | Detalhe, histórico, conversa e handlers Iniciar, Resolver, Cancelar e Comentar |
 | `/Chamados/Editar/{id}` | `Pages/Chamados/Editar` | Edição com concorrência otimista (`EditarAsync`) |
+| `/Usuarios`, `/Usuarios/Novo`, `/Usuarios/Editar/{id}` | `Pages/Usuarios/*` | Gestão de usuários, só para a coordenação (política `GerenciarUsuarios`) |
+| `/Perfil` | `Pages/Perfil` | Meu perfil: trocar o próprio nome e a própria senha |
 | `/Erro`, `/Erro/{código}` | `Pages/Erro` | Erros sem detalhes internos; 404 e 400 amigáveis fora de `/api` |
 
 O cabeçalho de todas as páginas mostra o contador de pendências (View Component `ResumoStatus`).
@@ -124,6 +126,8 @@ $env:Simulacao__FalhaNaListagemACada = "3"; dotnet run --project src/Chamados.We
 ```
 
 No Visual Studio, o perfil **https-falha** (em `launchSettings.json`) já liga `Simulacao__FalhaNaListagemACada = 3` e abre em `/atendimento`; pela CLI: `dotnet run --project src/Chamados.Web --launch-profile https-falha`.
+
+`PrimeiroCoordenador:Email`, `PrimeiroCoordenador:Nome` e `PrimeiroCoordenador:Senha` criam, ao iniciar, a conta de coordenação que cadastra os demais usuários, se ela ainda não existir (veja "Gestão de usuários"). Em Development não são necessárias: a semente já cria a carla.
 
 `LimiteDeLogin:TentativasPorMinuto` (1 a 1000, padrão 10) é quantas tentativas de login cada endereço IP pode fazer por minuto, somando o formulário e o endpoint de token.
 
@@ -223,13 +227,31 @@ Feito na branch `nome-de-exibicao`. O login continua pelo e-mail, mas o cabeçal
 - **Banco que já existia**: ao iniciar, a semente acrescenta o nome aos usuários que ainda não o têm (sem trocar um nome já gravado). Os chamados, registros e mensagens gravados antes continuam com o e-mail, porque o nome é guardado como era no momento da ação; num banco novo, tudo já sai com os nomes.
 - **Sessão aberta antes**: um cookie emitido antes deste recurso não tem a claim; até sair e entrar de novo, vale o e-mail.
 
+### Gestão de usuários
+
+Feito na branch `gestao-usuarios`. Antes, os únicos usuários eram os três de exemplo, criados só em Development: fora dele, não havia como entrar ninguém. Agora a coordenação cuida das contas pelo sistema, e cada pessoa cuida do próprio nome e da própria senha. O login continua pelo e-mail. Não houve migration: tudo usa as tabelas do Identity.
+
+| Página | Quem | O que faz |
+| --- | --- | --- |
+| **Usuários** (`/Usuarios`) | coordenação | lista com nome, e-mail, o que cada um pode fazer e a situação |
+| **Novo usuário** | coordenação | nome, e-mail (o login), senha inicial e o que a pessoa pode fazer: "Atende chamados" (papel `Atendente`) e "Coordenação" (claim `cargo = Coordenacao`) |
+| **Editar** | coordenação | muda nome e perfil, redefine a senha de quem esqueceu, desativa e reativa a conta |
+| **Meu perfil** (`/Perfil`, pelo nome no cabeçalho) | todos | troca o próprio nome (vale na hora) e a própria senha (pede a atual) |
+
+- **Desativar, em vez de excluir**: a conta fica bloqueada sem prazo. A pessoa não entra mais, e os chamados, históricos e mensagens dela continuam com o nome dela. Reativar devolve o acesso com o mesmo perfil e a mesma senha. No login, "Esta conta foi desativada" só aparece para quem digitou a senha certa; para os demais, a mensagem de sempre ("E-mail ou senha incorretos"), que não confirma quem tem conta.
+- **Mudança de acesso vale na hora**: mudar o perfil, desativar ou trocar a senha troca o carimbo de segurança da conta. Um token da API emitido antes deixa de valer na próxima requisição (401); o cookie e a fila de atendimento aberta perdem a sessão em até 1 minuto (a fila some e pede um novo login, sem recarregar a página). Na fila, cada clique também confere a permissão. Mudar só o nome não derruba ninguém: o nome novo aparece em até 1 minuto.
+- **Sempre sobra quem gerencie**: ninguém tira a própria coordenação nem desativa a própria conta.
+- **Senhas**: a coordenação define a senha inicial e a passa à pessoa por um canal seguro; o sistema não envia e-mail. As regras do Identity (10 caracteres ou mais, com maiúscula, minúscula, número e símbolo) e as mensagens de erro aparecem em português (`Seguranca/ErrosDoIdentityEmPortugues.cs`), todas juntas ao lado do campo.
+- **Primeiro coordenador em produção**: com `PrimeiroCoordenador__Email`, `PrimeiroCoordenador__Nome` e `PrimeiroCoordenador__Senha` (variáveis de ambiente), a aplicação cria essa conta ao iniciar, se ela não existir. Depois do primeiro início, tire a senha da configuração: uma conta que já existe nunca é alterada por aqui. As migrations precisam ter sido aplicadas antes.
+- **Log**: eventos 1010 a 1017 (cadastro, perfil, desativação, reativação, senha redefinida, senha trocada, sessão recusada e login em conta desativada), sempre com os Ids de quem fez e de quem recebeu a ação.
+
 ### Bibliotecas do lado do cliente
 
 `wwwroot/lib` traz jQuery 3.7.1, jQuery Validation 1.21.0 e jQuery Validation Unobtrusive 4.0.0 (licenças MIT e Apache 2.0, arquivos de licença incluídos), usados só pela validação no cliente. O `libman.json` registra a origem; no Visual Studio, botão direito em `libman.json` › **Restaurar Bibliotecas do Lado do Cliente** baixa de novo.
 
 ## Testar
 
-No Visual Studio: **Teste > Gerenciador de Testes > Executar Todos** (`Ctrl+R, A`). Pela CLI: `dotnet test`. São 167 testes: 94 do domínio (com a política de prazos e um relógio controlado), 17 de integração com o banco e 56 da aplicação web (integração com `WebApplicationFactory`, inclusive em ambiente Production com o banco falhando, com prazos de milissegundos, com os três usuários vendo cada um o que pode e conversando nos chamados, componentes com `HtmlRenderer` e unidade das políticas de autorização). O GitHub roda os mesmos testes a cada push (`.github/workflows/ci.yml`).
+No Visual Studio: **Teste > Gerenciador de Testes > Executar Todos** (`Ctrl+R, A`). Pela CLI: `dotnet test`. São 178 testes: 94 do domínio (com a política de prazos e um relógio controlado), 17 de integração com o banco e 67 da aplicação web (integração com `WebApplicationFactory`, inclusive em ambiente Production com o banco falhando, com prazos de milissegundos, com os três usuários vendo cada um o que pode e conversando nos chamados, com a coordenação cadastrando, desativando e mudando o acesso de outras pessoas, componentes com `HtmlRenderer` e unidade das políticas de autorização). O GitHub roda os mesmos testes a cada push (`.github/workflows/ci.yml`).
 
 ## Estrutura
 
@@ -306,3 +328,7 @@ No Visual Studio: **Teste > Gerenciador de Testes > Executar Todos** (`Ctrl+R, A
 - **Edições num registro próprio** (histórico das edições): `RegistroEdicao` tem campos para o que muda numa edição (título e prioridade de antes e de depois, descrição alterada), em vez de forçar a edição dentro do registro de status. A tela junta os dois numa linha do tempo só.
 - **O autor da edição fica fora do comando** (histórico das edições): o `EdicaoChamado` chega pronto do corpo da requisição na API. Se o autor estivesse nele, quem chama a API poderia escrever o nome de outra pessoa; por isso ele é um parâmetro do serviço, preenchido pelo usuário conectado. Um teste manda `por` no corpo e confere que é ignorado.
 - **Descrição: só "alterada"** (histórico das edições): guardar o texto anterior inteiro (até 2000 caracteres por edição) não pagava o espaço para o uso deste sistema. Título e prioridade, curtos e decisivos para o prazo, guardam os dois valores.
+- **Perfil continua sendo papel e claim** (gestão de usuários): "Atende chamados" é o papel `Atendente` e "Coordenação" é a claim `cargo = Coordenacao`, os mesmos do Módulo 8. As políticas não mudaram; a tela só liga e desliga os dois. A gestão ganhou uma política própria (`GerenciarUsuarios`), hoje com a mesma regra da coordenação, para poder mudar sozinha.
+- **Carimbo de segurança em vez de lista de tokens revogados** (gestão de usuários): o Identity já guarda um carimbo por conta e o põe no cookie e no token. Trocar o carimbo invalida tudo que foi emitido antes, sem tabela nova. O custo é uma consulta ao banco por requisição da API (`FiltroSessaoValida`) e uma a cada minuto para cada cookie e cada fila aberta.
+- **A regra vale no clique, não só ao abrir a página** (gestão de usuários): o circuito do Blazor guarda quem entrou enquanto a aba estiver aberta. Por isso a fila confere a política a cada ação e esconde o conteúdo quando a revalidação encerra a sessão. Sem isso, uma atendente desativada continuaria resolvendo chamados até recarregar a página.
+- **Sem cadastro aberto nem "esqueci a senha" por e-mail** (gestão de usuários): quem cria contas é a coordenação, e o sistema não tem servidor de e-mail. Quem esquece a senha pede à coordenação, que redefine. Se um dia houver e-mail, o Identity já tem o token de redefinição (`AddDefaultTokenProviders`).

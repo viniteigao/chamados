@@ -201,3 +201,12 @@ button.neutro:hover { background: #ece8df; }
 .contador-mensagens { margin-left: .4rem; font-size: .8rem; white-space: nowrap; }
 .cartao-fila .contador-mensagens { margin-left: 0; }
 @media (max-width: 560px) { .mensagem { max-width: 92%; } }
+
+/* ---------- Gestão de usuários (melhorias) ---------- */
+.topo .sessao a.perfil { color: #fff; }
+label.marcar-opcao, .campo label.marcar-opcao { display: flex; align-items: center; gap: .5rem; font-weight: 400; }
+.marcar-opcao input { width: auto; }
+fieldset.campo { border: 0; margin: 0; padding: 0; }
+fieldset.campo legend { font-weight: 600; margin-bottom: .3rem; padding: 0; }
+.situacao-desativado { color: var(--erro); font-weight: 600; }
+.cartoes-perfil { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 1rem; align-items: start; margin-top: 1rem; }

@@ -37,6 +37,31 @@ public static partial class Registro
     [LoggerMessage(EventId = 1009, Level = LogLevel.Warning, Message = "Chamado {ChamadoId} pedido por quem não pode vê-lo (usuário {UsuarioId})")]
     public static partial void ChamadoDeOutroUsuario(ILogger logger, Guid chamadoId, string usuarioId);
 
+    // Gestão de usuários: quem fez (porId) e com quem (usuarioId), só pelos Ids.
+    [LoggerMessage(EventId = 1010, Level = LogLevel.Information, Message = "Usuário {UsuarioId} cadastrado por {PorId}")]
+    public static partial void UsuarioCriado(ILogger logger, string porId, string usuarioId);
+
+    [LoggerMessage(EventId = 1011, Level = LogLevel.Information, Message = "Perfil do usuário {UsuarioId} alterado por {PorId} (atende: {Atende}, coordena: {Coordena})")]
+    public static partial void PerfilDeUsuarioAlterado(ILogger logger, string porId, string usuarioId, bool atende, bool coordena);
+
+    [LoggerMessage(EventId = 1012, Level = LogLevel.Warning, Message = "Usuário {UsuarioId} desativado por {PorId}")]
+    public static partial void UsuarioDesativado(ILogger logger, string porId, string usuarioId);
+
+    [LoggerMessage(EventId = 1013, Level = LogLevel.Information, Message = "Usuário {UsuarioId} reativado por {PorId}")]
+    public static partial void UsuarioReativado(ILogger logger, string porId, string usuarioId);
+
+    [LoggerMessage(EventId = 1014, Level = LogLevel.Warning, Message = "Senha do usuário {UsuarioId} redefinida por {PorId}")]
+    public static partial void SenhaRedefinida(ILogger logger, string porId, string usuarioId);
+
+    [LoggerMessage(EventId = 1015, Level = LogLevel.Information, Message = "Usuário {UsuarioId} trocou a própria senha")]
+    public static partial void SenhaAlterada(ILogger logger, string usuarioId);
+
+    [LoggerMessage(EventId = 1016, Level = LogLevel.Warning, Message = "Sessão recusada: carimbo de segurança do usuário {UsuarioId} mudou")]
+    public static partial void SessaoRevogada(ILogger logger, string usuarioId);
+
+    [LoggerMessage(EventId = 1017, Level = LogLevel.Warning, Message = "Tentativa de login em conta desativada: usuário {UsuarioId}")]
+    public static partial void LoginEmContaDesativada(ILogger logger, string usuarioId);
+
     // Eventos que já existiam (Módulos 3 e 6), migrados para cá pela análise estática (CA1848).
     [LoggerMessage(EventId = 2001, Level = LogLevel.Information, Message = "Chamado {ChamadoId} aberto com prioridade {Prioridade}")]
     public static partial void ChamadoAberto(ILogger logger, Guid chamadoId, Domain.Prioridade prioridade);

@@ -41,6 +41,16 @@ public sealed class PoliticasTests
     }
 
     [Fact]
+    public async Task Gerenciar_usuarios_e_so_da_coordenacao()
+    {
+        var coordenadora = Usuario(new Claim(Politicas.ClaimCargo, Politicas.CargoCoordenacao));
+        var atendente = Usuario(new Claim(ClaimTypes.Role, Politicas.PapelAtendente));
+
+        Assert.True((await Autorizacao.AuthorizeAsync(coordenadora, Politicas.GerenciarUsuarios)).Succeeded);
+        Assert.False((await Autorizacao.AuthorizeAsync(atendente, Politicas.GerenciarUsuarios)).Succeeded);
+    }
+
+    [Fact]
     public async Task Politica_de_fallback_recusa_usuario_anonimo()
     {
         var anonimo = new ClaimsPrincipal(new ClaimsIdentity());   // sem authenticationType: não autenticado

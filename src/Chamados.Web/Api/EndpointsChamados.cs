@@ -20,6 +20,7 @@ public static class EndpointsChamados
     {
         var api = app.MapGroup("/api/chamados")
             .AddEndpointFilter<FiltroExcecoesDominio>()
+            .AddEndpointFilter<FiltroSessaoValida>()   // Gestão de usuários: token de conta desativada para de valer
             .RequireAuthorization(Politicas.Api)   // cookie ou token; vale para todos os endpoints abaixo
             .WithTags("Chamados");   // agrupa os endpoints no documento OpenAPI
 

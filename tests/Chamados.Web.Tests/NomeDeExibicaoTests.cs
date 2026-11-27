@@ -24,9 +24,9 @@ public sealed class NomeDeExibicaoTests(FabricaChamados fabrica) : IClassFixture
         var pagina = await solicitante.GetStringAsync(new Uri("/", UriKind.Relative));
         var fila = await atendente.GetStringAsync(new Uri("/atendimento", UriKind.Relative));   // layout do Blazor
 
-        // O nome no texto; o e-mail de login só no title, para quem passar o mouse.
-        Assert.Contains($"<span title=\"{Acesso.Solicitante}\">{Acesso.NomeSolicitante}</span>", pagina, StringComparison.Ordinal);
-        Assert.Contains($"<span title=\"{Acesso.Atendente}\">{Acesso.NomeAtendente}</span>", fila, StringComparison.Ordinal);
+        // O nome no texto, com link para "Meu perfil"; o e-mail de login só no title, para quem passar o mouse.
+        Assert.Contains($"href=\"/Perfil\" title=\"{Acesso.Solicitante}\">{Acesso.NomeSolicitante}</a>", pagina, StringComparison.Ordinal);
+        Assert.Contains($"href=\"/Perfil\" title=\"{Acesso.Atendente}\">{Acesso.NomeAtendente}</a>", fila, StringComparison.Ordinal);
     }
 
     [Fact]

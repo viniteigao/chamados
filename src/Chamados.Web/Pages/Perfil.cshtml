@@ -1,0 +1,36 @@
+@page
+@model PerfilModel
+@{
+    ViewData["Title"] = "Meu perfil";
+}
+
+<h1>Meu perfil</h1>
+<p class="apoio">Você entra com o e-mail <strong>@User.Identity?.Name</strong>. Para trocar o e-mail ou o que você pode fazer, fale com a coordenação.</p>
+
+<div asp-validation-summary="ModelOnly" class="erros" role="alert"></div>
+
+<div class="cartoes-perfil">
+    <form method="post" asp-page-handler="Nome" class="cartao-acao">
+        <h2>Nome</h2>
+        <label asp-for="Nome.Nome"></label>
+        <input asp-for="Nome.Nome" autocomplete="name" />
+        <span asp-validation-for="Nome.Nome" class="erro"></span>
+        <span class="apoio">O que você já fez continua com o nome da época.</span>
+        <button type="submit">Salvar nome</button>
+    </form>
+
+    <form method="post" asp-page-handler="Senha" class="cartao-acao">
+        <h2>Senha</h2>
+        <label asp-for="Senha.Atual"></label>
+        <input asp-for="Senha.Atual" autocomplete="current-password" />
+        <span asp-validation-for="Senha.Atual" class="erro"></span>
+        <label asp-for="Senha.Nova"></label>
+        <input asp-for="Senha.Nova" autocomplete="new-password" />
+        <span class="apoio">10 caracteres ou mais, com maiúscula, minúscula, número e símbolo.</span>
+        <span asp-validation-for="Senha.Nova" class="erro"></span>
+        <label asp-for="Senha.Confirmacao"></label>
+        <input asp-for="Senha.Confirmacao" autocomplete="new-password" />
+        <span asp-validation-for="Senha.Confirmacao" class="erro"></span>
+        <button type="submit">Trocar senha</button>
+    </form>
+</div>

@@ -18,7 +18,7 @@ namespace Chamados.Web.Pages.Conta;
 [AllowAnonymous]
 [EnableRateLimiting(LimiteDeLogin.Politica)]
 public sealed class EntrarModel(SignInManager<IdentityUser> entrada, UserManager<IdentityUser> usuarios,
-    ILogger<EntrarModel> logger) : PageModel
+    TimeProvider relogio, ILogger<EntrarModel> logger) : PageModel
 {
     [BindProperty]
     public EntradaInput Entrada { get; set; } = new();
@@ -51,6 +51,20 @@ public sealed class EntrarModel(SignInManager<IdentityUser> entrada, UserManager
             // Só endereços deste site. Sem esta verificação, ?ReturnUrl=https://site-falso
             // levaria o usuário, recém-autenticado, para fora (redirecionamento aberto).
             return LocalRedirect(Url.IsLocalUrl(ReturnUrl) ? ReturnUrl! : "/");
+        }
+
+        if (resultado.IsLockedOut
+            && await usuarios.FindByEmailAsync(Entrada.Email) is { } conta
+            && GestaoDeUsuarios.EstaDesativado(conta, relogio.GetUtcNow()))
+        {
+            // Gestão de usuários: conta desativada pela coordenação. O Identity recusa antes de conferir
+            // a senha; a página só diz "desativada" a quem acertou a senha. Para os demais, a mesma
+            // mensagem de e-mail ou senha incorretos, que não confirma quem tem conta.
+            Registro.LoginEmContaDesativada(logger, conta.Id);
+            ModelState.AddModelError(string.Empty, await usuarios.CheckPasswordAsync(conta, Entrada.Senha)
+                ? "Esta conta foi desativada. Fale com a coordenação."
+                : "E-mail ou senha incorretos.");
+            return Page();
         }
 
         if (resultado.IsLockedOut)

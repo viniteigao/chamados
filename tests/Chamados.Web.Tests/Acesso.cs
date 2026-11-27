@@ -49,12 +49,16 @@ public static partial class Acesso
         });
     }
 
-    /// <summary>Pede um token à API e devolve um cliente que o envia em toda requisição.</summary>
-    public static async Task<HttpClient> ClienteComTokenAsync(this WebApplicationFactory<Program> fabrica, string email)
+    /// <summary>
+    /// Pede um token à API e devolve um cliente que o envia em toda requisição.
+    /// Gestão de usuários: sem senha, vale a dos usuários de exemplo.
+    /// </summary>
+    public static async Task<HttpClient> ClienteComTokenAsync(this WebApplicationFactory<Program> fabrica, string email,
+        string? senha = null)
     {
         var cliente = fabrica.ClienteAnonimo();
         var resposta = await cliente.PostAsJsonAsync(new Uri("/api/conta/token", UriKind.Relative),
-            new { email, senha = FabricaChamados.Senha });
+            new { email, senha = senha ?? FabricaChamados.Senha });
         resposta.EnsureSuccessStatusCode();
         var token = await resposta.Content.ReadFromJsonAsync<RespostaToken>();
         cliente.DefaultRequestHeaders.Authorization = new("Bearer", token!.AccessToken);

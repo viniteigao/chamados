@@ -7,86 +7,100 @@
 @inject EstadoFila Estado
 @inject IJSRuntime JS
 @inject ILogger<Atendimento> Logger
+@inject IAuthorizationService Autorizacao
 
 <PageTitle>Atendimento · Chamados</PageTitle>
 
-<h1>Atendimento</h1>
-<p class="apoio">Fila interativa: abrir, editar, iniciar, resolver e cancelar sem recarregar a página.</p>
+@* Gestão de usuários: a página é interativa e o circuito vive enquanto a aba estiver aberta. Se a
+   conta for desativada ou perder o papel de atendente, a revalidação (a cada minuto) troca o usuário
+   do circuito por um anônimo, e este AuthorizeView esconde a fila na hora. *@
+<AuthorizeView Policy="@Politicas.Atender" Context="sessao">
+    <Authorized>
+        <h1>Atendimento</h1>
+        <p class="apoio">Fila interativa: abrir, editar, iniciar, resolver e cancelar sem recarregar a página.</p>
 
-<div class="barra-fila">
-    <label class="crescer">
-        Buscar
-        @* A cada tecla: atualiza "texto" e chama CarregarAsync, que cancela a busca anterior. *@
-        <input type="search" placeholder="título ou descrição"
-               @bind="texto" @bind:event="oninput" @bind:after="CarregarAsync" />
-    </label>
-    <button type="button" class="neutro" disabled="@carregando" @onclick="CarregarAsync">Atualizar</button>
-    <button type="button" @onclick="AbrirNovo">Novo chamado</button>
-</div>
+        <div class="barra-fila">
+            <label class="crescer">
+                Buscar
+                @* A cada tecla: atualiza "texto" e chama CarregarAsync, que cancela a busca anterior. *@
+                <input type="search" placeholder="título ou descrição"
+                       @bind="texto" @bind:event="oninput" @bind:after="CarregarAsync" />
+            </label>
+            <button type="button" class="neutro" disabled="@carregando" @onclick="CarregarAsync">Atualizar</button>
+            <button type="button" @onclick="AbrirNovo">Novo chamado</button>
+        </div>
 
-@* Região "viva": leitores de tela anunciam o texto quando ele muda. *@
-<p class="carregando" role="status" aria-live="polite">@(carregando ? "Atualizando a fila…" : null)</p>
+        @* Região "viva": leitores de tela anunciam o texto quando ele muda. *@
+        <p class="carregando" role="status" aria-live="polite">@(carregando ? "Atualizando a fila…" : null)</p>
 
-@if (mensagem is not null)
-{
-    <p class="@(mensagemDeErro ? "erros aviso-erro" : "aviso")" role="status">@mensagem</p>
-}
+        @if (mensagem is not null)
+        {
+            <p class="@(mensagemDeErro ? "erros aviso-erro" : "aviso")" role="status">@mensagem</p>
+        }
 
-@if (painelAberto)
-{
-    <section class="painel" aria-labelledby="titulo-painel">
-        <h2 id="titulo-painel">@(painelId is null ? "Novo chamado" : "Editar chamado")</h2>
-        @* @key: trocar de chamado cria um formulário novo, sem restos do anterior. *@
-        <FormularioChamado @key="painelId" ChamadoId="painelId" AoSalvar="AoSalvarAsync" AoFechar="FecharPainel" />
-    </section>
-}
+        @if (painelAberto)
+        {
+            <section class="painel" aria-labelledby="titulo-painel">
+                <h2 id="titulo-painel">@(painelId is null ? "Novo chamado" : "Editar chamado")</h2>
+                @* @key: trocar de chamado cria um formulário novo, sem restos do anterior. *@
+                <FormularioChamado @key="painelId" ChamadoId="painelId" AoSalvar="AoSalvarAsync" AoFechar="FecharPainel" />
+            </section>
+        }
 
-@if (falha is not null)
-{
-    <div class="erros aviso-erro" role="alert">
-        <p>@falha</p>
-        <button type="button" class="neutro" @onclick="CarregarAsync">Tentar de novo</button>
-    </div>
-}
-
-@if (Chamados is null)
-{
-    <p class="vazio">Carregando a fila…</p>
-}
-else
-{
-    @* Rede de segurança: um erro inesperado ao desenhar a fila fica contido aqui,
-       em vez de derrubar o circuito inteiro. *@
-    <ErrorBoundary @ref="limiteDaFila">
-        <ChildContent>
-            <div class="fila" aria-busy="@(carregando ? "true" : "false")">
-                <Coluna Titulo="Abertos" Quantidade="Abertos.Count" TextoVazio="Nenhum chamado aguardando.">
-                    @foreach (var chamado in Abertos)
-                    {
-                        <CartaoChamado @key="chamado.Id" Chamado="chamado" Prazo="Servico.PrazoDe(chamado)"
-                                       ResponsavelPadrao="@responsavelPadrao"
-                                       Desabilitado="executando" AoConfirmar="ExecutarAsync" AoEditar="AbrirEdicao" />
-                    }
-                </Coluna>
-
-                <Coluna Titulo="Em atendimento" Quantidade="EmAtendimento.Count" TextoVazio="Nenhum chamado em atendimento.">
-                    @foreach (var chamado in EmAtendimento)
-                    {
-                        <CartaoChamado @key="chamado.Id" Chamado="chamado" Prazo="Servico.PrazoDe(chamado)"
-                                       ResponsavelPadrao="@responsavelPadrao"
-                                       Desabilitado="executando" AoConfirmar="ExecutarAsync" AoEditar="AbrirEdicao" />
-                    }
-                </Coluna>
-            </div>
-        </ChildContent>
-        <ErrorContent>
+        @if (falha is not null)
+        {
             <div class="erros aviso-erro" role="alert">
-                <p>A fila não pôde ser exibida. O erro foi registrado no log.</p>
-                <button type="button" class="neutro" @onclick="RecuperarAsync">Tentar de novo</button>
+                <p>@falha</p>
+                <button type="button" class="neutro" @onclick="CarregarAsync">Tentar de novo</button>
             </div>
-        </ErrorContent>
-    </ErrorBoundary>
-}
+        }
+
+        @if (Chamados is null)
+        {
+            <p class="vazio">Carregando a fila…</p>
+        }
+        else
+        {
+            @* Rede de segurança: um erro inesperado ao desenhar a fila fica contido aqui,
+               em vez de derrubar o circuito inteiro. *@
+            <ErrorBoundary @ref="limiteDaFila">
+                <ChildContent>
+                    <div class="fila" aria-busy="@(carregando ? "true" : "false")">
+                        <Coluna Titulo="Abertos" Quantidade="Abertos.Count" TextoVazio="Nenhum chamado aguardando.">
+                            @foreach (var chamado in Abertos)
+                            {
+                                <CartaoChamado @key="chamado.Id" Chamado="chamado" Prazo="Servico.PrazoDe(chamado)"
+                                               ResponsavelPadrao="@responsavelPadrao"
+                                               Desabilitado="executando" AoConfirmar="ExecutarAsync" AoEditar="AbrirEdicao" />
+                            }
+                        </Coluna>
+
+                        <Coluna Titulo="Em atendimento" Quantidade="EmAtendimento.Count" TextoVazio="Nenhum chamado em atendimento.">
+                            @foreach (var chamado in EmAtendimento)
+                            {
+                                <CartaoChamado @key="chamado.Id" Chamado="chamado" Prazo="Servico.PrazoDe(chamado)"
+                                               ResponsavelPadrao="@responsavelPadrao"
+                                               Desabilitado="executando" AoConfirmar="ExecutarAsync" AoEditar="AbrirEdicao" />
+                            }
+                        </Coluna>
+                    </div>
+                </ChildContent>
+                <ErrorContent>
+                    <div class="erros aviso-erro" role="alert">
+                        <p>A fila não pôde ser exibida. O erro foi registrado no log.</p>
+                        <button type="button" class="neutro" @onclick="RecuperarAsync">Tentar de novo</button>
+                    </div>
+                </ErrorContent>
+            </ErrorBoundary>
+        }
+    </Authorized>
+    <NotAuthorized>
+        <h1>Atendimento</h1>
+        <p class="erros aviso-erro" role="alert">
+            Sua sessão terminou ou o seu acesso mudou. <a href="/Conta/Entrar?ReturnUrl=%2Fatendimento">Entre de novo</a>.
+        </p>
+    </NotAuthorized>
+</AuthorizeView>
 
 @code {
     private const string ChaveResponsavel = "chamados.responsavel";
@@ -194,6 +208,14 @@ else
 
     private async Task ExecutarAsync(PedidoTransicao pedido)
     {
+        // Gestão de usuários: a regra vale no clique, não só ao abrir a página. Entre uma revalidação
+        // e outra, um botão ainda na tela não pode agir por quem já perdeu o acesso.
+        if (!await PodeAtenderAsync())
+        {
+            Avisar("Sua sessão terminou ou o seu acesso mudou. Entre de novo.", erro: true);
+            return;
+        }
+
         executando = true;
         try
         {
@@ -238,6 +260,10 @@ else
         await CarregarAsync();
         await Estado.AtualizarAsync();
     }
+
+    private async Task<bool> PodeAtenderAsync()
+        => Autenticacao is not null
+            && (await Autorizacao.AuthorizeAsync((await Autenticacao).User, Politicas.Atender)).Succeeded;
 
     private async Task LembrarResponsavelAsync(string nome)
     {

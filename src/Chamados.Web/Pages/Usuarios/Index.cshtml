@@ -1,0 +1,36 @@
+@page
+@model IndexModel
+@{
+    ViewData["Title"] = "Usuários";
+}
+
+<h1>Usuários</h1>
+<p class="apoio">Cada pessoa entra com o e-mail; o nome é o que aparece nas telas, no histórico e na conversa.</p>
+<p><a class="botao" asp-page="./Novo">Novo usuário</a></p>
+
+<table class="tabela">
+    <thead>
+        <tr><th>Nome</th><th>E-mail (login)</th><th>Pode</th><th>Situação</th><th>Ações</th></tr>
+    </thead>
+    <tbody>
+        @foreach (var usuario in Model.Usuarios)
+        {
+            <tr>
+                <td>@usuario.Nome</td>
+                <td>@usuario.Email</td>
+                <td>@Rotulos.Perfil(usuario.Atende, usuario.Coordena)</td>
+                <td>
+                    @if (usuario.Ativo)
+                    {
+                        <text>Ativo</text>
+                    }
+                    else
+                    {
+                        <span class="situacao-desativado">Desativado</span>
+                    }
+                </td>
+                <td><a asp-page="./Editar" asp-route-id="@usuario.Id" aria-label="Editar @usuario.Nome">Editar</a></td>
+            </tr>
+        }
+    </tbody>
+</table>

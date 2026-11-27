@@ -5,6 +5,7 @@
     // Módulo 8: os links seguem as políticas; quem protege de fato são as páginas e a API.
     var podeAtender = (await Autorizacao.AuthorizeAsync(User, Politicas.Atender)).Succeeded;
     var podeVerIndicadores = (await Autorizacao.AuthorizeAsync(User, Politicas.VerIndicadores)).Succeeded;
+    var podeGerenciarUsuarios = (await Autorizacao.AuthorizeAsync(User, Politicas.GerenciarUsuarios)).Succeeded;
     var conectado = User.Identity?.IsAuthenticated == true;
     // Meus chamados: o contador e a "Lista" (todos os chamados) são de quem vê todos.
     var veTodos = (await Autorizacao.AuthorizeAsync(User, Politicas.VerTodosOsChamados)).Succeeded;
@@ -40,6 +41,10 @@
                 {
                     <a href="/indicadores">Indicadores</a>
                 }
+                @if (podeGerenciarUsuarios)
+                {
+                    <a asp-page="/Usuarios/Index">Usuários</a>
+                }
                 @if (veTodos)
                 {
                     <a asp-page="/Chamados/Index">Lista</a>
@@ -53,8 +58,8 @@
                 <a class="botao" asp-page="/Chamados/Novo">Novo chamado</a>
             </nav>
             <form method="post" asp-page="/Conta/Sair" class="sessao">
-                @* Nome de exibição; o e-mail de login aparece ao passar o mouse. *@
-                <span title="@User.Identity!.Name">@User.NomeParaExibir()</span>
+                @* Nome de exibição; o e-mail de login aparece ao passar o mouse. O nome leva a "Meu perfil". *@
+                <a class="perfil" href="/Perfil" title="@User.Identity!.Name">@User.NomeParaExibir()</a>
                 <button type="submit" class="link">Sair</button>
             </form>
         }

@@ -19,6 +19,9 @@
         <AuthorizeView Policy="@Politicas.VerIndicadores">
             <NavLink href="indicadores">Indicadores</NavLink>
         </AuthorizeView>
+        <AuthorizeView Policy="@Politicas.GerenciarUsuarios">
+            <a href="/Usuarios">Usuários</a>
+        </AuthorizeView>
         @* Meus chamados: para quem vê só os seus, a lista já é "Meus chamados". *@
         <AuthorizeView Policy="@Politicas.VerTodosOsChamados">
             <Authorized>
@@ -35,8 +38,8 @@
         <form method="post" action="/Conta/Sair" class="sessao">
             @* O mesmo token antifalsificação que as Razor Pages conferem. *@
             <AntiforgeryToken />
-            @* Nome de exibição; o e-mail de login aparece ao passar o mouse. *@
-            <span title="@context.User.Identity?.Name">@context.User.NomeParaExibir()</span>
+            @* Nome de exibição; o e-mail de login aparece ao passar o mouse. O nome leva a "Meu perfil". *@
+            <a class="perfil" href="/Perfil" title="@context.User.Identity?.Name">@context.User.NomeParaExibir()</a>
             <button type="submit" class="link">Sair</button>
         </form>
     </AuthorizeView>

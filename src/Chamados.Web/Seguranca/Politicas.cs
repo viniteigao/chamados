@@ -17,6 +17,9 @@ public static class Politicas
     /// <summary>Meus chamados: atendentes e coordenação veem todos os chamados (Seguranca/Visibilidade.cs).</summary>
     public const string VerTodosOsChamados = "VerTodosOsChamados";
 
+    /// <summary>Gestão de usuários: cadastrar, mudar perfil, desativar e redefinir senha. Só a coordenação.</summary>
+    public const string GerenciarUsuarios = "GerenciarUsuarios";
+
     // Papel (role) e claim usados pelas políticas.
     public const string PapelAtendente = "Atendente";
     public const string ClaimCargo = "cargo";
@@ -36,6 +39,9 @@ public static class Politicas
             .AddPolicy(Atender, politica => politica.RequireRole(PapelAtendente))
             // Baseada em claim: o usuário carrega a informação "cargo = Coordenacao".
             .AddPolicy(VerIndicadores, politica => politica.RequireClaim(ClaimCargo, CargoCoordenacao))
+            // Gestão de usuários: a mesma claim, com nome próprio. Se um dia a gestão for de outro cargo,
+            // muda só esta linha.
+            .AddPolicy(GerenciarUsuarios, politica => politica.RequireClaim(ClaimCargo, CargoCoordenacao))
             // Meus chamados: papel OU claim. A mesma regra de Visibilidade.VeTodosOsChamados, para
             // menus (AuthorizeView) e páginas usarem a política pelo nome.
             .AddPolicy(VerTodosOsChamados, politica => politica.RequireAssertion(

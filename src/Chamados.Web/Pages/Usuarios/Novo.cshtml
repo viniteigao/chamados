@@ -1,0 +1,52 @@
+@page
+@model NovoModel
+@{
+    ViewData["Title"] = "Novo usuário";
+}
+
+<p><a asp-page="./Index">← Voltar para os usuários</a></p>
+<h1>Novo usuário</h1>
+
+<form method="post" class="formulario">
+    <div asp-validation-summary="ModelOnly" class="erros" role="alert"></div>
+
+    <div class="campo">
+        <label asp-for="Input.Nome"></label>
+        <input asp-for="Input.Nome" autocomplete="off" />
+        <span asp-validation-for="Input.Nome" class="erro"></span>
+    </div>
+
+    <div class="campo">
+        <label asp-for="Input.Email"></label>
+        <input asp-for="Input.Email" autocomplete="off" />
+        <span asp-validation-for="Input.Email" class="erro"></span>
+    </div>
+
+    <div class="campo">
+        <label asp-for="Input.Senha"></label>
+        <input asp-for="Input.Senha" autocomplete="new-password" />
+        <span class="apoio">10 caracteres ou mais, com maiúscula, minúscula, número e símbolo.</span>
+        <span asp-validation-for="Input.Senha" class="erro"></span>
+    </div>
+
+    <div class="campo">
+        <label asp-for="Input.ConfirmacaoSenha"></label>
+        <input asp-for="Input.ConfirmacaoSenha" autocomplete="new-password" />
+        <span asp-validation-for="Input.ConfirmacaoSenha" class="erro"></span>
+    </div>
+
+    <fieldset class="campo">
+        <legend>O que a pessoa pode fazer, além de abrir e acompanhar os próprios chamados</legend>
+        <label class="marcar-opcao"><input asp-for="Input.Atende" /> @Html.DisplayNameFor(m => m.Input.Atende)</label>
+        <label class="marcar-opcao"><input asp-for="Input.Coordena" /> @Html.DisplayNameFor(m => m.Input.Coordena)</label>
+    </fieldset>
+
+    <div class="acoes">
+        <button type="submit">Cadastrar</button>
+        <a asp-page="./Index">Cancelar</a>
+    </div>
+</form>
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+}
