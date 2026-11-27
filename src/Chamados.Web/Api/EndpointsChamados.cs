@@ -64,7 +64,7 @@ public static class EndpointsChamados
                     ? TypedResults.NotFound()
                     : TypedResults.Ok(DetalheChamadoResposta.De(chamado, servico.PrazoDe(chamado)));
             })
-            .WithSummary("Detalhe de um chamado, com o histórico de status e a conversa");
+            .WithSummary("Detalhe de um chamado, com o histórico de status, as edições e a conversa");
 
         // Comentários: a conversa do chamado. Quem pode ver o chamado pode ler e escrever nela
         // (o dono, atendentes e coordenação); para os demais, 404, como no detalhe.
@@ -112,9 +112,10 @@ public static class EndpointsChamados
         .ProducesValidationProblem();
 
         // Edição: o corpo traz a versão lida. Versão desatualizada → 409 pelo filtro.
-        api.MapPut("/{id:guid}", async (Guid id, EdicaoChamado comando, ChamadoServico servico,
+        // Histórico das edições: quem edita vem do token ou do cookie, nunca do corpo.
+        api.MapPut("/{id:guid}", async (Guid id, EdicaoChamado comando, ClaimsPrincipal usuario, ChamadoServico servico,
                 CancellationToken cancellationToken)
-            => ResumoChamado.De(await servico.EditarAsync(id, comando, cancellationToken)))
+            => ResumoChamado.De(await servico.EditarAsync(id, comando, usuario.ComoAutor(), cancellationToken)))
             .RequireAuthorization(Politicas.Atender)
             .WithSummary("Edita título, prioridade e descrição, conferindo a versão lida");
 

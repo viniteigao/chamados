@@ -16,11 +16,11 @@ public sealed class RepositorioChamadosEf(IDbContextFactory<ChamadosDbContext> f
 
         // Só leitura: AsNoTracking dispensa o EF de guardar uma cópia para detectar mudanças.
         // O histórico vem junto sem Include: entidade "owned" é carregada sempre com o dono.
-        // Comentários: com duas coleções, AsSingleQuery declara a escolha de um JOIN só. Ele repete cada
-        // registro do histórico a cada mensagem, mas o histórico tem no máximo dois registros, e o SQL
-        // sai com ORDER BY na chave das mensagens: elas chegam na ordem em que foram gravadas.
-        // Com AsSplitQuery (uma consulta por tabela), essa ordem não ficaria garantida.
-        return await db.Chamados.AsNoTracking().AsSingleQuery().FirstOrDefaultAsync(c => c.Id == id, cancellationToken);
+        // Histórico das edições: com três coleções (histórico, conversa e edições), um JOIN só
+        // multiplicaria as linhas (cada registro repetido a cada mensagem e a cada edição).
+        // AsSplitQuery faz uma consulta por tabela; a ordem cronológica das listas é garantida
+        // pelo próprio Chamado, que não depende da ordem em que o banco devolve as linhas.
+        return await db.Chamados.AsNoTracking().AsSplitQuery().FirstOrDefaultAsync(c => c.Id == id, cancellationToken);
     }
 
     public async Task AdicionarAsync(Chamado chamado, CancellationToken cancellationToken = default)
@@ -38,7 +38,7 @@ public sealed class RepositorioChamadosEf(IDbContextFactory<ChamadosDbContext> f
         await using var db = await fabrica.CreateDbContextAsync(cancellationToken);
 
         // Com rastreamento: o EF guarda os valores lidos e, no SaveChanges, grava só o que mudou.
-        var chamado = await db.Chamados.AsSingleQuery().FirstOrDefaultAsync(c => c.Id == id, cancellationToken)
+        var chamado = await db.Chamados.AsSplitQuery().FirstOrDefaultAsync(c => c.Id == id, cancellationToken)
             ?? throw new ChamadoNaoEncontradoException(id);
 
         var versaoLida = chamado.Versao;

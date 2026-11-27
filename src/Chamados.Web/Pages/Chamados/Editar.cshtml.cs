@@ -1,6 +1,7 @@
 using Chamados.Domain;
 using Chamados.Web.Apresentacao;
 using Chamados.Web.Diagnostico;
+using Chamados.Web.Seguranca;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
 
@@ -48,7 +49,7 @@ public sealed class EditarModel(ChamadoServico servico, ILogger<EditarModel> log
 
         try
         {
-            await servico.EditarAsync(id, Input.ParaEdicao(Versao), cancellationToken);
+            await servico.EditarAsync(id, Input.ParaEdicao(Versao), User.ComoAutor(), cancellationToken);
 
             Registro.ChamadoEditado(logger, id, Versao);
             TempData["Mensagem"] = "Alterações salvas.";

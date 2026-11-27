@@ -9,6 +9,7 @@ namespace Chamados.Web.Api;
 /// Meus chamados: quem abriu e, em cada registro do histórico, quem fez a mudança. Só os nomes:
 /// o Id do usuário é interno e não sai na API.
 /// Comentários: a conversa, da mensagem mais antiga para a mais nova, cada uma com autor, data e hora.
+/// Histórico das edições: cada edição de título, prioridade ou descrição, com quando e por quem.
 /// </summary>
 public sealed record DetalheChamadoResposta(
     Guid Id,
@@ -24,7 +25,8 @@ public sealed record DetalheChamadoResposta(
     IReadOnlyList<RegistroHistoricoResposta> Historico,
     PrazoResposta? Prazo,
     string? AbertoPor,
-    IReadOnlyList<ComentarioResposta> Comentarios)
+    IReadOnlyList<ComentarioResposta> Comentarios,
+    IReadOnlyList<RegistroEdicaoResposta> Edicoes)
 {
     public static DetalheChamadoResposta De(Chamado chamado, PrazoDoChamado? prazo) => new(
         chamado.Id, chamado.Titulo, chamado.Descricao, chamado.Status, chamado.Prioridade,
@@ -32,8 +34,17 @@ public sealed record DetalheChamadoResposta(
         [.. chamado.Historico.Select(r => new RegistroHistoricoResposta(r.De, r.Para, r.Em, r.Observacao, r.PorNome))],
         prazo is null ? null : new PrazoResposta(prazo.Vencimento, prazo.Situacao),
         chamado.AbertoPorNome,
-        ComentarioResposta.Da(chamado));
+        ComentarioResposta.Da(chamado),
+        [.. chamado.Edicoes.Select(e => new RegistroEdicaoResposta(e.Em, e.TituloAnterior, e.TituloNovo,
+            e.PrioridadeAnterior, e.PrioridadeNova, e.DescricaoAlterada, e.PorNome))]);
 }
+
+/// <summary>
+/// Histórico das edições: título e prioridade de antes e de depois (nulos quando não mudaram) e se a
+/// descrição mudou. Só o nome de quem editou, como no resto da API.
+/// </summary>
+public sealed record RegistroEdicaoResposta(DateTimeOffset Em, string? TituloAnterior, string? TituloNovo,
+    Prioridade? PrioridadeAnterior, Prioridade? PrioridadeNova, bool DescricaoAlterada, string? Por);
 
 public sealed record RegistroHistoricoResposta(StatusChamado De, StatusChamado Para, DateTimeOffset Em, string? Observacao,
     string? Por);

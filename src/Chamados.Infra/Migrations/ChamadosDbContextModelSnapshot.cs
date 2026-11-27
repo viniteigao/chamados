@@ -308,6 +308,55 @@ namespace Chamados.Infra.Migrations
                                 .HasForeignKey("ChamadoId");
                         });
 
+                    b.OwnsMany("Chamados.Domain.RegistroEdicao", "Edicoes", b1 =>
+                        {
+                            b1.Property<int>("Id")
+                                .ValueGeneratedOnAdd()
+                                .HasColumnType("INTEGER");
+
+                            b1.Property<Guid>("ChamadoId")
+                                .HasColumnType("TEXT");
+
+                            b1.Property<bool>("DescricaoAlterada")
+                                .HasColumnType("INTEGER");
+
+                            b1.Property<long>("Em")
+                                .HasColumnType("INTEGER");
+
+                            b1.Property<string>("PorId")
+                                .HasMaxLength(450)
+                                .HasColumnType("TEXT");
+
+                            b1.Property<string>("PorNome")
+                                .HasMaxLength(256)
+                                .HasColumnType("TEXT");
+
+                            b1.Property<string>("PrioridadeAnterior")
+                                .HasMaxLength(20)
+                                .HasColumnType("TEXT");
+
+                            b1.Property<string>("PrioridadeNova")
+                                .HasMaxLength(20)
+                                .HasColumnType("TEXT");
+
+                            b1.Property<string>("TituloAnterior")
+                                .HasMaxLength(120)
+                                .HasColumnType("TEXT");
+
+                            b1.Property<string>("TituloNovo")
+                                .HasMaxLength(120)
+                                .HasColumnType("TEXT");
+
+                            b1.HasKey("Id");
+
+                            b1.HasIndex("ChamadoId");
+
+                            b1.ToTable("EdicoesChamados", (string)null);
+
+                            b1.WithOwner()
+                                .HasForeignKey("ChamadoId");
+                        });
+
                     b.OwnsMany("Chamados.Domain.RegistroHistorico", "Historico", b1 =>
                         {
                             b1.Property<int>("Id")
@@ -353,6 +402,8 @@ namespace Chamados.Infra.Migrations
                         });
 
                     b.Navigation("Comentarios");
+
+                    b.Navigation("Edicoes");
 
                     b.Navigation("Historico");
                 });

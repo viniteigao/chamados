@@ -174,7 +174,7 @@ public class ChamadoTests
     {
         var chamado = new Chamado("Tomada solta", Prioridade.Baixa, criadoEm: Abertura);
 
-        chamado.Editar("  Tomada solta na recepção  ", Prioridade.Alta, "Perto da porta");
+        chamado.Editar("  Tomada solta na recepção  ", Prioridade.Alta, "Perto da porta", Abertura.AddMinutes(5));
 
         Assert.Equal("Tomada solta na recepção", chamado.Titulo);
         Assert.Equal(Prioridade.Alta, chamado.Prioridade);
@@ -185,9 +185,9 @@ public class ChamadoTests
     [Fact]
     public void Editar_TituloInvalido_NaoAlteraNada()
     {
-        var chamado = new Chamado("Tomada solta", Prioridade.Baixa, "Original");
+        var chamado = new Chamado("Tomada solta", Prioridade.Baixa, "Original", Abertura);
 
-        Assert.Throws<ArgumentOutOfRangeException>(() => chamado.Editar("Título válido", (Prioridade)99, "Nova"));
+        Assert.Throws<ArgumentOutOfRangeException>(() => chamado.Editar("Título válido", (Prioridade)99, "Nova", Abertura.AddMinutes(5)));
 
         Assert.Equal("Tomada solta", chamado.Titulo);
         Assert.Equal("Original", chamado.Descricao);
@@ -201,7 +201,7 @@ public class ChamadoTests
         chamado.IniciarAtendimento("Elétrica", Abertura.AddHours(1));
         chamado.Resolver("Tomada fixada", Abertura.AddHours(2));
 
-        var erro = Assert.Throws<ChamadoEncerradoException>(() => chamado.Editar("Outro título", Prioridade.Alta, null));
+        var erro = Assert.Throws<ChamadoEncerradoException>(() => chamado.Editar("Outro título", Prioridade.Alta, null, Abertura.AddHours(3)));
 
         Assert.Equal(StatusChamado.Resolvido, erro.Status);
     }
@@ -403,5 +403,79 @@ public class ChamadoTests
         Assert.Throws<ArgumentOutOfRangeException>(() => chamado.Comentar("Oi", Abertura.AddSeconds(-1), Bruno));
         Assert.Throws<ArgumentNullException>(() => chamado.Comentar("Oi", Abertura, null!));
         Assert.Empty(chamado.Comentarios);
+    }
+
+    // --- Histórico das edições ---
+
+    [Fact]
+    public void Editar_RegistraOQueMudouQuandoEPorQuem()
+    {
+        var chamado = new Chamado("Tomada solta", Prioridade.Baixa, "Perto da porta", Abertura);
+
+        chamado.Editar("Tomada solta na recepção", Prioridade.Alta, "Perto da porta", Abertura.AddMinutes(30), Ana);
+
+        var edicao = Assert.Single(chamado.Edicoes);
+        Assert.Equal(Abertura.AddMinutes(30), edicao.Em);
+        Assert.Equal("Tomada solta", edicao.TituloAnterior);
+        Assert.Equal("Tomada solta na recepção", edicao.TituloNovo);
+        Assert.Equal(Prioridade.Baixa, edicao.PrioridadeAnterior);
+        Assert.Equal(Prioridade.Alta, edicao.PrioridadeNova);
+        Assert.False(edicao.DescricaoAlterada);
+        Assert.Equal(Ana, edicao.Por);
+        Assert.Empty(chamado.Historico);   // o status não mudou
+    }
+
+    [Fact]
+    public void Editar_SoADescricao_NaoRegistraTituloNemPrioridade()
+    {
+        var chamado = new Chamado("Tomada solta", Prioridade.Baixa, "Perto da porta", Abertura);
+
+        chamado.Editar("Tomada solta", Prioridade.Baixa, "Ao lado do bebedouro", Abertura.AddMinutes(5), Ana);
+
+        var edicao = Assert.Single(chamado.Edicoes);
+        Assert.Null(edicao.TituloAnterior);
+        Assert.Null(edicao.TituloNovo);
+        Assert.Null(edicao.PrioridadeAnterior);
+        Assert.Null(edicao.PrioridadeNova);
+        Assert.True(edicao.DescricaoAlterada);
+    }
+
+    [Fact]
+    public void Editar_SemMudarNada_NaoEntraNoHistorico()
+    {
+        var chamado = new Chamado("Tomada solta", Prioridade.Baixa, "Perto da porta", Abertura);
+
+        // Os espaços das pontas são removidos: o título final é o mesmo de antes.
+        chamado.Editar("  Tomada solta ", Prioridade.Baixa, "Perto da porta", Abertura.AddMinutes(5), Ana);
+
+        Assert.Empty(chamado.Edicoes);
+        Assert.Equal(2, chamado.Versao);   // a versão aumenta, como sempre aumentou
+    }
+
+    [Fact]
+    public void Editar_AntesDaAbertura_EhRecusadoSemAlterarNada()
+    {
+        var chamado = new Chamado("Tomada solta", Prioridade.Baixa, criadoEm: Abertura);
+
+        Assert.Throws<ArgumentOutOfRangeException>(
+            () => chamado.Editar("Outro título", Prioridade.Alta, null, Abertura.AddSeconds(-1), Ana));
+
+        Assert.Equal("Tomada solta", chamado.Titulo);
+        Assert.Empty(chamado.Edicoes);
+        Assert.Equal(1, chamado.Versao);
+    }
+
+    [Fact]
+    public void Listas_SaemEmOrdemCronologica_MesmoComRegistrosForaDeOrdem()
+    {
+        var chamado = new Chamado("Tomada solta", criadoEm: Abertura);
+
+        chamado.Comentar("Segunda", Abertura.AddMinutes(10), Bruno);
+        chamado.Comentar("Primeira", Abertura.AddMinutes(5), Bruno);
+        chamado.Editar("B", Prioridade.Alta, null, Abertura.AddMinutes(20), Ana);
+        chamado.Editar("A", Prioridade.Media, null, Abertura.AddMinutes(15), Ana);
+
+        Assert.Equal(["Primeira", "Segunda"], chamado.Comentarios.Select(m => m.Texto));
+        Assert.Equal([Abertura.AddMinutes(15), Abertura.AddMinutes(20)], chamado.Edicoes.Select(e => e.Em));
     }
 }

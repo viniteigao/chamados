@@ -60,7 +60,7 @@ dotnet ef migrations add NomeDaMudanca --project src/Chamados.Infra --startup-pr
 dotnet ef database update --project src/Chamados.Infra --startup-project src/Chamados.Web
 ```
 
-O projeto traz cinco migrations: `Inicial` (tabelas `Chamados` e `HistoricoChamados`), `IndicePrioridade` (um índice criado depois, para mostrar o banco evoluindo sem perder dados), `Identidade` (tabelas de usuários do Módulo 8), `AutoriaDosChamados` (quem abriu e quem fez cada mudança) e `ComentariosDosChamados` (tabela `ComentariosChamados`). Um banco antigo recebe as que faltam no próximo início, sem perder dados.
+O projeto traz seis migrations: `Inicial` (tabelas `Chamados` e `HistoricoChamados`), `IndicePrioridade` (um índice criado depois, para mostrar o banco evoluindo sem perder dados), `Identidade` (tabelas de usuários do Módulo 8), `AutoriaDosChamados` (quem abriu e quem fez cada mudança), `ComentariosDosChamados` (tabela `ComentariosChamados`) e `EdicoesDosChamados` (tabela `EdicoesChamados`). Um banco antigo recebe as que faltam no próximo início, sem perder dados.
 
 Em Development, o log mostra cada comando SQL (categoria `Microsoft.EntityFrameworkCore.Database.Command`), com os valores dos parâmetros ocultos.
 
@@ -96,7 +96,7 @@ Componentes acrescentados no Módulo 6: `Formularios/FormularioChamado` (EditFor
 | `GET /api/chamados?status=&prioridadeMinima=&texto=&ordem=&somenteVencidos=&meus=` | Lista com filtros e ordenação (`Prioridade`, `MaisRecentes`, `MaisAntigos`, `Titulo`); `somenteVencidos=true` traz só os em andamento com o prazo vencido; `meus=true` só os que o usuário abriu (quem não é atendente nem da coordenação sempre recebe só os seus) |
 | `GET /api/chamados/estatisticas` | Totais e tempo médio de resolução |
 | `GET /api/chamados/prazos` | Vencidos, perto de vencer, percentual resolvido no prazo e a tabela de prazos (política `VerIndicadores`) |
-| `GET /api/chamados/{id}` | Um chamado com o histórico (com quem fez cada mudança), o prazo, quem abriu e a conversa (DTO `DetalheChamadoResposta`, inclui `versao`); id inexistente ou de outra pessoa → 404 |
+| `GET /api/chamados/{id}` | Um chamado com o histórico (com quem fez cada mudança), as edições, o prazo, quem abriu e a conversa (DTO `DetalheChamadoResposta`, inclui `versao`); id inexistente ou de outra pessoa → 404 |
 | `GET /api/chamados/{id}/comentarios` | As mensagens da conversa, da mais antiga para a mais nova, cada uma com `texto`, `em` (data e hora) e `autor` |
 | `POST /api/chamados/{id}/comentarios` | Escreve uma mensagem (corpo: `{"texto": "..."}`) → 201; vazia ou com mais de 2000 caracteres → 400 |
 | `POST /api/chamados` | Abre chamado (corpo: `{"titulo": "...", "prioridade": "Alta"}`); corpo inválido → 400 com erros por campo |
@@ -204,6 +204,16 @@ Feito na branch `comentarios`. Cada chamado tem uma conversa entre quem pediu e 
 - **Log**: evento 2007 a cada mensagem, só com o Id do chamado e o do usuário (o texto não vai para o log).
 - **Semente**: num banco novo, o chamado do ar-condicionado da sala 204 (da carla) já tem três mensagens, e o da impressora (do bruno), uma resposta da ana.
 
+### Histórico das edições
+
+Feito na branch `historico-edicoes`. Antes, editar título, prioridade ou descrição não deixava rastro, e mudar a prioridade muda o prazo. Agora cada edição fica registrada (tabela `EdicoesChamados`, migration `EdicoesDosChamados`).
+
+- **O que é guardado**: quando, quem editou e o que mudou. Do título e da prioridade, o valor de antes e o de depois; da descrição, só se mudou (o texto atual continua no chamado). Uma edição que não muda nada não entra no histórico.
+- **Detalhe**: o "Histórico" virou uma linha do tempo com as mudanças de status e as edições, por exemplo "Dados editados · prioridade Baixa → Alta · título “A” → “B” · por Ana".
+- **Quem editou**: o usuário conectado, nos três caminhos de edição (página Editar, fila de atendimento e `PUT /api/chamados/{id}`). Na API, o autor vem do token ou do cookie; um campo `por` no corpo é ignorado.
+- **API**: o detalhe traz `edicoes`, cada uma com `em`, `tituloAnterior`, `tituloNovo`, `prioridadeAnterior`, `prioridadeNova`, `descricaoAlterada` e `por`.
+- **Banco antigo**: as edições feitas antes deste recurso não têm como ser recuperadas; o histórico delas começa agora.
+
 ### Nome de exibição
 
 Feito na branch `nome-de-exibicao`. O login continua pelo e-mail, mas o cabeçalho, "Aberto por", o histórico, a conversa, a fila e a API mostram um nome ("Ana", "Bruno", "Carla"). O e-mail de login aparece só no próprio cabeçalho, ao passar o mouse sobre o nome.
@@ -219,7 +229,7 @@ Feito na branch `nome-de-exibicao`. O login continua pelo e-mail, mas o cabeçal
 
 ## Testar
 
-No Visual Studio: **Teste > Gerenciador de Testes > Executar Todos** (`Ctrl+R, A`). Pela CLI: `dotnet test`. São 157 testes: 88 do domínio (com a política de prazos e um relógio controlado), 16 de integração com o banco e 53 da aplicação web (integração com `WebApplicationFactory`, inclusive em ambiente Production com o banco falhando, com prazos de milissegundos, com os três usuários vendo cada um o que pode e conversando nos chamados, componentes com `HtmlRenderer` e unidade das políticas de autorização). O GitHub roda os mesmos testes a cada push (`.github/workflows/ci.yml`).
+No Visual Studio: **Teste > Gerenciador de Testes > Executar Todos** (`Ctrl+R, A`). Pela CLI: `dotnet test`. São 167 testes: 94 do domínio (com a política de prazos e um relógio controlado), 17 de integração com o banco e 56 da aplicação web (integração com `WebApplicationFactory`, inclusive em ambiente Production com o banco falhando, com prazos de milissegundos, com os três usuários vendo cada um o que pode e conversando nos chamados, componentes com `HtmlRenderer` e unidade das políticas de autorização). O GitHub roda os mesmos testes a cada push (`.github/workflows/ci.yml`).
 
 ## Estrutura
 
@@ -288,8 +298,11 @@ No Visual Studio: **Teste > Gerenciador de Testes > Executar Todos** (`Ctrl+R, A
 - **Comentar não muda a versão** (comentários): a versão protege título, prioridade e status contra gravações cruzadas. Uma mensagem só acrescenta uma linha em outra tabela; se mudasse a versão, quem estivesse editando o chamado receberia um conflito por causa de uma conversa. Um teste de integração grava uma mensagem no meio de uma transição e confere que as duas ficam.
 - **Mensagens imutáveis e com autor obrigatório** (comentários): não há editar nem apagar; o que foi dito fica como foi dito, com o nome do autor como era no momento. Ao contrário das transições, o autor não é opcional no domínio: mensagem sem autor não faz sentido.
 - **Conversa em qualquer status** (comentários): depois de resolvido, "voltou a dar problema" também é conversa. Comentar não reabre o chamado; reabertura seria outra transição, com regra própria.
-- **Duas coleções, um JOIN só** (comentários): com histórico e conversa no mesmo chamado, o detalhe usa `AsSingleQuery`. O JOIN repete cada registro do histórico a cada mensagem, mas o histórico tem no máximo dois registros (iniciar e resolver ou cancelar). Em troca, o SQL ordena pela chave das mensagens, e elas chegam na ordem em que foram gravadas; com `AsSplitQuery` (uma consulta por tabela), o EF ordena só pelo chamado, e essa ordem ficaria por conta do banco.
+- **Uma consulta por coleção, ordem garantida pelo domínio** (comentários e edições): o chamado tem três coleções (histórico, conversa e edições). Num JOIN só, cada linha se repetiria a cada mensagem e a cada edição; por isso o detalhe usa `AsSplitQuery`, uma consulta por tabela. Nesse modo o EF ordena só pelo chamado, e a ordem das linhas de cada tabela ficaria por conta do banco; então o próprio `Chamado` devolve as três listas em ordem cronológica (pela data de cada registro), sem depender do SQL. Um teste do domínio cria registros fora de ordem e confere.
 - **`totalComentarios` na lista, `comentarios` no detalhe** (comentários): nomes diferentes porque os tipos são diferentes (número e lista). Com o mesmo nome, um cliente que lesse o detalhe com o tipo da lista quebraria; um teste já existente pegou exatamente isso.
 - **Sem atualização ao vivo** (comentários): a conversa aparece ao abrir ou recarregar o detalhe (Post/Redirect/Get). Mensagens chegando sozinhas pediriam o detalhe em Blazor ou SignalR; ficou de fora por ora.
 - **Nome de exibição numa claim, não numa coluna** (nome de exibição): o sistema já usava claims do Identity para o cargo; o nome entra do mesmo jeito, sem trocar o `IdentityUser` por uma classe própria nem criar migration. O nome de usuário do Identity continua sendo o e-mail, que serve só para o login, e o nome pode ter espaços e acentos (o nome de usuário do Identity não aceita espaço). Se um dia houver uma tela para cada um editar o próprio perfil, a troca é `ReplaceClaimAsync`.
 - **Nomes na tela e na API, e-mail só no login** (nome de exibição): o e-mail de uma pessoa não aparece mais para as outras, nem no JSON. Os logs continuam só com Ids.
+- **Edições num registro próprio** (histórico das edições): `RegistroEdicao` tem campos para o que muda numa edição (título e prioridade de antes e de depois, descrição alterada), em vez de forçar a edição dentro do registro de status. A tela junta os dois numa linha do tempo só.
+- **O autor da edição fica fora do comando** (histórico das edições): o `EdicaoChamado` chega pronto do corpo da requisição na API. Se o autor estivesse nele, quem chama a API poderia escrever o nome de outra pessoa; por isso ele é um parâmetro do serviço, preenchido pelo usuário conectado. Um teste manda `por` no corpo e confere que é ignorado.
+- **Descrição: só "alterada"** (histórico das edições): guardar o texto anterior inteiro (até 2000 caracteres por edição) não pagava o espaço para o uso deste sistema. Título e prioridade, curtos e decisivos para o prazo, guardam os dois valores.

@@ -94,5 +94,24 @@ public sealed class ChamadoConfiguracao : IEntityTypeConfiguration<Chamado>
         });
 
         builder.Navigation(c => c.Comentarios).UsePropertyAccessMode(PropertyAccessMode.Field);
+
+        // Histórico das edições: mais uma coleção do chamado, no mesmo desenho. A prioridade vai como
+        // texto ("Alta"), como o status no histórico: a tabela fica legível e não há ordenação por ela.
+        builder.OwnsMany(c => c.Edicoes, edicao =>
+        {
+            edicao.ToTable("EdicoesChamados");
+            edicao.WithOwner().HasForeignKey("ChamadoId");
+            edicao.Property<int>("Id");
+            edicao.HasKey("Id");
+            edicao.Property(e => e.TituloAnterior).HasMaxLength(Chamado.TamanhoMaximoTitulo);
+            edicao.Property(e => e.TituloNovo).HasMaxLength(Chamado.TamanhoMaximoTitulo);
+            edicao.Property(e => e.PrioridadeAnterior).HasConversion<string>().HasMaxLength(20);
+            edicao.Property(e => e.PrioridadeNova).HasConversion<string>().HasMaxLength(20);
+            edicao.Property(e => e.PorId).HasMaxLength(Autor.TamanhoMaximoId);
+            edicao.Property(e => e.PorNome).HasMaxLength(Autor.TamanhoMaximoNome);
+            edicao.Ignore(e => e.Por);
+        });
+
+        builder.Navigation(c => c.Edicoes).UsePropertyAccessMode(PropertyAccessMode.Field);
     }
 }

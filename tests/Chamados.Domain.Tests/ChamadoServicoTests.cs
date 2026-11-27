@@ -411,4 +411,22 @@ public class ChamadoServicoTests
     {
         await Assert.ThrowsAsync<ChamadoNaoEncontradoException>(() => _servico.ComentarAsync(Guid.NewGuid(), "Oi", Bruno));
     }
+
+    // --- Histórico das edições ---
+
+    [Fact]
+    public async Task EditarAsync_RegistraQuemEditouComAHoraDoRelogio()
+    {
+        var chamado = await _servico.AbrirAsync(new NovoChamado("Tomada solta", Prioridade.Baixa, AbertoPor: Bruno));
+        _relogio.Avancar(TimeSpan.FromHours(2));
+
+        var editado = await _servico.EditarAsync(chamado.Id,
+            new EdicaoChamado("Tomada solta", Prioridade.Critica, null, VersaoEsperada: 1), Ana);
+
+        var edicao = Assert.Single(editado.Edicoes);
+        Assert.Equal(Inicio.AddHours(2), edicao.Em);
+        Assert.Equal(Ana, edicao.Por);
+        Assert.Equal(Prioridade.Baixa, edicao.PrioridadeAnterior);
+        Assert.Equal(Prioridade.Critica, edicao.PrioridadeNova);
+    }
 }

@@ -37,6 +37,18 @@ public sealed class DetalhesModel(ChamadoServico servico, IAuthorizationService 
     /// <summary>Comentários: o texto que voltou com erro, para não se perder ao mostrar a mensagem de erro.</summary>
     public string? TextoDigitado { get; private set; }
 
+    /// <summary>
+    /// Histórico das edições: mudanças de status (<see cref="RegistroHistorico"/>) e edições
+    /// (<see cref="RegistroEdicao"/>) juntas, em ordem cronológica. Na mesma hora, o status vem primeiro.
+    /// </summary>
+    public IReadOnlyList<object> LinhaDoTempo =>
+    [
+        .. Chamado.Historico.Select(r => (r.Em, Item: (object)r))
+            .Concat(Chamado.Edicoes.Select(e => (e.Em, Item: (object)e)))
+            .OrderBy(x => x.Em)
+            .Select(x => x.Item),
+    ];
+
     public async Task<IActionResult> OnGetAsync(Guid id, CancellationToken cancellationToken)
     {
         if (await servico.ObterAsync(id, cancellationToken) is not { } chamado)

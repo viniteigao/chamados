@@ -22,6 +22,7 @@ public sealed class Chamado
 
     private readonly List<RegistroHistorico> _historico = [];
     private readonly List<Comentario> _comentarios = [];
+    private readonly List<RegistroEdicao> _edicoes = [];
 
     public Chamado(
         string titulo,
@@ -83,19 +84,29 @@ public sealed class Chamado
     /// <summary>O chamado foi aberto por este usuário? Falso nos chamados sem dono.</summary>
     public bool FoiAbertoPor(string usuarioId) => AbertoPorId is not null && AbertoPorId == usuarioId;
 
-    // AsReadOnly impede que quem recebe a lista faça cast para List<T> e a altere.
-    public IReadOnlyList<RegistroHistorico> Historico => _historico.AsReadOnly();
+    // Histórico das edições: as três listas saem sempre em ordem cronológica, garantida aqui e não
+    // pelo banco (que carrega cada tabela numa consulta e não promete a ordem das linhas).
+    // OrderBy é estável: registros com a mesma hora ficam na ordem em que chegaram.
+    // Cada leitura devolve uma cópia somente leitura: quem recebe não altera a lista do chamado.
+    public IReadOnlyList<RegistroHistorico> Historico => [.. _historico.OrderBy(r => r.Em)];
 
-    /// <summary>Comentários: a conversa do chamado, na ordem em que foi escrita.</summary>
-    public IReadOnlyList<Comentario> Comentarios => _comentarios.AsReadOnly();
+    /// <summary>Comentários: a conversa do chamado, da mensagem mais antiga para a mais nova.</summary>
+    public IReadOnlyList<Comentario> Comentarios => [.. _comentarios.OrderBy(m => m.Em)];
+
+    /// <summary>Histórico das edições: cada edição de título, prioridade ou descrição, da mais antiga para a mais nova.</summary>
+    public IReadOnlyList<RegistroEdicao> Edicoes => [.. _edicoes.OrderBy(e => e.Em)];
 
     public bool EstaEncerrado => Status is StatusChamado.Resolvido or StatusChamado.Cancelado;
 
     // DateTimeOffset? - DateTimeOffset resulta em TimeSpan? (nulo enquanto aberto).
     public TimeSpan? TempoAteEncerramento => EncerradoEm - CriadoEm;
 
-    /// <summary>Altera título, prioridade e descrição de um chamado ainda não encerrado.</summary>
-    public void Editar(string titulo, Prioridade prioridade, string? descricao)
+    /// <summary>
+    /// Altera título, prioridade e descrição de um chamado ainda não encerrado.
+    /// Histórico das edições: registra o que mudou, quando e por quem. Uma edição que não muda
+    /// nada não entra no histórico (a versão aumenta mesmo assim, como sempre aumentou).
+    /// </summary>
+    public void Editar(string titulo, Prioridade prioridade, string? descricao, DateTimeOffset em, Autor? por = null)
     {
         if (EstaEncerrado)
         {
@@ -106,6 +117,23 @@ public sealed class Chamado
         var novoTitulo = ValidarTitulo(titulo);
         var novaDescricao = ValidarDescricao(descricao);
         var novaPrioridade = ValidarPrioridade(prioridade);
+        ArgumentOutOfRangeException.ThrowIfLessThan(em, CriadoEm);
+
+        var tituloMudou = !string.Equals(novoTitulo, Titulo, StringComparison.Ordinal);
+        var prioridadeMudou = novaPrioridade != Prioridade;
+        var descricaoMudou = !string.Equals(novaDescricao, Descricao, StringComparison.Ordinal);
+        if (tituloMudou || prioridadeMudou || descricaoMudou)
+        {
+            _edicoes.Add(new RegistroEdicao(
+                em,
+                tituloMudou ? Titulo : null,
+                tituloMudou ? novoTitulo : null,
+                prioridadeMudou ? Prioridade : null,
+                prioridadeMudou ? novaPrioridade : null,
+                descricaoMudou,
+                por?.Id,
+                por?.Nome));
+        }
 
         Titulo = novoTitulo;
         Descricao = novaDescricao;

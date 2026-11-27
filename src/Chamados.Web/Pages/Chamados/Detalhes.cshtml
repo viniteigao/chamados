@@ -84,26 +84,54 @@
 }
 
 <h2>Histórico</h2>
-@if (chamado.Historico.Count == 0)
+@* Histórico das edições: mudanças de status e edições numa linha do tempo só, da mais antiga para a mais nova. *@
+@if (Model.LinhaDoTempo.Count == 0)
 {
-    <p class="vazio">Nenhuma mudança de status ainda.</p>
+    <p class="vazio">Nenhuma mudança ainda.</p>
 }
 else
 {
     <ol class="historico">
-        @foreach (var registro in chamado.Historico)
+        @foreach (var item in Model.LinhaDoTempo)
         {
             <li>
-                <time>@registro.Em.DataHora()</time>
-                @registro.De.Rotulo() → <strong>@registro.Para.Rotulo()</strong>
-                @if (registro.Observacao is not null)
+                @switch (item)
                 {
-                    <span class="apoio">· @registro.Observacao</span>
-                }
-                @* Meus chamados: quem fez a mudança (registros antigos não têm). *@
-                @if (registro.Por is { } por)
-                {
-                    <span class="apoio">· por @por.Nome</span>
+                    case RegistroHistorico registro:
+                        <time>@registro.Em.DataHora()</time>
+                        @:@registro.De.Rotulo() → <strong>@registro.Para.Rotulo()</strong>
+                        @if (registro.Observacao is not null)
+                        {
+                            <span class="apoio">· @registro.Observacao</span>
+                        }
+                        @* Meus chamados: quem fez a mudança (registros antigos não têm). *@
+                        @if (registro.Por is { } por)
+                        {
+                            <span class="apoio">· por @por.Nome</span>
+                        }
+                        break;
+
+                    case RegistroEdicao edicao:
+                        <time>@edicao.Em.DataHora()</time>
+                        <strong>Dados editados</strong>
+                        @* Mudar a prioridade muda o prazo: por isso ela aparece primeiro. *@
+                        @if (edicao.PrioridadeAnterior is { } antes && edicao.PrioridadeNova is { } depois)
+                        {
+                            <span class="apoio">· prioridade @antes.Rotulo() → @depois.Rotulo()</span>
+                        }
+                        @if (edicao.TituloNovo is not null)
+                        {
+                            <span class="apoio">· título “@edicao.TituloAnterior” → “@edicao.TituloNovo”</span>
+                        }
+                        @if (edicao.DescricaoAlterada)
+                        {
+                            <span class="apoio">· descrição alterada</span>
+                        }
+                        @if (edicao.Por is { } autor)
+                        {
+                            <span class="apoio">· por @autor.Nome</span>
+                        }
+                        break;
                 }
             </li>
         }

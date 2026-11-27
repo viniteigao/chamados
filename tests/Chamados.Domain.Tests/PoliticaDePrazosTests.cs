@@ -75,7 +75,7 @@ public class PoliticaDePrazosTests
         var agora = Abertura.AddHours(5);
         var antes = Politica.Avaliar(chamado, agora)!.Situacao;
 
-        chamado.Editar("Tomada solta", Prioridade.Critica, null);
+        chamado.Editar("Tomada solta", Prioridade.Critica, null, Abertura.AddHours(1));
 
         Assert.Equal(SituacaoPrazo.NoPrazo, antes);
         Assert.Equal(SituacaoPrazo.Vencido, Politica.Avaliar(chamado, agora)!.Situacao);

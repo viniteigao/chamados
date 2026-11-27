@@ -32,8 +32,12 @@ public sealed class ChamadoServico(
     /// <summary>
     /// Edita título, prioridade e descrição, desde que ninguém tenha alterado
     /// o chamado depois que o usuário o leu.
+    /// Histórico das edições: "por" é quem edita, com a hora do relógio. Fica fora do
+    /// <see cref="EdicaoChamado"/> porque a API recebe esse comando do corpo da requisição:
+    /// ali, o autor poderia ser inventado por quem chama.
     /// </summary>
-    public Task<Chamado> EditarAsync(Guid id, EdicaoChamado comando, CancellationToken cancellationToken = default)
+    public Task<Chamado> EditarAsync(Guid id, EdicaoChamado comando, Autor? por = null,
+        CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(comando);
 
@@ -44,7 +48,7 @@ public sealed class ChamadoServico(
                 throw new ConcorrenciaException(id, comando.VersaoEsperada, chamado.Versao);
             }
 
-            chamado.Editar(comando.Titulo, comando.Prioridade, comando.Descricao);
+            chamado.Editar(comando.Titulo, comando.Prioridade, comando.Descricao, relogio.GetUtcNow(), por);
         }, cancellationToken);
     }
 

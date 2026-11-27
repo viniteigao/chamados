@@ -321,6 +321,44 @@ public class RepositorioChamadosEfTests
         Assert.Equal("Alguma previsão?", Assert.Single(lido.Comentarios).Texto);
     }
 
+    // --- Histórico das edições ---
+
+    [Fact]
+    public async Task Edicoes_sao_gravadas_e_lidas_junto_com_historico_e_conversa()
+    {
+        await using var banco = await BancoEmMemoria.CriarAsync();
+        var repositorio = new RepositorioChamadosEf(banco);
+        var chamado = new Chamado("Projetor", Prioridade.Baixa, "Sala 12", Abertura, Bruno);
+        chamado.IniciarAtendimento("Audiovisual", Abertura.AddMinutes(5), Ana);
+        chamado.Comentar("Sem imagem desde ontem.", Abertura.AddMinutes(7), Bruno);
+        chamado.Comentar("Vou levar outro cabo.", Abertura.AddMinutes(8), Ana);
+        await repositorio.AdicionarAsync(chamado);
+
+        await repositorio.AlterarAsync(chamado.Id,
+            c => c.Editar("Projetor sem imagem", Prioridade.Alta, "Sala 12", Abertura.AddMinutes(10), Ana));
+        await repositorio.AlterarAsync(chamado.Id,
+            c => c.Editar("Projetor sem imagem", Prioridade.Critica, "Sala 12, auditório", Abertura.AddMinutes(20), Ana));
+        var lido = await repositorio.ObterAsync(chamado.Id);
+
+        Assert.Equal(2, lido!.Edicoes.Count);
+        var primeira = lido.Edicoes[0];
+        Assert.Equal("Projetor", primeira.TituloAnterior);
+        Assert.Equal("Projetor sem imagem", primeira.TituloNovo);
+        Assert.Equal(Prioridade.Baixa, primeira.PrioridadeAnterior);
+        Assert.Equal(Prioridade.Alta, primeira.PrioridadeNova);
+        Assert.False(primeira.DescricaoAlterada);
+        Assert.Equal(Ana, primeira.Por);
+        var segunda = lido.Edicoes[1];
+        Assert.Null(segunda.TituloNovo);
+        Assert.Equal(Prioridade.Critica, segunda.PrioridadeNova);
+        Assert.True(segunda.DescricaoAlterada);
+
+        // As três coleções vêm completas, uma consulta por tabela, sem linhas repetidas.
+        Assert.Single(lido.Historico);
+        Assert.Equal(["Sem imagem desde ontem.", "Vou levar outro cabo."], lido.Comentarios.Select(m => m.Texto));
+        Assert.Equal(4, lido.Versao);   // 1 + início do atendimento + 2 edições
+    }
+
     [Fact]
     public async Task Migrations_estao_em_dia_com_o_modelo()
     {

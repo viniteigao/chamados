@@ -118,10 +118,11 @@ else
         salvando = true;
         try
         {
-            var abertoPor = Autenticacao is null ? null : (await Autenticacao).User.ComoAutor();
+            // Quem abre ou edita: o usuário conectado (histórico das edições).
+            var autor = Autenticacao is null ? null : (await Autenticacao).User.ComoAutor();
             var chamado = ChamadoId is { } id
-                ? await Servico.EditarAsync(id, modelo!.ParaEdicao(versao))
-                : await Servico.AbrirAsync(modelo!.ParaComando(abertoPor));
+                ? await Servico.EditarAsync(id, modelo!.ParaEdicao(versao), autor)
+                : await Servico.AbrirAsync(modelo!.ParaComando(autor));
 
             await AoSalvar.InvokeAsync(ResumoChamado.De(chamado));
         }
