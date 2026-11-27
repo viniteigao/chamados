@@ -64,7 +64,17 @@ public sealed class Chamado
 
     public StatusChamado Status { get; private set; } = StatusChamado.Aberto;
 
+    /// <summary>Nome do responsável, como era ao ser atribuído (chamados antigos: o texto digitado).</summary>
     public string? Responsavel { get; private set; }
+
+    /// <summary>
+    /// Responsável atendente: o Id do atendente que cuida do chamado. Nulo nos chamados abertos e nos
+    /// atribuídos antes deste recurso, quando o responsável era um texto livre.
+    /// </summary>
+    public string? ResponsavelId { get; private set; }
+
+    /// <summary>O chamado está com este atendente? Falso nos chamados sem responsável cadastrado.</summary>
+    public bool FoiAtribuidoA(string usuarioId) => ResponsavelId is not null && ResponsavelId == usuarioId;
 
     public string? Solucao { get; private set; }
 
@@ -159,11 +169,46 @@ public sealed class Chamado
     }
 
     // Meus chamados: cada transição aceita quem a fez (por), que vai para o histórico.
-    public void IniciarAtendimento(string responsavel, DateTimeOffset em, Autor? por = null)
+    // Responsável atendente: o responsável é uma pessoa (Id e nome), não mais um texto livre.
+    public void IniciarAtendimento(Autor responsavel, DateTimeOffset em, Autor? por = null)
     {
-        var nome = ValidarTextoObrigatorio(responsavel, TamanhoMaximoResponsavel, "O responsável", nameof(responsavel));
+        ArgumentNullException.ThrowIfNull(responsavel);
+        var nome = ValidarTextoObrigatorio(responsavel.Nome, TamanhoMaximoResponsavel, "O nome do responsável", nameof(responsavel));
         MudarStatus(StatusChamado.EmAtendimento, em, $"Atribuído a {nome}", por);
         Responsavel = nome;
+        ResponsavelId = responsavel.Id;
+    }
+
+    /// <summary>
+    /// Responsável atendente: passa o atendimento a outra pessoa. Só em atendimento; o status não muda,
+    /// e a troca entra no histórico das edições ("responsável Ana → Davi"). Passar para quem já é o
+    /// responsável não muda nada.
+    /// </summary>
+    public void Reatribuir(Autor responsavel, DateTimeOffset em, Autor? por = null)
+    {
+        ArgumentNullException.ThrowIfNull(responsavel);
+        if (EstaEncerrado)
+        {
+            throw new ChamadoEncerradoException(Id, Status);
+        }
+
+        if (Status != StatusChamado.EmAtendimento)
+        {
+            throw new ChamadoSemAtendimentoException(Id, Status);
+        }
+
+        var nome = ValidarTextoObrigatorio(responsavel.Nome, TamanhoMaximoResponsavel, "O nome do responsável", nameof(responsavel));
+        ArgumentOutOfRangeException.ThrowIfLessThan(em, CriadoEm);
+        if (FoiAtribuidoA(responsavel.Id))
+        {
+            return;
+        }
+
+        _edicoes.Add(new RegistroEdicao(em, null, null, null, null, false, por?.Id, por?.Nome,
+            ResponsavelAnterior: Responsavel, ResponsavelNovo: nome));
+        Responsavel = nome;
+        ResponsavelId = responsavel.Id;
+        Versao++;
     }
 
     public void Resolver(string solucao, DateTimeOffset em, Autor? por = null)

@@ -1,4 +1,6 @@
 using System.Security.Claims;
+using Chamados.Infra;
+using Microsoft.EntityFrameworkCore;
 
 namespace Chamados.Web.Seguranca;
 
@@ -22,5 +24,18 @@ public static class NomeDeExibicao
         ArgumentNullException.ThrowIfNull(usuario);
         var nome = usuario.FindFirstValue(Claim);
         return string.IsNullOrWhiteSpace(nome) ? usuario.Identity?.Name : nome.Trim();
+    }
+
+    /// <summary>Os nomes de exibição de todos os usuários, por Id, numa consulta (gestão e lista de atendentes).</summary>
+    public static async Task<Dictionary<string, string>> NomesAsync(ChamadosDbContext db, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(db);
+        return (await db.UserClaims.AsNoTracking()
+                .Where(c => c.ClaimType == Claim)
+                .Select(c => new { c.UserId, c.ClaimValue })
+                .ToListAsync(cancellationToken))
+            .Where(c => !string.IsNullOrWhiteSpace(c.ClaimValue))
+            .GroupBy(c => c.UserId)
+            .ToDictionary(g => g.Key, g => g.First().ClaimValue!.Trim());
     }
 }

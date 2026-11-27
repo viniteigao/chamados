@@ -13,9 +13,10 @@
         {
             <text> por @Chamado.AbertoPorNome</text>
         }
+        @* Responsável atendente: com quem o chamado está. *@
         @if (Chamado.Responsavel is not null)
         {
-            <text> · @Chamado.Responsavel</text>
+            <text> · com @Chamado.Responsavel</text>
         }
     </p>
 
@@ -44,6 +45,8 @@
             else
             {
                 <button type="button" disabled="@Desabilitado" @onclick="() => Escolher(TipoTransicao.Resolver)">Resolver</button>
+                @* Responsável atendente: passar para outra pessoa. *@
+                <button type="button" class="neutro" disabled="@Desabilitado" @onclick="() => Escolher(TipoTransicao.Reatribuir)">Reatribuir</button>
             }
             <button type="button" class="secundario" disabled="@Desabilitado" @onclick="() => Escolher(TipoTransicao.Cancelar)">Cancelar</button>
             @* Módulo 6: editar sem sair da fila. O cartão só avisa qual chamado; a página abre o formulário. *@
@@ -56,9 +59,23 @@
         <label>
             @RotuloDoCampo
             @* @ref guarda a referência ao elemento, para levar o foco até ele. *@
-            <input @ref="campo" @bind="texto" @bind:event="oninput" @onkeydown="AoTeclar" autocomplete="off"
-                   maxlength="@TamanhoMaximo"
-                   aria-invalid="@(erro is not null ? "true" : null)" aria-describedby="@(erro is not null ? $"erro-{Chamado.Id}" : null)" />
+            @if (EscolheAtendente)
+            {
+                @* Responsável atendente: escolhe-se uma pessoa da lista, não se digita um nome. *@
+                <select @ref="campo" @bind="texto" @onkeydown="AoTeclar"
+                        aria-invalid="@(erro is not null ? "true" : null)" aria-describedby="@(erro is not null ? $"erro-{Chamado.Id}" : null)">
+                    @foreach (var atendente in Atendentes)
+                    {
+                        <option value="@atendente.Id">@atendente.Nome</option>
+                    }
+                </select>
+            }
+            else
+            {
+                <input @ref="campo" @bind="texto" @bind:event="oninput" @onkeydown="AoTeclar" autocomplete="off"
+                       maxlength="@TamanhoMaximo"
+                       aria-invalid="@(erro is not null ? "true" : null)" aria-describedby="@(erro is not null ? $"erro-{Chamado.Id}" : null)" />
+            }
         </label>
         @if (erro is not null)
         {
@@ -90,9 +107,16 @@
     [Parameter]
     public EventCallback<Guid> AoEditar { get; set; }
 
-    /// <summary>Nome sugerido no campo Responsável (lembrado pelo navegador).</summary>
+    /// <summary>
+    /// Responsável atendente: o Id do atendente que vem marcado ao iniciar (o último escolhido neste
+    /// navegador ou, sem ele, quem está conectado).
+    /// </summary>
     [Parameter]
     public string? ResponsavelPadrao { get; set; }
+
+    /// <summary>Responsável atendente: os atendentes ativos, para escolher quem atende.</summary>
+    [Parameter]
+    public IReadOnlyList<Autor> Atendentes { get; set; } = [];
 
     /// <summary>Verdadeiro enquanto a página executa outra ação: evita clique duplo.</summary>
     [Parameter]
@@ -111,13 +135,14 @@
     };
 
     // Melhorias: o mesmo limite do domínio, para o navegador não deixar digitar além dele.
-    private int TamanhoMaximo => acao == TipoTransicao.Iniciar
-        ? global::Chamados.Domain.Chamado.TamanhoMaximoResponsavel
-        : global::Chamados.Domain.Chamado.TamanhoMaximoJustificativa;
+    private static int TamanhoMaximo => global::Chamados.Domain.Chamado.TamanhoMaximoJustificativa;
+
+    private bool EscolheAtendente => acao is TipoTransicao.Iniciar or TipoTransicao.Reatribuir;
 
     private string RotuloDoCampo => acao switch
     {
-        TipoTransicao.Iniciar => "Responsável",
+        TipoTransicao.Iniciar => "Quem vai atender",
+        TipoTransicao.Reatribuir => "Passar para",
         TipoTransicao.Resolver => "Solução aplicada",
         _ => "Motivo do cancelamento"
     };
@@ -125,7 +150,10 @@
     private void Escolher(TipoTransicao tipo)
     {
         acao = tipo;
-        texto = tipo == TipoTransicao.Iniciar ? ResponsavelPadrao ?? string.Empty : string.Empty;
+        // Responsável atendente: vem marcado o atendente sugerido, se ele ainda estiver na lista.
+        texto = tipo is TipoTransicao.Iniciar or TipoTransicao.Reatribuir
+            ? Atendentes.FirstOrDefault(a => a.Id == ResponsavelPadrao)?.Id ?? Atendentes.FirstOrDefault()?.Id ?? string.Empty
+            : string.Empty;
         erro = null;
         focarCampo = true;
     }

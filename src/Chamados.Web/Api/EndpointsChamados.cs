@@ -26,12 +26,14 @@ public static class EndpointsChamados
 
         // Meus chamados: quem não é atendente nem da coordenação recebe só os chamados que abriu;
         // quem vê todos pode pedir só os seus com ?meus=true.
+        // Responsável atendente: ?atribuidosAMim=true traz só os chamados que estão com quem pede.
         api.MapGet("/", (StatusChamado? status, Prioridade? prioridadeMinima, string? texto, OrdemChamados? ordem,
-                bool? somenteVencidos, bool? meus, ClaimsPrincipal usuario, ChamadoServico servico,
+                bool? somenteVencidos, bool? meus, bool? atribuidosAMim, ClaimsPrincipal usuario, ChamadoServico servico,
                 CancellationToken cancellationToken)
             => servico.ListarAsync(
                 new FiltroChamados(status, prioridadeMinima, texto, ordem ?? OrdemChamados.Prioridade, somenteVencidos ?? false,
-                    usuario.DonoParaListar(meus ?? false)),
+                    usuario.DonoParaListar(meus ?? false),
+                    atribuidosAMim == true ? usuario.IdDoUsuario() ?? "-" : null),
                 cancellationToken))
             .WithSummary("Lista chamados (só os próprios, para quem não é atendente nem da coordenação), com filtros opcionais");
 
@@ -45,6 +47,15 @@ public static class EndpointsChamados
             => servico.ObterIndicadoresDePrazoAsync(cancellationToken))
             .RequireAuthorization(Politicas.VerIndicadores)
             .WithSummary("Vencidos, perto de vencer, percentual resolvido no prazo e a tabela de prazos");
+
+        // Responsável atendente: a carga de cada atendente, para a coordenação (mesma política das estatísticas).
+        // Só nomes, como no resto da API; o grupo sem atendente cadastrado sai com "atendente": null.
+        api.MapGet("/carga", async (ChamadoServico servico, CancellationToken cancellationToken)
+            => (await servico.ObterCargaAsync(cancellationToken))
+                .Select(c => new CargaResposta(c.ResponsavelId is null ? null : c.Nome, c.EmAtendimento, c.Vencidos))
+                .ToList())
+            .RequireAuthorization(Politicas.VerIndicadores)
+            .WithSummary("Chamados em atendimento e vencidos de cada atendente");
 
         // Módulo 8: busca por responsável. No laboratório, esta rota começa vulnerável a injeção de SQL.
         // Meus chamados: para quem não vê todos, a busca fica restrita aos chamados que a pessoa abriu.
@@ -123,11 +134,40 @@ public static class EndpointsChamados
         // Transições sem try/catch: o FiltroExcecoesDominio responde 404, 409 ou 400.
         // Módulo 8: as três mudanças de status exigem a política Atender, como os handlers da página Detalhes.
         // Meus chamados: quem faz a mudança (usuário do token ou do cookie) vai para o histórico.
-        api.MapPost("/{id:guid}/atendimento", async (Guid id, IniciarAtendimentoRequest requisicao,
-                ClaimsPrincipal usuario, ChamadoServico servico, CancellationToken cancellationToken)
-            => ResumoChamado.De(await servico.IniciarAtendimentoAsync(id, requisicao.Responsavel, usuario.ComoAutor(), cancellationToken)))
+        // Responsável atendente: sem responsavelId, quem atende é quem chamou; com ele, só um atendente ativo.
+        api.MapPost("/{id:guid}/atendimento", async Task<Results<Ok<ResumoChamado>, ValidationProblem>> (Guid id,
+                IniciarAtendimentoRequest requisicao, ClaimsPrincipal usuario, ChamadoServico servico, Atendentes atendentes,
+                CancellationToken cancellationToken) =>
+            {
+                var responsavel = string.IsNullOrWhiteSpace(requisicao.ResponsavelId)
+                    ? usuario.ComoAutor()
+                    : await atendentes.ObterAsync(requisicao.ResponsavelId, cancellationToken);
+                if (responsavel is null)
+                {
+                    return AtendenteInvalido();
+                }
+
+                return TypedResults.Ok(ResumoChamado.De(
+                    await servico.IniciarAtendimentoAsync(id, responsavel, usuario.ComoAutor(), cancellationToken)));
+            })
             .RequireAuthorization(Politicas.Atender)
-            .WithSummary("Inicia o atendimento, atribuindo um responsável");
+            .WithSummary("Inicia o atendimento; o responsável é quem chama ou o atendente indicado");
+
+        // Responsável atendente: passa um chamado em atendimento a outro atendente (entra nas edições).
+        api.MapPost("/{id:guid}/responsavel", async Task<Results<Ok<ResumoChamado>, ValidationProblem>> (Guid id,
+                ReatribuirRequest requisicao, ClaimsPrincipal usuario, ChamadoServico servico, Atendentes atendentes,
+                CancellationToken cancellationToken) =>
+            {
+                if (await atendentes.ObterAsync(requisicao.ResponsavelId, cancellationToken) is not { } responsavel)
+                {
+                    return AtendenteInvalido();
+                }
+
+                return TypedResults.Ok(ResumoChamado.De(
+                    await servico.ReatribuirAsync(id, responsavel, usuario.ComoAutor(), cancellationToken)));
+            })
+            .RequireAuthorization(Politicas.Atender)
+            .WithSummary("Passa um chamado em atendimento a outro atendente");
 
         api.MapPost("/{id:guid}/resolucao", async (Guid id, ResolverRequest requisicao,
                 ClaimsPrincipal usuario, ChamadoServico servico, CancellationToken cancellationToken)
@@ -141,8 +181,24 @@ public static class EndpointsChamados
             .RequireAuthorization(Politicas.Atender)
             .WithSummary("Cancela um chamado aberto ou em atendimento, registrando o motivo");
 
+        // Responsável atendente: a lista para escolher o responsável (Id e nome). O Id do usuário sai
+        // só aqui, para quem atende, porque é por ele que a API recebe a escolha.
+        app.MapGet("/api/atendentes", async (Atendentes atendentes, CancellationToken cancellationToken)
+                => (await atendentes.ListarAsync(cancellationToken)).Select(a => new AtendenteResposta(a.Id, a.Nome)).ToList())
+            .AddEndpointFilter<FiltroSessaoValida>()
+            .RequireAuthorization(Politicas.Api)
+            .RequireAuthorization(Politicas.Atender)
+            .WithTags("Chamados")
+            .WithSummary("Atendentes ativos, para escolher o responsável de um chamado");
+
         return api;
     }
+
+    private static ValidationProblem AtendenteInvalido()
+        => TypedResults.ValidationProblem(new Dictionary<string, string[]>
+        {
+            ["responsavelId"] = ["Escolha um atendente ativo da lista (GET /api/atendentes)."],
+        });
 
     private static ILogger Registros(ILoggerFactory registros) => registros.CreateLogger(typeof(EndpointsChamados).FullName!);
 
@@ -169,10 +225,16 @@ public static class EndpointsChamados
 // Melhorias: os corpos das transições passam pela validação automática (AddValidation), como o
 // ChamadoInput: campo ausente ou longo demais responde 400 com o erro no campo, em português.
 // O domínio confere de novo e tem a palavra final.
+// Responsável atendente: o responsável é um atendente, indicado pelo Id (GET /api/atendentes).
+// Sem Id, quem atende é quem chamou a API.
 public sealed record IniciarAtendimentoRequest(
-    [Required(ErrorMessage = "Informe o responsável.")]
-    [StringLength(Chamado.TamanhoMaximoResponsavel, ErrorMessage = "O responsável deve ter no máximo {1} caracteres.")]
-    string Responsavel);
+    [StringLength(Autor.TamanhoMaximoId, ErrorMessage = "Id de atendente inválido.")]
+    string? ResponsavelId = null);
+
+public sealed record ReatribuirRequest(
+    [Required(ErrorMessage = "Informe o atendente.")]
+    [StringLength(Autor.TamanhoMaximoId, ErrorMessage = "Id de atendente inválido.")]
+    string ResponsavelId);
 
 public sealed record ResolverRequest(
     [Required(ErrorMessage = "Informe a solução.")]

@@ -47,6 +47,10 @@ namespace Chamados.Infra.Migrations
                         .HasMaxLength(120)
                         .HasColumnType("TEXT");
 
+                    b.Property<string>("ResponsavelId")
+                        .HasMaxLength(450)
+                        .HasColumnType("TEXT");
+
                     b.Property<string>("Solucao")
                         .HasMaxLength(2000)
                         .HasColumnType("TEXT");
@@ -71,6 +75,8 @@ namespace Chamados.Infra.Migrations
                     b.HasIndex("AbertoPorId");
 
                     b.HasIndex("Prioridade");
+
+                    b.HasIndex("ResponsavelId");
 
                     b.HasIndex("Status");
 
@@ -337,6 +343,14 @@ namespace Chamados.Infra.Migrations
 
                             b1.Property<string>("PrioridadeNova")
                                 .HasMaxLength(20)
+                                .HasColumnType("TEXT");
+
+                            b1.Property<string>("ResponsavelAnterior")
+                                .HasMaxLength(120)
+                                .HasColumnType("TEXT");
+
+                            b1.Property<string>("ResponsavelNovo")
+                                .HasMaxLength(120)
                                 .HasColumnType("TEXT");
 
                             b1.Property<string>("TituloAnterior")

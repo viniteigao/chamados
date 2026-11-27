@@ -18,7 +18,7 @@ namespace Chamados.Web.Pages.Chamados;
 /// Comentários: quem pode ver o chamado pode escrever na conversa (handler Comentar).
 /// </summary>
 public sealed class DetalhesModel(ChamadoServico servico, IAuthorizationService autorizacao,
-    ILogger<DetalhesModel> logger) : PageModel
+    Atendentes atendentes, ILogger<DetalhesModel> logger) : PageModel
 {
     private const string Obrigatorio = "Preencha este campo antes de confirmar.";
     private const string LongoDemais = "Use no máximo {1} caracteres.";
@@ -33,6 +33,9 @@ public sealed class DetalhesModel(ChamadoServico servico, IAuthorizationService 
 
     /// <summary>Comentários: Id do usuário conectado, para a conversa alinhar à direita as mensagens dele.</summary>
     public string? UsuarioId { get; private set; }
+
+    /// <summary>Responsável atendente: os atendentes ativos, para escolher quem atende.</summary>
+    public IReadOnlyList<Autor> OpcoesDeResponsavel { get; private set; } = [];
 
     /// <summary>Comentários: o texto que voltou com erro, para não se perder ao mostrar a mensagem de erro.</summary>
     public string? TextoDigitado { get; private set; }
@@ -68,6 +71,11 @@ public sealed class DetalhesModel(ChamadoServico servico, IAuthorizationService 
         Prazo = servico.PrazoDe(chamado);
         PodeAtender = (await autorizacao.AuthorizeAsync(User, Politicas.Atender)).Succeeded;
         UsuarioId = User.IdDoUsuario();
+        if (PodeAtender && !chamado.EstaEncerrado)
+        {
+            OpcoesDeResponsavel = await atendentes.ListarAsync(cancellationToken);
+        }
+
         return Page();
     }
 
@@ -122,11 +130,27 @@ public sealed class DetalhesModel(ChamadoServico servico, IAuthorizationService 
     // Aqui o model binding preenche parâmetros do método, não uma [BindProperty]:
     // cada formulário envia um campo diferente.
     // Melhorias: o tamanho máximo vem das constantes do domínio, como no ChamadoInput.
-    public Task<IActionResult> OnPostIniciarAsync(Guid id,
-        [Required(ErrorMessage = Obrigatorio), StringLength(Chamado.TamanhoMaximoResponsavel, ErrorMessage = LongoDemais)] string responsavel,
+    // Responsável atendente: o formulário manda o Id do atendente escolhido.
+    public async Task<IActionResult> OnPostIniciarAsync(Guid id,
+        [Required(ErrorMessage = "Escolha quem vai atender.")] string responsavelId,
         CancellationToken cancellationToken)
-        => TransicionarAsync(id, "Iniciar", () => servico.IniciarAtendimentoAsync(id, responsavel, User.ComoAutor(), cancellationToken),
+    {
+        var responsavel = await AtendenteEscolhidoAsync(responsavelId, cancellationToken);
+        return await TransicionarAsync(id, "Iniciar",
+            () => servico.IniciarAtendimentoAsync(id, responsavel!, User.ComoAutor(), cancellationToken),
             "Atendimento iniciado.", cancellationToken);
+    }
+
+    /// <summary>Responsável atendente: passa o chamado em atendimento para outro atendente.</summary>
+    public async Task<IActionResult> OnPostReatribuirAsync(Guid id,
+        [Required(ErrorMessage = "Escolha para quem passar.")] string responsavelId,
+        CancellationToken cancellationToken)
+    {
+        var responsavel = await AtendenteEscolhidoAsync(responsavelId, cancellationToken);
+        return await TransicionarAsync(id, "Reatribuir",
+            () => servico.ReatribuirAsync(id, responsavel!, User.ComoAutor(), cancellationToken),
+            "Responsável alterado.", cancellationToken);
+    }
 
     public Task<IActionResult> OnPostResolverAsync(Guid id,
         [Required(ErrorMessage = Obrigatorio), StringLength(Chamado.TamanhoMaximoJustificativa, ErrorMessage = LongoDemais)] string solucao,
@@ -139,6 +163,18 @@ public sealed class DetalhesModel(ChamadoServico servico, IAuthorizationService 
         CancellationToken cancellationToken)
         => TransicionarAsync(id, "Cancelar", () => servico.CancelarAsync(id, motivo, User.ComoAutor(), cancellationToken),
             "Chamado cancelado.", cancellationToken);
+
+    // O Id veio de um formulário, que pode ser montado à mão: só vale um atendente ativo da lista.
+    private async Task<Autor?> AtendenteEscolhidoAsync(string? responsavelId, CancellationToken cancellationToken)
+    {
+        var responsavel = await atendentes.ObterAsync(responsavelId, cancellationToken);
+        if (responsavel is null && !string.IsNullOrWhiteSpace(responsavelId))
+        {
+            ModelState.AddModelError(nameof(responsavelId), "Escolha um atendente da lista.");
+        }
+
+        return responsavel;
+    }
 
     private async Task<IActionResult> TransicionarAsync(Guid id, string acao, Func<Task<Chamado>> transicao, string sucesso,
         CancellationToken cancellationToken)
@@ -168,6 +204,14 @@ public sealed class DetalhesModel(ChamadoServico servico, IAuthorizationService 
                 ModelState.AddModelError(string.Empty,
                     $"O chamado está {ex.Atual.Rotulo().ToLowerInvariant()} e não pode passar para " +
                     $"{ex.Pretendido.Rotulo().ToLowerInvariant()}. A página foi atualizada.");
+            }
+            catch (ChamadoEncerradoException)
+            {
+                ModelState.AddModelError(string.Empty, "O chamado já foi encerrado. A página foi atualizada.");
+            }
+            catch (ChamadoSemAtendimentoException)
+            {
+                ModelState.AddModelError(string.Empty, "O chamado ainda não está em atendimento. A página foi atualizada.");
             }
             catch (ConcorrenciaException)
             {

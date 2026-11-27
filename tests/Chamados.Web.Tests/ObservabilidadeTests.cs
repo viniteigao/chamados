@@ -79,7 +79,7 @@ public sealed class ObservabilidadeTests(FabricaChamados fabrica) : IClassFixtur
             new { titulo = "Disjuntor desarmando", prioridade = "Critica" });
         var criado = await resposta.Content.ReadFromJsonAsync<ResumoChamado>(Json.Opcoes);
         (await atendente.PostAsJsonAsync(new Uri($"/api/chamados/{criado!.Id}/atendimento", UriKind.Relative),
-            new { responsavel = "Elétrica" })).EnsureSuccessStatusCode();
+            new { })).EnsureSuccessStatusCode();
         (await atendente.PostAsJsonAsync(new Uri($"/api/chamados/{criado.Id}/resolucao", UriKind.Relative),
             new { solucao = "Disjuntor trocado" })).EnsureSuccessStatusCode();
 

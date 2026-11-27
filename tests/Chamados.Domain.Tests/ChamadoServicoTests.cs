@@ -52,9 +52,9 @@ public class ChamadoServicoTests
     public async Task ListarAsync_CombinaStatusEPrioridadeMinima()
     {
         var alta = await _servico.AbrirAsync(new NovoChamado("Alta em atendimento", Prioridade.Alta));
-        await _servico.IniciarAtendimentoAsync(alta.Id, "Equipe");
+        await _servico.IniciarAtendimentoAsync(alta.Id, Responsavel("Equipe"));
         var baixa = await _servico.AbrirAsync(new NovoChamado("Baixa em atendimento", Prioridade.Baixa));
-        await _servico.IniciarAtendimentoAsync(baixa.Id, "Equipe");
+        await _servico.IniciarAtendimentoAsync(baixa.Id, Responsavel("Equipe"));
         await _servico.AbrirAsync(new NovoChamado("Alta aberta", Prioridade.Alta));
 
         var filtro = new FiltroChamados(Status: StatusChamado.EmAtendimento, PrioridadeMinima: Prioridade.Media);
@@ -70,8 +70,8 @@ public class ChamadoServicoTests
         var c2 = await _servico.AbrirAsync(new NovoChamado("C2", Prioridade.Alta));
         await _servico.AbrirAsync(new NovoChamado("C3", Prioridade.Baixa));
 
-        await _servico.IniciarAtendimentoAsync(c1.Id, "Equipe");
-        await _servico.IniciarAtendimentoAsync(c2.Id, "Equipe");
+        await _servico.IniciarAtendimentoAsync(c1.Id, Responsavel("Equipe"));
+        await _servico.IniciarAtendimentoAsync(c2.Id, Responsavel("Equipe"));
         _relogio.Avancar(TimeSpan.FromHours(1));
         await _servico.ResolverAsync(c1.Id, "Feito");
         _relogio.Avancar(TimeSpan.FromHours(2));
@@ -103,7 +103,7 @@ public class ChamadoServicoTests
         var id = Guid.NewGuid();
 
         var erro = await Assert.ThrowsAsync<ChamadoNaoEncontradoException>(
-            () => _servico.IniciarAtendimentoAsync(id, "Equipe"));
+            () => _servico.IniciarAtendimentoAsync(id, Responsavel("Equipe")));
 
         Assert.Equal(id, erro.ChamadoId);
     }
@@ -164,7 +164,7 @@ public class ChamadoServicoTests
     public async Task EditarAsync_ComVersaoDesatualizada_LancaConcorrenciaSemAlterar()
     {
         var chamado = await _servico.AbrirAsync(new NovoChamado("Tomada solta"));
-        await _servico.IniciarAtendimentoAsync(chamado.Id, "Elétrica"); // outra pessoa agiu: versão 2
+        await _servico.IniciarAtendimentoAsync(chamado.Id, Responsavel("Elétrica")); // outra pessoa agiu: versão 2
 
         var erro = await Assert.ThrowsAsync<ConcorrenciaException>(
             () => _servico.EditarAsync(chamado.Id, new EdicaoChamado("Outro título", Prioridade.Alta, null, VersaoEsperada: 1)));
@@ -259,7 +259,7 @@ public class ChamadoServicoTests
         var vencido = await _servico.AbrirAsync(new NovoChamado("Porta não tranca", Prioridade.Critica));
         var encerrado = await _servico.AbrirAsync(new NovoChamado("Lâmpada queimada", Prioridade.Critica));
         await _servico.AbrirAsync(new NovoChamado("Cadeira quebrada", Prioridade.Baixa));
-        await _servico.IniciarAtendimentoAsync(encerrado.Id, "Elétrica");
+        await _servico.IniciarAtendimentoAsync(encerrado.Id, Responsavel("Elétrica"));
         _relogio.Avancar(TimeSpan.FromHours(5));                    // as Críticas venceram; a Baixa tem dias
         await _servico.ResolverAsync(encerrado.Id, "Trocada");     // fora do prazo, mas encerrado: não entra
         await _servico.AbrirAsync(new NovoChamado("Vazamento", Prioridade.Critica));   // aberto agora
@@ -276,8 +276,8 @@ public class ChamadoServicoTests
         var vencido = await _servico.AbrirAsync(new NovoChamado("Aberto há 5 h", Prioridade.Critica));
         var cumprido = await _servico.AbrirAsync(new NovoChamado("Resolvido em 1 h", Prioridade.Critica));
         var atrasado = await _servico.AbrirAsync(new NovoChamado("Resolvido em 5 h", Prioridade.Critica));
-        await _servico.IniciarAtendimentoAsync(cumprido.Id, "Elétrica");
-        await _servico.IniciarAtendimentoAsync(atrasado.Id, "Hidráulica");
+        await _servico.IniciarAtendimentoAsync(cumprido.Id, Responsavel("Elétrica"));
+        await _servico.IniciarAtendimentoAsync(atrasado.Id, Responsavel("Hidráulica"));
         _relogio.Avancar(TimeSpan.FromHours(1));
         await _servico.ResolverAsync(cumprido.Id, "Feito");
         _relogio.Avancar(TimeSpan.FromMinutes(30));
@@ -351,7 +351,7 @@ public class ChamadoServicoTests
         var doBruno = await _servico.AbrirAsync(new NovoChamado("Cadeira quebrada", AbertoPor: Bruno));
         await _servico.AbrirAsync(new NovoChamado("Bebedouro sem água", AbertoPor: Bruno));
         await _servico.AbrirAsync(new NovoChamado("Wi-Fi instável", AbertoPor: Carla));
-        await _servico.IniciarAtendimentoAsync(doBruno.Id, "Elétrica", Ana);
+        await _servico.IniciarAtendimentoAsync(doBruno.Id, Responsavel("Elétrica"), Ana);
 
         var doBrunoApenas = await _servico.ObterEstatisticasAsync(Bruno.Id);
         var todas = await _servico.ObterEstatisticasAsync();
@@ -366,7 +366,7 @@ public class ChamadoServicoTests
     {
         var chamado = await _servico.AbrirAsync(new NovoChamado("Tomada solta", AbertoPor: Bruno));
 
-        await _servico.IniciarAtendimentoAsync(chamado.Id, "Elétrica", Ana);
+        await _servico.IniciarAtendimentoAsync(chamado.Id, Responsavel("Elétrica"), Ana);
         var cancelado = await _servico.CancelarAsync(chamado.Id, "Duplicado", Ana);
 
         Assert.All(cancelado.Historico, r => Assert.Equal(Ana, r.Por));
@@ -378,8 +378,8 @@ public class ChamadoServicoTests
     {
         var doBruno = await _servico.AbrirAsync(new NovoChamado("Cadeira quebrada", AbertoPor: Bruno));
         var daCarla = await _servico.AbrirAsync(new NovoChamado("Wi-Fi instável", AbertoPor: Carla));
-        await _servico.IniciarAtendimentoAsync(doBruno.Id, "Redes", Ana);
-        await _servico.IniciarAtendimentoAsync(daCarla.Id, "Redes", Ana);
+        await _servico.IniciarAtendimentoAsync(doBruno.Id, Responsavel("Redes"), Ana);
+        await _servico.IniciarAtendimentoAsync(daCarla.Id, Responsavel("Redes"), Ana);
 
         var doBrunoComRedes = await _servico.ListarPorResponsavelAsync("Redes", Bruno.Id);
         var todosComRedes = await _servico.ListarPorResponsavelAsync("Redes");
@@ -428,5 +428,61 @@ public class ChamadoServicoTests
         Assert.Equal(Ana, edicao.Por);
         Assert.Equal(Prioridade.Baixa, edicao.PrioridadeAnterior);
         Assert.Equal(Prioridade.Critica, edicao.PrioridadeNova);
+    }
+
+    // Responsável atendente: o responsável é uma pessoa (Id e nome). Nos testes, o Id deriva do nome.
+    private static Autor Responsavel(string nome) => new($"id-{nome.Trim()}", nome);
+
+    // --- Responsável atendente ---
+
+    [Fact]
+    public async Task ListarAsync_ComResponsavel_TrazSoOsAtribuidosAEle()
+    {
+        var comAna = await _servico.AbrirAsync(new NovoChamado("Tomada solta"));
+        var comCarla = await _servico.AbrirAsync(new NovoChamado("Wi-Fi instável"));
+        await _servico.AbrirAsync(new NovoChamado("Sem responsável"));
+        await _servico.IniciarAtendimentoAsync(comAna.Id, Ana, Ana);
+        await _servico.IniciarAtendimentoAsync(comCarla.Id, Carla, Ana);
+
+        var daAna = await _servico.ListarAsync(new FiltroChamados(ResponsavelId: Ana.Id));
+
+        Assert.Equal(new[] { comAna.Id }, daAna.Select(c => c.Id));
+    }
+
+    [Fact]
+    public async Task ReatribuirAsync_GravaQuemPassouComAHoraDoRelogio()
+    {
+        var chamado = await _servico.AbrirAsync(new NovoChamado("Tomada solta"));
+        await _servico.IniciarAtendimentoAsync(chamado.Id, Ana, Ana);
+        _relogio.Avancar(TimeSpan.FromMinutes(15));
+
+        var passado = await _servico.ReatribuirAsync(chamado.Id, Carla, Ana);
+
+        Assert.Equal(Carla.Id, passado.ResponsavelId);
+        var edicao = Assert.Single(passado.Edicoes);
+        Assert.Equal(Inicio.AddMinutes(15), edicao.Em);
+        Assert.Equal(Ana, edicao.Por);
+    }
+
+    [Fact]
+    public async Task ObterCargaAsync_ContaEmAtendimentoEVencidosPorAtendente_ComOsMaisPendentesPrimeiro()
+    {
+        // Crítica vence em 4 h; Baixa, em 7 dias (política padrão).
+        var critica = await _servico.AbrirAsync(new NovoChamado("Vazamento", Prioridade.Critica));
+        var baixa = await _servico.AbrirAsync(new NovoChamado("Lâmpada", Prioridade.Baixa));
+        var outra = await _servico.AbrirAsync(new NovoChamado("Cadeira", Prioridade.Baixa));
+        var resolvido = await _servico.AbrirAsync(new NovoChamado("Projetor", Prioridade.Critica));
+        await _servico.IniciarAtendimentoAsync(critica.Id, Ana, Ana);
+        await _servico.IniciarAtendimentoAsync(baixa.Id, Ana, Ana);
+        await _servico.IniciarAtendimentoAsync(outra.Id, Carla, Ana);
+        await _servico.IniciarAtendimentoAsync(resolvido.Id, Carla, Ana);
+        await _servico.ResolverAsync(resolvido.Id, "Cabo trocado", Carla);
+        _relogio.Avancar(TimeSpan.FromHours(5));
+
+        var carga = await _servico.ObterCargaAsync();
+
+        Assert.Equal(2, carga.Count);
+        Assert.Equal(new CargaDeAtendente(Ana.Id, Ana.Nome, EmAtendimento: 2, Vencidos: 1), carga[0]);
+        Assert.Equal(new CargaDeAtendente(Carla.Id, Carla.Nome, EmAtendimento: 1, Vencidos: 0), carga[1]);
     }
 }

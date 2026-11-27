@@ -37,7 +37,7 @@ public sealed class NomeDeExibicaoTests(FabricaChamados fabrica) : IClassFixture
         var criado = await (await solicitante.PostAsJsonAsync(new Uri("/api/chamados", UriKind.Relative),
             new { titulo = "Cortina da sala 7 rasgada", prioridade = "Baixa" })).Content.ReadFromJsonAsync<ResumoChamado>(Json.Opcoes);
         (await atendente.PostAsJsonAsync(new Uri($"/api/chamados/{criado!.Id}/atendimento", UriKind.Relative),
-            new { responsavel = "Manutenção" })).EnsureSuccessStatusCode();
+            new { })).EnsureSuccessStatusCode();
 
         using var detalhe = JsonDocument.Parse(
             await atendente.GetStringAsync(new Uri($"/api/chamados/{criado.Id}", UriKind.Relative)));

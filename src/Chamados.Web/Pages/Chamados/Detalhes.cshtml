@@ -54,11 +54,17 @@
     <section class="transicoes">
         @if (chamado.Status == StatusChamado.Aberto)
         {
+            @* Responsável atendente: escolhe-se uma pessoa da lista de atendentes; você vem marcado. *@
             <form method="post" asp-page-handler="Iniciar" asp-route-id="@chamado.Id" class="cartao-acao">
                 <h2>Iniciar atendimento</h2>
-                <label for="responsavel">Responsável</label>
-                <input id="responsavel" name="responsavel" autocomplete="off" maxlength="@Chamado.TamanhoMaximoResponsavel" />
-                @Html.ValidationMessage("responsavel", new { @class = "erro" })
+                <label for="responsavel">Quem vai atender</label>
+                <select id="responsavel" name="responsavelId">
+                    @foreach (var atendente in Model.OpcoesDeResponsavel)
+                    {
+                        <option value="@atendente.Id" selected="@(atendente.Id == Model.UsuarioId)">@(atendente.Id == Model.UsuarioId ? $"{atendente.Nome} (você)" : atendente.Nome)</option>
+                    }
+                </select>
+                @Html.ValidationMessage("responsavelId", new { @class = "erro" })
                 <button type="submit">Iniciar</button>
             </form>
         }
@@ -70,6 +76,19 @@
                 <input id="solucao" name="solucao" autocomplete="off" maxlength="@Chamado.TamanhoMaximoJustificativa" />
                 @Html.ValidationMessage("solucao", new { @class = "erro" })
                 <button type="submit">Resolver</button>
+            </form>
+
+            <form method="post" asp-page-handler="Reatribuir" asp-route-id="@chamado.Id" class="cartao-acao">
+                <h2>Passar para outra pessoa</h2>
+                <label for="novo-responsavel">Novo responsável</label>
+                <select id="novo-responsavel" name="responsavelId">
+                    @foreach (var atendente in Model.OpcoesDeResponsavel)
+                    {
+                        <option value="@atendente.Id" selected="@chamado.FoiAtribuidoA(atendente.Id)">@(atendente.Id == Model.UsuarioId ? $"{atendente.Nome} (você)" : atendente.Nome)</option>
+                    }
+                </select>
+                @Html.ValidationMessage("responsavelId", new { @class = "erro" })
+                <button type="submit" class="neutro">Reatribuir</button>
             </form>
         }
 
@@ -108,6 +127,17 @@ else
                         @if (registro.Por is { } por)
                         {
                             <span class="apoio">· por @por.Nome</span>
+                        }
+                        break;
+
+                    case RegistroEdicao edicao when edicao.ResponsavelNovo is not null:
+                        @* Responsável atendente: a troca de responsável também é uma edição. *@
+                        <time>@edicao.Em.DataHora()</time>
+                        <strong>Responsável alterado</strong>
+                        <span class="apoio">· @(edicao.ResponsavelAnterior ?? "—") → @edicao.ResponsavelNovo</span>
+                        @if (edicao.Por is { } quem)
+                        {
+                            <span class="apoio">· por @quem.Nome</span>
                         }
                         break;
 

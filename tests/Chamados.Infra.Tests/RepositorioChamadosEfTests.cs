@@ -13,7 +13,7 @@ public class RepositorioChamadosEfTests
         await using var banco = await BancoEmMemoria.CriarAsync();
         var repositorio = new RepositorioChamadosEf(banco);
         var chamado = new Chamado("Projetor sem imagem", Prioridade.Alta, "Sala 12", Abertura);
-        chamado.IniciarAtendimento("Ana", Abertura.AddMinutes(10));
+        chamado.IniciarAtendimento(Responsavel("Ana"), Abertura.AddMinutes(10));
 
         await repositorio.AdicionarAsync(chamado);
         var lido = await repositorio.ObterAsync(chamado.Id);
@@ -36,7 +36,7 @@ public class RepositorioChamadosEfTests
         var chamado = new Chamado("Tomada solta", criadoEm: Abertura);
         await repositorio.AdicionarAsync(chamado);
 
-        await repositorio.AlterarAsync(chamado.Id, c => c.IniciarAtendimento("Bruno", Abertura.AddHours(1)));
+        await repositorio.AlterarAsync(chamado.Id, c => c.IniciarAtendimento(Responsavel("Bruno"), Abertura.AddHours(1)));
         await repositorio.AlterarAsync(chamado.Id, c => c.Resolver("Tomada fixada", Abertura.AddHours(2)));
 
         var lido = await repositorio.ObterAsync(chamado.Id);
@@ -59,7 +59,7 @@ public class RepositorioChamadosEfTests
         var erro = await Assert.ThrowsAsync<ConcorrenciaException>(() =>
             repositorio.AlterarAsync(chamado.Id, c =>
             {
-                repositorio.AlterarAsync(chamado.Id, outro => outro.IniciarAtendimento("Carla", Abertura.AddMinutes(5)))
+                repositorio.AlterarAsync(chamado.Id, outro => outro.IniciarAtendimento(Responsavel("Carla"), Abertura.AddMinutes(5)))
                     .GetAwaiter().GetResult();
                 c.Cancelar("Duplicado", Abertura.AddMinutes(6));
             }));
@@ -119,7 +119,7 @@ public class RepositorioChamadosEfTests
         await using var banco = await BancoEmMemoria.CriarAsync();
         var repositorio = new RepositorioChamadosEf(banco);
         var chamado = new Chamado("Tomada solta", criadoEm: Abertura);
-        chamado.IniciarAtendimento("O'Brien", Abertura.AddMinutes(5));   // apóstrofo de verdade no nome
+        chamado.IniciarAtendimento(Responsavel("O'Brien"), Abertura.AddMinutes(5));   // apóstrofo de verdade no nome
         await repositorio.AdicionarAsync(chamado);
         await repositorio.AdicionarAsync(new Chamado("Cadeira quebrada", criadoEm: Abertura));
 
@@ -137,7 +137,7 @@ public class RepositorioChamadosEfTests
         await using var banco = await BancoEmMemoria.CriarAsync();
         var repositorio = new RepositorioChamadosEf(banco);
         var resolvido = new Chamado("Lâmpada queimada", criadoEm: Abertura);
-        resolvido.IniciarAtendimento("Elétrica", Abertura.AddMinutes(30));
+        resolvido.IniciarAtendimento(Responsavel("Elétrica"), Abertura.AddMinutes(30));
         resolvido.Resolver("Trocada", Abertura.AddHours(2));
         await repositorio.AdicionarAsync(resolvido);
         await repositorio.AdicionarAsync(new Chamado("Cadeira quebrada", Prioridade.Baixa, criadoEm: Abertura));
@@ -172,7 +172,7 @@ public class RepositorioChamadosEfTests
 
         // Aberto há 10 dias, mas resolvido: encerrado não está "vencido".
         var resolvido = new Chamado("Baixa resolvido", Prioridade.Baixa, criadoEm: Abertura);
-        resolvido.IniciarAtendimento("Elétrica", Abertura.AddHours(1));
+        resolvido.IniciarAtendimento(Responsavel("Elétrica"), Abertura.AddHours(1));
         resolvido.Resolver("Feito", Abertura.AddHours(2));
         await repositorio.AdicionarAsync(resolvido);
 
@@ -191,7 +191,7 @@ public class RepositorioChamadosEfTests
         await using var banco = await BancoEmMemoria.CriarAsync();
         var repositorio = new RepositorioChamadosEf(banco);
         var resolvido = new Chamado("Projetor sem imagem", Prioridade.Alta, criadoEm: Abertura);
-        resolvido.IniciarAtendimento("Ana", Abertura.AddHours(1));
+        resolvido.IniciarAtendimento(Responsavel("Ana"), Abertura.AddHours(1));
         resolvido.Resolver("Cabo trocado", Abertura.AddHours(2));
         var cancelado = new Chamado("Duplicado", criadoEm: Abertura);
         cancelado.Cancelar("Aberto em duplicidade", Abertura.AddHours(1));
@@ -222,7 +222,7 @@ public class RepositorioChamadosEfTests
         var chamado = new Chamado("Cadeira quebrada", criadoEm: Abertura, abertoPor: Bruno);
         await repositorio.AdicionarAsync(chamado);
 
-        await repositorio.AlterarAsync(chamado.Id, c => c.IniciarAtendimento("Elétrica", Abertura.AddHours(1), Ana));
+        await repositorio.AlterarAsync(chamado.Id, c => c.IniciarAtendimento(Responsavel("Elétrica"), Abertura.AddHours(1), Ana));
         var lido = await repositorio.ObterAsync(chamado.Id);
         var resumo = Assert.Single(await repositorio.ListarAsync(FiltroChamados.Todos));
 
@@ -237,9 +237,9 @@ public class RepositorioChamadosEfTests
         await using var banco = await BancoEmMemoria.CriarAsync();
         var repositorio = new RepositorioChamadosEf(banco);
         var doBruno = new Chamado("Cadeira quebrada", Prioridade.Baixa, criadoEm: Abertura, abertoPor: Bruno);
-        doBruno.IniciarAtendimento("Redes", Abertura.AddHours(1), Ana);
+        doBruno.IniciarAtendimento(Responsavel("Redes"), Abertura.AddHours(1), Ana);
         var daCarla = new Chamado("Wi-Fi instável", Prioridade.Alta, criadoEm: Abertura, abertoPor: Carla);
-        daCarla.IniciarAtendimento("Redes", Abertura.AddHours(1), Ana);
+        daCarla.IniciarAtendimento(Responsavel("Redes"), Abertura.AddHours(1), Ana);
         await repositorio.AdicionarAsync(doBruno);
         await repositorio.AdicionarAsync(daCarla);
         await repositorio.AdicionarAsync(new Chamado("Sem dono", criadoEm: Abertura));
@@ -264,7 +264,7 @@ public class RepositorioChamadosEfTests
         await using var banco = await BancoEmMemoria.CriarAsync();
         var repositorio = new RepositorioChamadosEf(banco);
         var chamado = new Chamado("Cadeira quebrada", criadoEm: Abertura, abertoPor: Bruno);
-        chamado.IniciarAtendimento("Manutenção", Abertura.AddMinutes(5), Ana);
+        chamado.IniciarAtendimento(Responsavel("Manutenção"), Abertura.AddMinutes(5), Ana);
         await repositorio.AdicionarAsync(chamado);
 
         await repositorio.AlterarAsync(chamado.Id, c => c.Comentar("O encosto soltou.", Abertura.AddMinutes(10), Bruno));
@@ -285,7 +285,7 @@ public class RepositorioChamadosEfTests
         await using var banco = await BancoEmMemoria.CriarAsync();
         var repositorio = new RepositorioChamadosEf(banco);
         var comConversa = new Chamado("Wi-Fi instável", criadoEm: Abertura, abertoPor: Carla);
-        comConversa.IniciarAtendimento("Redes", Abertura.AddMinutes(1), Ana);
+        comConversa.IniciarAtendimento(Responsavel("Redes"), Abertura.AddMinutes(1), Ana);
         comConversa.Comentar("Cai a cada 15 minutos.", Abertura.AddMinutes(2), Carla);
         comConversa.Comentar("Trocamos o roteador.", Abertura.AddMinutes(3), Ana);
         await repositorio.AdicionarAsync(comConversa);
@@ -313,7 +313,7 @@ public class RepositorioChamadosEfTests
         {
             repositorio.AlterarAsync(chamado.Id, outro => outro.Comentar("Alguma previsão?", Abertura.AddMinutes(5), Carla))
                 .GetAwaiter().GetResult();
-            c.IniciarAtendimento("Redes", Abertura.AddMinutes(6), Ana);
+            c.IniciarAtendimento(Responsavel("Redes"), Abertura.AddMinutes(6), Ana);
         });
         var lido = await repositorio.ObterAsync(chamado.Id);
 
@@ -329,7 +329,7 @@ public class RepositorioChamadosEfTests
         await using var banco = await BancoEmMemoria.CriarAsync();
         var repositorio = new RepositorioChamadosEf(banco);
         var chamado = new Chamado("Projetor", Prioridade.Baixa, "Sala 12", Abertura, Bruno);
-        chamado.IniciarAtendimento("Audiovisual", Abertura.AddMinutes(5), Ana);
+        chamado.IniciarAtendimento(Responsavel("Audiovisual"), Abertura.AddMinutes(5), Ana);
         chamado.Comentar("Sem imagem desde ontem.", Abertura.AddMinutes(7), Bruno);
         chamado.Comentar("Vou levar outro cabo.", Abertura.AddMinutes(8), Ana);
         await repositorio.AdicionarAsync(chamado);
@@ -359,6 +359,46 @@ public class RepositorioChamadosEfTests
         Assert.Equal(4, lido.Versao);   // 1 + início do atendimento + 2 edições
     }
 
+    // --- Responsável atendente ---
+
+    [Fact]
+    public async Task Responsavel_e_gravado_filtrado_e_contado_no_banco_com_os_antigos_num_grupo_a_parte()
+    {
+        await using var banco = await BancoEmMemoria.CriarAsync();
+        var repositorio = new RepositorioChamadosEf(banco);
+        var davi = new Autor("id-davi", "Davi");
+        var comAna1 = new Chamado("Projetor sem imagem", criadoEm: Abertura);
+        var comAna2 = new Chamado("Tomada solta", criadoEm: Abertura);
+        var comDavi = new Chamado("Wi-Fi instável", criadoEm: Abertura);
+        var antigo = new Chamado("Cadeira quebrada", criadoEm: Abertura);
+        comAna1.IniciarAtendimento(Ana, Abertura.AddMinutes(5), Ana);
+        comAna2.IniciarAtendimento(Ana, Abertura.AddMinutes(6), Ana);
+        comDavi.IniciarAtendimento(davi, Abertura.AddMinutes(7), Ana);
+        antigo.IniciarAtendimento(Responsavel("Manutenção"), Abertura.AddMinutes(8), Ana);
+        foreach (var chamado in new[] { comAna1, comAna2, comDavi, antigo })
+        {
+            await repositorio.AdicionarAsync(chamado);
+        }
+
+        // Um chamado de antes deste recurso: o responsável era só um texto, sem Id.
+        await using (var db = banco.CreateDbContext())
+        {
+            await db.Database.ExecuteSqlAsync($"UPDATE \"Chamados\" SET \"ResponsavelId\" = NULL WHERE \"Id\" = {antigo.Id}");
+        }
+
+        await repositorio.AlterarAsync(comAna2.Id, c => c.Reatribuir(davi, Abertura.AddMinutes(20), Ana));
+        var lido = await repositorio.ObterAsync(comAna2.Id);
+        var doDavi = await repositorio.ListarAsync(FiltroChamados.Todos with { ResponsavelId = "id-davi" });
+        var contagem = await repositorio.ContarPorResponsavelAsync(new FiltroChamados(Status: StatusChamado.EmAtendimento));
+
+        Assert.Equal("id-davi", lido!.ResponsavelId);
+        Assert.Equal("Ana", Assert.Single(lido.Edicoes).ResponsavelAnterior);
+        Assert.Equal([comAna2.Id, comDavi.Id], doDavi.Select(c => c.Id).Order());
+        Assert.Contains(new ContagemPorResponsavel("id-ana", "Ana", 1), contagem);
+        Assert.Contains(new ContagemPorResponsavel("id-davi", "Davi", 2), contagem);
+        Assert.Contains(new ContagemPorResponsavel(null, "Manutenção", 1), contagem);
+    }
+
     [Fact]
     public async Task Migrations_estao_em_dia_com_o_modelo()
     {
@@ -368,4 +408,7 @@ public class RepositorioChamadosEfTests
         // Falha se alguém mudou o mapeamento e esqueceu de criar a migration.
         Assert.False(db.Database.HasPendingModelChanges());
     }
+
+    // Responsável atendente: o responsável é uma pessoa (Id e nome). Nos testes, o Id deriva do nome.
+    private static Autor Responsavel(string nome) => new($"id-{nome.Trim()}", nome);
 }

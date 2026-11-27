@@ -53,7 +53,7 @@ public class ChamadoTests
     {
         var chamado = new Chamado("Tomada solta", criadoEm: Abertura);
 
-        chamado.IniciarAtendimento(" Elétrica ", Abertura.AddMinutes(10));
+        chamado.IniciarAtendimento(Responsavel(" Elétrica "), Abertura.AddMinutes(10));
 
         Assert.Equal(StatusChamado.EmAtendimento, chamado.Status);
         Assert.Equal("Elétrica", chamado.Responsavel);
@@ -80,7 +80,7 @@ public class ChamadoTests
     public void Cancelar_ChamadoResolvido_LancaTransicaoInvalida()
     {
         var chamado = new Chamado("Tomada solta", criadoEm: Abertura);
-        chamado.IniciarAtendimento("Elétrica", Abertura.AddMinutes(10));
+        chamado.IniciarAtendimento(Responsavel("Elétrica"), Abertura.AddMinutes(10));
         chamado.Resolver("Tomada fixada", Abertura.AddHours(1));
 
         Assert.Throws<TransicaoInvalidaException>(() => chamado.Cancelar("Engano", Abertura.AddHours(2)));
@@ -90,7 +90,7 @@ public class ChamadoTests
     public void Resolver_DefineEncerramentoETempoAteEncerramento()
     {
         var chamado = new Chamado("Tomada solta", criadoEm: Abertura);
-        chamado.IniciarAtendimento("Elétrica", Abertura.AddMinutes(10));
+        chamado.IniciarAtendimento(Responsavel("Elétrica"), Abertura.AddMinutes(10));
 
         chamado.Resolver("Tomada fixada", Abertura.AddHours(2));
 
@@ -114,7 +114,7 @@ public class ChamadoTests
         var chamado = new Chamado("Tomada solta", criadoEm: Abertura);
 
         Assert.Throws<ArgumentOutOfRangeException>(
-            () => chamado.IniciarAtendimento("Elétrica", Abertura.AddMinutes(-1)));
+            () => chamado.IniciarAtendimento(Responsavel("Elétrica"), Abertura.AddMinutes(-1)));
     }
 
     [Fact]
@@ -198,7 +198,7 @@ public class ChamadoTests
     public void Editar_ChamadoResolvido_LancaChamadoEncerrado()
     {
         var chamado = new Chamado("Tomada solta", criadoEm: Abertura);
-        chamado.IniciarAtendimento("Elétrica", Abertura.AddHours(1));
+        chamado.IniciarAtendimento(Responsavel("Elétrica"), Abertura.AddHours(1));
         chamado.Resolver("Tomada fixada", Abertura.AddHours(2));
 
         var erro = Assert.Throws<ChamadoEncerradoException>(() => chamado.Editar("Outro título", Prioridade.Alta, null, Abertura.AddHours(3)));
@@ -211,7 +211,7 @@ public class ChamadoTests
     {
         var chamado = new Chamado("Tomada solta", criadoEm: Abertura);
 
-        chamado.IniciarAtendimento("Elétrica", Abertura.AddHours(1));
+        chamado.IniciarAtendimento(Responsavel("Elétrica"), Abertura.AddHours(1));
 
         Assert.Equal(2, chamado.Versao);
     }
@@ -224,7 +224,7 @@ public class ChamadoTests
         var chamado = new Chamado("Tomada solta", criadoEm: Abertura);
         var nome = new string('a', Chamado.TamanhoMaximoResponsavel + 1);
 
-        var erro = Assert.Throws<ArgumentException>(() => chamado.IniciarAtendimento(nome, Abertura.AddMinutes(10)));
+        var erro = Assert.Throws<ArgumentException>(() => chamado.IniciarAtendimento(Responsavel(nome), Abertura.AddMinutes(10)));
 
         Assert.Equal("responsavel", erro.ParamName);
         Assert.Equal(StatusChamado.Aberto, chamado.Status);
@@ -239,7 +239,7 @@ public class ChamadoTests
         var chamado = new Chamado("Tomada solta", criadoEm: Abertura);
         var nome = new string('a', Chamado.TamanhoMaximoResponsavel);
 
-        chamado.IniciarAtendimento($"  {nome}  ", Abertura.AddMinutes(10));
+        chamado.IniciarAtendimento(Responsavel($"  {nome}  "), Abertura.AddMinutes(10));
 
         Assert.Equal(nome, chamado.Responsavel);
     }
@@ -248,7 +248,7 @@ public class ChamadoTests
     public void Resolver_SolucaoLongaDemais_LancaArgumentExceptionSemEncerrar()
     {
         var chamado = new Chamado("Tomada solta", criadoEm: Abertura);
-        chamado.IniciarAtendimento("Elétrica", Abertura.AddMinutes(10));
+        chamado.IniciarAtendimento(Responsavel("Elétrica"), Abertura.AddMinutes(10));
         var solucao = new string('x', Chamado.TamanhoMaximoJustificativa + 1);
 
         var erro = Assert.Throws<ArgumentException>(() => chamado.Resolver(solucao, Abertura.AddHours(1)));
@@ -302,7 +302,7 @@ public class ChamadoTests
     {
         var chamado = new Chamado("Tomada solta", criadoEm: Abertura, abertoPor: Bruno);
 
-        chamado.IniciarAtendimento("Elétrica", Abertura.AddMinutes(10), por: Ana);
+        chamado.IniciarAtendimento(Responsavel("Elétrica"), Abertura.AddMinutes(10), por: Ana);
         chamado.Resolver("Tomada fixada", Abertura.AddHours(1));   // sem autor: registro sem "por"
 
         Assert.Equal(Ana, chamado.Historico[0].Por);
@@ -352,7 +352,7 @@ public class ChamadoTests
     public void Comentar_DepoisDeResolvido_EhPermitido()
     {
         var chamado = new Chamado("Tomada solta", criadoEm: Abertura);
-        chamado.IniciarAtendimento("Elétrica", Abertura.AddMinutes(10));
+        chamado.IniciarAtendimento(Responsavel("Elétrica"), Abertura.AddMinutes(10));
         chamado.Resolver("Tomada fixada", Abertura.AddHours(1));
 
         chamado.Comentar("Voltou a soltar hoje.", Abertura.AddDays(1), Bruno);
@@ -477,5 +477,78 @@ public class ChamadoTests
 
         Assert.Equal(["Primeira", "Segunda"], chamado.Comentarios.Select(m => m.Texto));
         Assert.Equal([Abertura.AddMinutes(15), Abertura.AddMinutes(20)], chamado.Edicoes.Select(e => e.Em));
+    }
+
+    // Responsável atendente: o responsável é uma pessoa (Id e nome). Nos testes, o Id deriva do nome.
+    private static Autor Responsavel(string nome) => new($"id-{nome.Trim()}", nome);
+
+    // --- Responsável atendente ---
+
+    [Fact]
+    public void IniciarAtendimento_GuardaIdENomeDoResponsavel()
+    {
+        var chamado = new Chamado("Tomada solta", criadoEm: Abertura);
+
+        chamado.IniciarAtendimento(Ana, Abertura.AddMinutes(10), por: Ana);
+
+        Assert.Equal(Ana.Id, chamado.ResponsavelId);
+        Assert.Equal(Ana.Nome, chamado.Responsavel);
+        Assert.True(chamado.FoiAtribuidoA(Ana.Id));
+        Assert.False(chamado.FoiAtribuidoA(Bruno.Id));
+    }
+
+    [Fact]
+    public void Reatribuir_EmAtendimento_TrocaOResponsavelERegistraNasEdicoes()
+    {
+        var davi = new Autor("id-davi", "Davi");
+        var chamado = new Chamado("Tomada solta", criadoEm: Abertura);
+        chamado.IniciarAtendimento(Ana, Abertura.AddMinutes(10), por: Ana);
+
+        chamado.Reatribuir(davi, Abertura.AddMinutes(30), por: Ana);
+
+        Assert.Equal("id-davi", chamado.ResponsavelId);
+        Assert.Equal("Davi", chamado.Responsavel);
+        Assert.Equal(StatusChamado.EmAtendimento, chamado.Status);   // o status não muda
+        Assert.Equal(3, chamado.Versao);
+        var edicao = Assert.Single(chamado.Edicoes);
+        Assert.Equal(Ana.Nome, edicao.ResponsavelAnterior);
+        Assert.Equal("Davi", edicao.ResponsavelNovo);
+        Assert.Equal(Abertura.AddMinutes(30), edicao.Em);
+        Assert.Equal(Ana, edicao.Por);
+        Assert.Single(chamado.Historico);   // só o início do atendimento
+    }
+
+    [Fact]
+    public void Reatribuir_ParaQuemJaEOResponsavel_NaoMudaNada()
+    {
+        var chamado = new Chamado("Tomada solta", criadoEm: Abertura);
+        chamado.IniciarAtendimento(Ana, Abertura.AddMinutes(10));
+
+        chamado.Reatribuir(Ana, Abertura.AddMinutes(30));
+
+        Assert.Empty(chamado.Edicoes);
+        Assert.Equal(2, chamado.Versao);
+    }
+
+    [Fact]
+    public void Reatribuir_ChamadoAberto_PedeParaIniciarOAtendimento()
+    {
+        var chamado = new Chamado("Tomada solta", criadoEm: Abertura);
+
+        var erro = Assert.Throws<ChamadoSemAtendimentoException>(() => chamado.Reatribuir(Ana, Abertura.AddMinutes(5)));
+
+        Assert.Equal(StatusChamado.Aberto, erro.Status);
+        Assert.Null(chamado.ResponsavelId);
+    }
+
+    [Fact]
+    public void Reatribuir_ChamadoEncerrado_LancaChamadoEncerrado()
+    {
+        var chamado = new Chamado("Tomada solta", criadoEm: Abertura);
+        chamado.IniciarAtendimento(Ana, Abertura.AddMinutes(10));
+        chamado.Resolver("Tomada fixada", Abertura.AddHours(1));
+
+        Assert.Throws<ChamadoEncerradoException>(() => chamado.Reatribuir(Bruno, Abertura.AddHours(2)));
+        Assert.Equal(Ana.Id, chamado.ResponsavelId);
     }
 }

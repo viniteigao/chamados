@@ -2,7 +2,7 @@
 @model IndexModel
 @{
     // Meus chamados: o título diz de quem é a lista.
-    ViewData["Title"] = Model.SoOsMeus ? "Meus chamados" : "Chamados";
+    ViewData["Title"] = Model.AtribuidosAMim ? "Meus atendimentos" : Model.SoOsMeus ? "Meus chamados" : "Chamados";
     var pagina = Model.Resultado;
 }
 
@@ -41,6 +41,14 @@
         <label class="marcar">
             <input type="checkbox" name="meus" value="true" checked="@Model.Meus" />
             Só os meus
+        </label>
+    }
+    @* Responsável atendente: os chamados que estão com você. *@
+    @if (Model.PodeFiltrarAtribuidos)
+    {
+        <label class="marcar">
+            <input type="checkbox" name="atribuidosAMim" value="true" checked="@Model.AtribuidosAMim" />
+            Atribuídos a mim
         </label>
     }
     @* Sem campo "pagina": filtrar de novo sempre volta para a página 1. *@

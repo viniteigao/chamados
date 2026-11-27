@@ -36,7 +36,7 @@ public sealed record DetalheChamadoResposta(
         chamado.AbertoPorNome,
         ComentarioResposta.Da(chamado),
         [.. chamado.Edicoes.Select(e => new RegistroEdicaoResposta(e.Em, e.TituloAnterior, e.TituloNovo,
-            e.PrioridadeAnterior, e.PrioridadeNova, e.DescricaoAlterada, e.PorNome))]);
+            e.PrioridadeAnterior, e.PrioridadeNova, e.DescricaoAlterada, e.PorNome, e.ResponsavelAnterior, e.ResponsavelNovo))]);
 }
 
 /// <summary>
@@ -44,7 +44,17 @@ public sealed record DetalheChamadoResposta(
 /// descrição mudou. Só o nome de quem editou, como no resto da API.
 /// </summary>
 public sealed record RegistroEdicaoResposta(DateTimeOffset Em, string? TituloAnterior, string? TituloNovo,
-    Prioridade? PrioridadeAnterior, Prioridade? PrioridadeNova, bool DescricaoAlterada, string? Por);
+    Prioridade? PrioridadeAnterior, Prioridade? PrioridadeNova, bool DescricaoAlterada, string? Por,
+    string? ResponsavelAnterior = null, string? ResponsavelNovo = null);
+
+/// <summary>Responsável atendente: um atendente ativo, para escolher o responsável.</summary>
+public sealed record AtendenteResposta(string Id, string Nome);
+
+/// <summary>
+/// Responsável atendente: a carga de um atendente. <paramref name="Atendente"/> nulo agrupa os chamados
+/// atribuídos antes deste recurso, quando o responsável era um texto livre.
+/// </summary>
+public sealed record CargaResposta(string? Atendente, int EmAtendimento, int Vencidos);
 
 public sealed record RegistroHistoricoResposta(StatusChamado De, StatusChamado Para, DateTimeOffset Em, string? Observacao,
     string? Por);

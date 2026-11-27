@@ -105,6 +105,17 @@ public sealed class RepositorioChamadosEmMemoria(TimeProvider relogio, TimeSpan 
             .ToList();
     }
 
+    public async Task<IReadOnlyList<ContagemPorResponsavel>> ContarPorResponsavelAsync(FiltroChamados filtro,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(filtro);
+        await SimularLatenciaAsync(cancellationToken);
+        return Filtrar(filtro)
+            .GroupBy(c => c.ResponsavelId)
+            .Select(g => new ContagemPorResponsavel(g.Key, g.Max(c => c.Responsavel), g.Count()))
+            .ToList();
+    }
+
     public async Task<IReadOnlyList<ResolucaoChamado>> ListarResolucoesAsync(CancellationToken cancellationToken = default)
     {
         await SimularLatenciaAsync(cancellationToken);
@@ -124,7 +135,9 @@ public sealed class RepositorioChamadosEmMemoria(TimeProvider relogio, TimeSpan 
         .Where(c => filtro.AbertosAntesDe is not { } cortes
                     || (!c.EstaEncerrado && c.CriadoEm < cortes[c.Prioridade]))
         // Meus chamados: só os que esse usuário abriu (chamados sem dono nunca entram).
-        .Where(c => filtro.AbertoPorId is null || c.FoiAbertoPor(filtro.AbertoPorId));
+        .Where(c => filtro.AbertoPorId is null || c.FoiAbertoPor(filtro.AbertoPorId))
+        // Responsável atendente: só os que estão com esse atendente.
+        .Where(c => filtro.ResponsavelId is null || c.FoiAtribuidoA(filtro.ResponsavelId));
 
     private static IEnumerable<Chamado> Ordenar(IEnumerable<Chamado> chamados, OrdemChamados ordem) => ordem switch
     {

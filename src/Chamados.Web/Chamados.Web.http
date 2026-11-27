@@ -49,8 +49,8 @@ Authorization: Bearer {{token.response.body.$.accessToken}}
 GET {{base}}/api/chamados/prazos
 Authorization: Bearer {{token.response.body.$.accessToken}}
 
-### Módulo 8: chamados de um responsável
-GET {{base}}/api/chamados/por-responsavel?nome=Redes
+### Módulo 8: chamados de um responsável (pelo nome gravado no chamado)
+GET {{base}}/api/chamados/por-responsavel?nome=Davi
 Authorization: Bearer {{token.response.body.$.accessToken}}
 
 ### Módulo 8: a tentativa de injeção de SQL do laboratório. Corrigido, responde lista vazia.
@@ -94,14 +94,34 @@ Authorization: Bearer {{token.response.body.$.accessToken}}
 GET {{base}}/api/chamados/{{id}}
 Authorization: Bearer {{token.response.body.$.accessToken}}
 
-### Inicia atendimento: use um Id com status Aberto (só atendentes; bruno receberia 403)
+### Responsável atendente: os atendentes ativos (Id e nome), para escolher quem atende
+GET {{base}}/api/atendentes
+Authorization: Bearer {{token.response.body.$.accessToken}}
+
+### Inicia atendimento: use um Id com status Aberto (só atendentes; bruno receberia 403).
+# Corpo vazio: quem atende é quem chama. Para indicar outra pessoa: { "responsavelId": "<Id de /api/atendentes>" }
 POST {{base}}/api/chamados/{{id}}/atendimento
 Content-Type: application/json
 Authorization: Bearer {{token.response.body.$.accessToken}}
 
+{}
+
+### Responsável atendente: passa um chamado em atendimento para outro atendente
+POST {{base}}/api/chamados/{{id}}/responsavel
+Content-Type: application/json
+Authorization: Bearer {{token.response.body.$.accessToken}}
+
 {
-  "responsavel": "Elétrica"
+  "responsavelId": "cole aqui o Id de um atendente"
 }
+
+### Responsável atendente: os chamados que estão comigo
+GET {{base}}/api/chamados?atribuidosAMim=true
+Authorization: Bearer {{token.response.body.$.accessToken}}
+
+### Responsável atendente: carga por atendente (coordenação; com o token da ana, 403)
+GET {{base}}/api/chamados/carga
+Authorization: Bearer {{token.response.body.$.accessToken}}
 
 ### Edição com concorrência otimista (Módulo 4): copie id e versao de um chamado da listagem
 @versao = 1

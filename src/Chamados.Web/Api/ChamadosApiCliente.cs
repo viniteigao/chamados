@@ -21,6 +21,11 @@ public sealed class ChamadosApiCliente(HttpClient http)
         => await http.GetFromJsonAsync<EstatisticasChamados>("api/chamados/estatisticas", OpcoesJson, cancellationToken)
            ?? throw new InvalidOperationException("A API respondeu sem conteúdo.");
 
+    /// <summary>Responsável atendente: GET /api/chamados/carga.</summary>
+    public async Task<IReadOnlyList<CargaResposta>> ObterCargaAsync(CancellationToken cancellationToken = default)
+        => await http.GetFromJsonAsync<List<CargaResposta>>("api/chamados/carga", OpcoesJson, cancellationToken)
+           ?? throw new InvalidOperationException("A API respondeu sem conteúdo.");
+
     /// <summary>Prazos: GET /api/chamados/prazos.</summary>
     public async Task<IndicadoresDePrazo> ObterIndicadoresDePrazoAsync(CancellationToken cancellationToken = default)
         => await http.GetFromJsonAsync<IndicadoresDePrazo>("api/chamados/prazos", OpcoesJson, cancellationToken)

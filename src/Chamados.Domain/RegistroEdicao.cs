@@ -5,6 +5,8 @@ namespace Chamados.Domain;
 /// Imutável, como os outros registros. Título e prioridade guardam o valor de antes e o de depois
 /// (nulos quando não mudaram); da descrição, só se mudou: o texto pode ter 2000 caracteres e o
 /// atual continua no chamado. Mudar a prioridade muda o prazo, e este registro é o rastro disso.
+/// Responsável atendente: passar o atendimento a outra pessoa também é uma edição, com o nome de
+/// antes e o de depois.
 /// </summary>
 public sealed record RegistroEdicao(
     DateTimeOffset Em,
@@ -14,7 +16,9 @@ public sealed record RegistroEdicao(
     Prioridade? PrioridadeNova,
     bool DescricaoAlterada,
     string? PorId = null,
-    string? PorNome = null)
+    string? PorNome = null,
+    string? ResponsavelAnterior = null,
+    string? ResponsavelNovo = null)
 {
     /// <summary>Quem editou; null quando a edição não informou o autor.</summary>
     public Autor? Por => PorId is null ? null : new Autor(PorId, PorNome ?? PorId);

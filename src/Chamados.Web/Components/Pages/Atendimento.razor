@@ -8,6 +8,7 @@
 @inject IJSRuntime JS
 @inject ILogger<Atendimento> Logger
 @inject IAuthorizationService Autorizacao
+@inject IServiceScopeFactory Escopos
 
 <PageTitle>Atendimento · Chamados</PageTitle>
 
@@ -25,6 +26,11 @@
                 @* A cada tecla: atualiza "texto" e chama CarregarAsync, que cancela a busca anterior. *@
                 <input type="search" placeholder="título ou descrição"
                        @bind="texto" @bind:event="oninput" @bind:after="CarregarAsync" />
+            </label>
+            @* Responsável atendente: só os chamados em atendimento com você, do mais perto de vencer. *@
+            <label class="marcar">
+                <input type="checkbox" @bind="soOsMeus" @bind:after="CarregarAsync" />
+                Só os meus atendimentos
             </label>
             <button type="button" class="neutro" disabled="@carregando" @onclick="CarregarAsync">Atualizar</button>
             <button type="button" @onclick="AbrirNovo">Novo chamado</button>
@@ -70,16 +76,16 @@
                             @foreach (var chamado in Abertos)
                             {
                                 <CartaoChamado @key="chamado.Id" Chamado="chamado" Prazo="Servico.PrazoDe(chamado)"
-                                               ResponsavelPadrao="@responsavelPadrao"
+                                               ResponsavelPadrao="@ResponsavelSugerido" Atendentes="atendentes"
                                                Desabilitado="executando" AoConfirmar="ExecutarAsync" AoEditar="AbrirEdicao" />
                             }
                         </Coluna>
 
-                        <Coluna Titulo="Em atendimento" Quantidade="EmAtendimento.Count" TextoVazio="Nenhum chamado em atendimento.">
+                        <Coluna Titulo="@(soOsMeus ? "Meus atendimentos" : "Em atendimento")" Quantidade="EmAtendimento.Count" TextoVazio="Nenhum chamado em atendimento.">
                             @foreach (var chamado in EmAtendimento)
                             {
                                 <CartaoChamado @key="chamado.Id" Chamado="chamado" Prazo="Servico.PrazoDe(chamado)"
-                                               ResponsavelPadrao="@responsavelPadrao"
+                                               ResponsavelPadrao="@ResponsavelSugerido" Atendentes="atendentes"
                                                Desabilitado="executando" AoConfirmar="ExecutarAsync" AoEditar="AbrirEdicao" />
                             }
                         </Coluna>
@@ -103,7 +109,8 @@
 </AuthorizeView>
 
 @code {
-    private const string ChaveResponsavel = "chamados.responsavel";
+    // Responsável atendente: o navegador lembra o Id do último atendente escolhido (antes, um nome digitado).
+    private const string ChaveResponsavel = "chamados.responsavelId";
 
     private string? texto;
     private string? mensagem;
@@ -118,6 +125,12 @@
     private IJSObjectReference? moduloPreferencias;
     private ErrorBoundary? limiteDaFila;
     private Timer? relogioDosPrazos;
+
+    // Responsável atendente: quem pode atender, quem está conectado e o filtro "Só os meus atendimentos".
+    private IReadOnlyList<Autor> atendentes = [];
+    private string? meuId;
+    private bool soOsMeus;
+    private HashSet<Guid>? meusAtendimentos;
 
     /// <summary>Meus chamados: o usuário conectado, entregue em cascata (AddCascadingAuthenticationState).</summary>
     [CascadingParameter]
@@ -135,11 +148,32 @@
         => Chamados!.Where(c => c.Status == StatusChamado.Aberto).ToList();
 
     private List<ResumoChamado> EmAtendimento
-        => Chamados!.Where(c => c.Status == StatusChamado.EmAtendimento).ToList();
+    {
+        get
+        {
+            var emAtendimento = Chamados!.Where(c => c.Status == StatusChamado.EmAtendimento);
+            if (soOsMeus && meusAtendimentos is not null)
+            {
+                // Só os meus, do mais perto de vencer ao mais folgado.
+                emAtendimento = emAtendimento
+                    .Where(c => meusAtendimentos.Contains(c.Id))
+                    .OrderBy(c => Servico.PrazoDe(c)?.Vencimento ?? DateTimeOffset.MaxValue);
+            }
+
+            return emAtendimento.ToList();
+        }
+    }
+
+    // O último atendente escolhido neste navegador, se ainda atende; senão, quem está conectado.
+    private string? ResponsavelSugerido
+        => responsavelPadrao is { } id && atendentes.Any(a => a.Id == id) ? id : meuId;
 
     protected override async Task OnInitializedAsync()
     {
         Registro.AtendimentoIniciado(Logger, RendererInfo.IsInteractive, Chamados is not null);
+
+        meuId = Autenticacao is null ? null : (await Autenticacao).User.IdDoUsuario();
+        atendentes = await ListarAtendentesAsync();
 
         if (Chamados is null)
         {
@@ -184,6 +218,13 @@
         try
         {
             Chamados = [.. await Servico.ListarAsync(new FiltroChamados(Texto: texto), esta.Token)];
+
+            // Responsável atendente: quais dos em atendimento estão comigo (filtro no banco, pelo Id).
+            meusAtendimentos = soOsMeus && meuId is not null
+                ? [.. (await Servico.ListarAsync(
+                        new FiltroChamados(Status: StatusChamado.EmAtendimento, Texto: texto, ResponsavelId: meuId), esta.Token))
+                    .Select(c => c.Id)]
+                : null;
         }
         catch (OperationCanceledException) when (esta.IsCancellationRequested)
         {
@@ -221,18 +262,33 @@
         {
             // Meus chamados: quem clicou vai para o histórico do chamado.
             var por = Autenticacao is null ? null : (await Autenticacao).User.ComoAutor();
+
+            // Responsável atendente: o Id veio da tela; confere de novo, porque a lista pode ter mudado
+            // (alguém desativado ou que deixou de atender desde que a fila abriu).
+            Autor? responsavel = null;
+            if (pedido.Tipo is TipoTransicao.Iniciar or TipoTransicao.Reatribuir
+                && (responsavel = await ObterAtendenteAsync(pedido.Texto)) is null)
+            {
+                atendentes = await ListarAtendentesAsync();
+                Avisar("Essa pessoa não está mais entre os atendentes. Escolha outra.", erro: true);
+                return;
+            }
+
             var chamado = pedido.Tipo switch
             {
-                TipoTransicao.Iniciar => await Servico.IniciarAtendimentoAsync(pedido.ChamadoId, pedido.Texto, por),
+                TipoTransicao.Iniciar => await Servico.IniciarAtendimentoAsync(pedido.ChamadoId, responsavel!, por),
+                TipoTransicao.Reatribuir => await Servico.ReatribuirAsync(pedido.ChamadoId, responsavel!, por),
                 TipoTransicao.Resolver => await Servico.ResolverAsync(pedido.ChamadoId, pedido.Texto, por),
                 _ => await Servico.CancelarAsync(pedido.ChamadoId, pedido.Texto, por)
             };
 
-            Avisar($"\"{chamado.Titulo}\" agora está {chamado.Status.Rotulo().ToLowerInvariant()}.", erro: false);
+            Avisar(pedido.Tipo == TipoTransicao.Reatribuir
+                ? $"\"{chamado.Titulo}\" agora está com {chamado.Responsavel}."
+                : $"\"{chamado.Titulo}\" agora está {chamado.Status.Rotulo().ToLowerInvariant()}.", erro: false);
 
             if (pedido.Tipo == TipoTransicao.Iniciar)
             {
-                await LembrarResponsavelAsync(pedido.Texto.Trim());
+                await LembrarResponsavelAsync(pedido.Texto);
             }
         }
         catch (TransicaoInvalidaException ex)
@@ -242,6 +298,14 @@
         catch (ChamadoNaoEncontradoException)
         {
             Avisar("O chamado não existe mais. A fila foi atualizada.", erro: true);
+        }
+        catch (ChamadoEncerradoException)
+        {
+            Avisar("O chamado já foi encerrado. A fila foi atualizada.", erro: true);
+        }
+        catch (ChamadoSemAtendimentoException)
+        {
+            Avisar("O chamado ainda não está em atendimento. A fila foi atualizada.", erro: true);
         }
         catch (ConcorrenciaException)
         {
@@ -265,13 +329,28 @@
         => Autenticacao is not null
             && (await Autorizacao.AuthorizeAsync((await Autenticacao).User, Politicas.Atender)).Succeeded;
 
-    private async Task LembrarResponsavelAsync(string nome)
+    private async Task LembrarResponsavelAsync(string responsavelId)
     {
-        responsavelPadrao = nome;
+        responsavelPadrao = responsavelId;
         if (moduloPreferencias is not null)
         {
-            await moduloPreferencias.InvokeVoidAsync("gravar", ChaveResponsavel, nome);
+            await moduloPreferencias.InvokeVoidAsync("gravar", ChaveResponsavel, responsavelId);
         }
+    }
+
+    // Responsável atendente: o circuito vive enquanto a aba estiver aberta; cada consulta aos usuários
+    // usa um escopo (e um DbContext) novo, como a revalidação de sessão, para não ler dados velhos nem
+    // usar o mesmo DbContext em duas operações ao mesmo tempo.
+    private async Task<IReadOnlyList<Autor>> ListarAtendentesAsync()
+    {
+        await using var escopo = Escopos.CreateAsyncScope();
+        return await escopo.ServiceProvider.GetRequiredService<Atendentes>().ListarAsync();
+    }
+
+    private async Task<Autor?> ObterAtendenteAsync(string id)
+    {
+        await using var escopo = Escopos.CreateAsyncScope();
+        return await escopo.ServiceProvider.GetRequiredService<Atendentes>().ObterAsync(id);
     }
 
     private void AbrirNovo() => AbrirPainel(null);

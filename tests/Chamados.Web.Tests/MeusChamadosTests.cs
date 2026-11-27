@@ -54,7 +54,7 @@ public sealed class MeusChamadosTests(FabricaChamados fabrica) : IClassFixture<F
             new { titulo = "Ventilador da sala 12 fazendo barulho", prioridade = "Baixa" });
         var criado = await resposta.Content.ReadFromJsonAsync<ResumoChamado>(Json.Opcoes);
         (await atendente.PostAsJsonAsync(new Uri($"/api/chamados/{criado!.Id}/atendimento", UriKind.Relative),
-            new { responsavel = "Manutenção" })).EnsureSuccessStatusCode();
+            new { })).EnsureSuccessStatusCode();
 
         using var detalhe = JsonDocument.Parse(
             await solicitante.GetStringAsync(new Uri($"/api/chamados/{criado.Id}", UriKind.Relative)));
@@ -103,12 +103,12 @@ public sealed class MeusChamadosTests(FabricaChamados fabrica) : IClassFixture<F
     [Fact]
     public async Task Busca_por_responsavel_do_solicitante_so_traz_os_chamados_dele()
     {
-        // Na semente, o Wi-Fi (da carla) está com o responsável "Redes".
+        // Na semente, o Wi-Fi (da carla) está com o atendente Davi.
         var solicitante = await fabrica.ClienteComTokenAsync(Acesso.Solicitante);
         var atendente = await fabrica.ClienteComTokenAsync(Acesso.Atendente);
 
-        var doBruno = await ListarAsync(solicitante, "/api/chamados/por-responsavel?nome=Redes");
-        var todos = await ListarAsync(atendente, "/api/chamados/por-responsavel?nome=Redes");
+        var doBruno = await ListarAsync(solicitante, "/api/chamados/por-responsavel?nome=Davi");
+        var todos = await ListarAsync(atendente, "/api/chamados/por-responsavel?nome=Davi");
 
         Assert.Empty(doBruno);
         Assert.Contains(todos, c => c.Titulo == "Wi-Fi instável no bloco B");
@@ -129,7 +129,7 @@ public sealed class MeusChamadosTests(FabricaChamados fabrica) : IClassFixture<F
 
         var atendente = await fabrica.ClienteConectadoAsync(Acesso.Atendente);
         var inicio = await atendente.PostAsync(new Uri($"{detalhe}?handler=Iniciar", UriKind.Relative),
-            await FormularioAsync(atendente, detalhe, new() { ["responsavel"] = "Manutenção" }));
+            await FormularioAsync(atendente, detalhe, new() { ["responsavelId"] = await fabrica.IdDoUsuarioAsync(Acesso.Atendente) }));
 
         using var json = JsonDocument.Parse(await (await fabrica.ClienteComTokenAsync(Acesso.Atendente))
             .GetStringAsync(new Uri($"/api/chamados/{detalhe.Split('/')[^1]}", UriKind.Relative)));

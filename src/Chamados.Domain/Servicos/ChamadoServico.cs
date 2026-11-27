@@ -54,9 +54,38 @@ public sealed class ChamadoServico(
 
     // Meus chamados: "por" é quem faz a mudança, gravado no histórico. Opcional para os testes do
     // domínio e para a semente; a camada Web sempre informa o usuário conectado.
-    public Task<Chamado> IniciarAtendimentoAsync(Guid id, string responsavel, Autor? por = null,
+    // Responsável atendente: quem atende é uma pessoa. Conferir que ela é um atendente ativo é
+    // tarefa da camada Web, que conhece os usuários; o domínio guarda o Id e o nome.
+    public Task<Chamado> IniciarAtendimentoAsync(Guid id, Autor responsavel, Autor? por = null,
         CancellationToken cancellationToken = default)
         => TransicionarAsync(id, chamado => chamado.IniciarAtendimento(responsavel, relogio.GetUtcNow(), por), cancellationToken);
+
+    /// <summary>Responsável atendente: passa um chamado em atendimento a outra pessoa.</summary>
+    public Task<Chamado> ReatribuirAsync(Guid id, Autor responsavel, Autor? por = null,
+        CancellationToken cancellationToken = default)
+        => AlterarAsync(id, chamado => chamado.Reatribuir(responsavel, relogio.GetUtcNow(), por), cancellationToken);
+
+    /// <summary>
+    /// Responsável atendente: a carga de cada atendente (em atendimento e, desses, vencidos), com as
+    /// maiores pendências primeiro. Duas contagens agrupadas no banco, com o mesmo corte de prazo da lista.
+    /// </summary>
+    public async Task<IReadOnlyList<CargaDeAtendente>> ObterCargaAsync(CancellationToken cancellationToken = default)
+    {
+        var emAtendimento = new FiltroChamados(Status: StatusChamado.EmAtendimento);
+        var todos = await repositorio.ContarPorResponsavelAsync(emAtendimento, cancellationToken);
+        var vencidos = (await repositorio.ContarPorResponsavelAsync(
+                emAtendimento with { AbertosAntesDe = Prazos.AberturasVencidas(relogio.GetUtcNow()) }, cancellationToken))
+            .ToDictionary(c => c.ResponsavelId ?? string.Empty, c => c.Total);
+
+        return
+        [
+            .. todos
+                .Select(c => new CargaDeAtendente(c.ResponsavelId, c.Nome, c.Total, vencidos.GetValueOrDefault(c.ResponsavelId ?? string.Empty)))
+                .OrderByDescending(c => c.Vencidos)
+                .ThenByDescending(c => c.EmAtendimento)
+                .ThenBy(c => c.Nome, StringComparer.CurrentCultureIgnoreCase),
+        ];
+    }
 
     public async Task<Chamado> ResolverAsync(Guid id, string solucao, Autor? por = null,
         CancellationToken cancellationToken = default)

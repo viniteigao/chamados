@@ -39,6 +39,13 @@ public sealed class IndexModel(ChamadoServico servico) : PageModel
     [BindProperty(SupportsGet = true)]
     public bool Meus { get; set; }
 
+    /// <summary>Responsável atendente: só os chamados que estão com quem pede (?atribuidosAMim=true).</summary>
+    [BindProperty(SupportsGet = true)]
+    public bool AtribuidosAMim { get; set; }
+
+    /// <summary>Responsável atendente: o filtro "Atribuídos a mim" é para quem atende.</summary>
+    public bool PodeFiltrarAtribuidos { get; private set; }
+
     /// <summary>Meus chamados: verdadeiro quando a lista mostra só os chamados do usuário.</summary>
     public bool SoOsMeus { get; private set; }
 
@@ -61,13 +68,17 @@ public sealed class IndexModel(ChamadoServico servico) : PageModel
             NumeroPagina = 1;
             SomenteVencidos = false;
             Meus = false;
+            AtribuidosAMim = false;
         }
 
         var dono = User.DonoParaListar(Meus);
         SoOsMeus = dono is not null;
         PodeEscolher = User.VeTodosOsChamados();
 
-        var filtro = new FiltroChamados(Status, PrioridadeMinima, Texto, Ordem, SomenteVencidos, dono);
+        PodeFiltrarAtribuidos = User.IsInRole(Politicas.PapelAtendente);
+        var responsavel = AtribuidosAMim ? User.IdDoUsuario() ?? "-" : null;
+
+        var filtro = new FiltroChamados(Status, PrioridadeMinima, Texto, Ordem, SomenteVencidos, dono, responsavel);
         Resultado = await servico.ListarPaginaAsync(filtro, NumeroPagina, TamanhoPagina, cancellationToken);
     }
 
@@ -83,6 +94,7 @@ public sealed class IndexModel(ChamadoServico servico) : PageModel
         ordem = Ordem == OrdemChamados.Prioridade ? (OrdemChamados?)null : Ordem,
         somenteVencidos = SomenteVencidos ? true : (bool?)null,
         meus = Meus ? true : (bool?)null,
+        atribuidosAMim = AtribuidosAMim ? true : (bool?)null,
         pagina = pagina == 1 ? (int?)null : pagina
     };
 }

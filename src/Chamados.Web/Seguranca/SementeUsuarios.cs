@@ -15,6 +15,7 @@ public static class SementeUsuarios
     public static readonly (string Email, string Nome, string? Papel, string? Cargo)[] Usuarios =
     [
         ("ana@chamados.local", "Ana", Politicas.PapelAtendente, null),        // atende chamados
+        ("davi@chamados.local", "Davi", Politicas.PapelAtendente, null),      // também atende (responsável atendente)
         ("bruno@chamados.local", "Bruno", null, null),                         // só abre e acompanha
         ("carla@chamados.local", "Carla", null, Politicas.CargoCoordenacao),  // vê os indicadores
     ];

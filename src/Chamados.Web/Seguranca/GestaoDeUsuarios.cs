@@ -49,12 +49,7 @@ public sealed class GestaoDeUsuarios(
         var atendentes = (await usuarios.GetUsersInRoleAsync(Politicas.PapelAtendente)).Select(u => u.Id).ToHashSet();
         var coordenacao = (await usuarios.GetUsersForClaimAsync(new Claim(Politicas.ClaimCargo, Politicas.CargoCoordenacao)))
             .Select(u => u.Id).ToHashSet();
-        var nomes = (await db.UserClaims.AsNoTracking()
-                .Where(c => c.ClaimType == NomeDeExibicao.Claim)
-                .Select(c => new { c.UserId, c.ClaimValue })
-                .ToListAsync(cancellationToken))
-            .GroupBy(c => c.UserId)
-            .ToDictionary(g => g.Key, g => g.First().ClaimValue);
+        var nomes = await NomeDeExibicao.NomesAsync(db, cancellationToken);
 
         var agora = relogio.GetUtcNow();
         return

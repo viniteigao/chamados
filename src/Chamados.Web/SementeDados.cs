@@ -10,6 +10,7 @@ namespace Chamados.Web;
 /// a atendente. Por isso a semente de usuários roda antes desta (Program.cs).
 /// Comentários: duas conversas de exemplo, uma num chamado da carla e outra num do bruno.
 /// Nome de exibição: os autores são gravados com o nome ("Ana"), como acontece pelas telas.
+/// Responsável atendente: os chamados em atendimento estão com a ana ou com o davi.
 /// </summary>
 public static class SementeDados
 {
@@ -29,13 +30,14 @@ public static class SementeDados
         var ana = await AutorAsync(usuarios, "ana@chamados.local");
         var bruno = await AutorAsync(usuarios, "bruno@chamados.local");
         var carla = await AutorAsync(usuarios, "carla@chamados.local");
+        var davi = await AutorAsync(usuarios, "davi@chamados.local");
 
         await servico.AbrirAsync(new NovoChamado("Trocar lâmpada do corredor", Prioridade.Baixa, AbertoPor: bruno), cancellationToken);
 
         var arCondicionado = await servico.AbrirAsync(
             new NovoChamado("Ar-condicionado da sala 204 desligando", Prioridade.Alta, "Desliga após 10 minutos de uso", carla),
             cancellationToken);
-        await servico.IniciarAtendimentoAsync(arCondicionado.Id, "Equipe de climatização", ana, cancellationToken);
+        await servico.IniciarAtendimentoAsync(arCondicionado.Id, Exigir(davi), ana, cancellationToken);
         await ComentarAsync(servico, arCondicionado.Id, carla, "Hoje desligou duas vezes antes do almoço.", cancellationToken);
         await ComentarAsync(servico, arCondicionado.Id, ana,
             "Técnico agendado para amanhã às 9h. A sala pode ficar aberta nesse horário?", cancellationToken);
@@ -44,7 +46,7 @@ public static class SementeDados
         var vazamento = await servico.AbrirAsync(
             new NovoChamado("Vazamento na copa", Prioridade.Critica, "Água sob a pia", ana),
             cancellationToken);
-        await servico.IniciarAtendimentoAsync(vazamento.Id, "Hidráulica", ana, cancellationToken);
+        await servico.IniciarAtendimentoAsync(vazamento.Id, Exigir(ana), ana, cancellationToken);
         await servico.ResolverAsync(vazamento.Id, "Sifão substituído", ana, cancellationToken);
 
         var projetor = await servico.AbrirAsync(
@@ -58,7 +60,7 @@ public static class SementeDados
 
         var wifi = await servico.AbrirAsync(
             new NovoChamado("Wi-Fi instável no bloco B", Prioridade.Alta, "Cai a cada 15 minutos", carla), cancellationToken);
-        await servico.IniciarAtendimentoAsync(wifi.Id, "Redes", ana, cancellationToken);
+        await servico.IniciarAtendimentoAsync(wifi.Id, Exigir(davi), ana, cancellationToken);
 
         var impressora = await servico.AbrirAsync(
             new NovoChamado("Impressora do 2º andar sem toner", Prioridade.Media, AbertoPor: bruno), cancellationToken);
@@ -68,7 +70,7 @@ public static class SementeDados
 
         var lampada = await servico.AbrirAsync(
             new NovoChamado("Lâmpada queimada no estacionamento", Prioridade.Baixa, AbertoPor: ana), cancellationToken);
-        await servico.IniciarAtendimentoAsync(lampada.Id, "Elétrica", ana, cancellationToken);
+        await servico.IniciarAtendimentoAsync(lampada.Id, Exigir(ana), ana, cancellationToken);
         await servico.ResolverAsync(lampada.Id, "Lâmpada trocada", ana, cancellationToken);
 
         await servico.AbrirAsync(new NovoChamado("Bebedouro sem água gelada", Prioridade.Media, AbertoPor: bruno), cancellationToken);
@@ -76,6 +78,10 @@ public static class SementeDados
             new NovoChamado("Ar-condicionado da biblioteca pingando", Prioridade.Alta, "Goteira sobre as mesas", carla),
             cancellationToken);
     }
+
+    // Responsável atendente: quem atende precisa existir. A semente de usuários roda antes (Program.cs).
+    private static Autor Exigir(Autor? atendente)
+        => atendente ?? throw new InvalidOperationException("A semente de usuários precisa rodar antes da semente de chamados.");
 
     // Sem o usuário de exemplo (semente de usuários desligada), a mensagem fica de fora.
     private static async Task ComentarAsync(ChamadoServico servico, Guid id, Autor? autor, string texto,

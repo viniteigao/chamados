@@ -35,6 +35,12 @@ public sealed class FiltroExcecoesDominio : IEndpointFilter
             return TypedResults.Problem(ex.Message, statusCode: StatusCodes.Status409Conflict,
                 title: "Chamado encerrado");
         }
+        catch (ChamadoSemAtendimentoException ex)
+        {
+            // Responsável atendente: trocar o responsável de um chamado que ainda não está em atendimento.
+            return TypedResults.Problem(ex.Message, statusCode: StatusCodes.Status409Conflict,
+                title: "Chamado sem atendimento");
+        }
         catch (ArgumentException ex)
         {
             // Mensagens de ArgumentException vêm das regras do domínio, não de detalhes internos.

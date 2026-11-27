@@ -39,6 +39,13 @@ public interface IChamadoRepositorio
     Task<IReadOnlyList<ResumoChamado>> ListarPorResponsavelAsync(
         string responsavel, string? abertoPorId = null, CancellationToken cancellationToken = default);
 
+    /// <summary>
+    /// Responsável atendente: quantos chamados do filtro estão com cada responsável (GROUP BY no banco).
+    /// Os chamados sem responsável cadastrado formam um grupo com Id nulo.
+    /// </summary>
+    Task<IReadOnlyList<ContagemPorResponsavel>> ContarPorResponsavelAsync(FiltroChamados filtro,
+        CancellationToken cancellationToken = default);
+
     /// <summary>Prazos: prioridade, abertura e resolução de cada chamado resolvido.</summary>
     Task<IReadOnlyList<ResolucaoChamado>> ListarResolucoesAsync(CancellationToken cancellationToken = default);
 }

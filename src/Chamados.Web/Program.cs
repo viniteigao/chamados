@@ -74,6 +74,8 @@ builder.Services.AddIdentity<IdentityUser, IdentityRole>(opcoes =>
 
 // Gestão de usuários: cadastro, perfil, desativação e senha (Seguranca/GestaoDeUsuarios.cs).
 builder.Services.AddScoped<GestaoDeUsuarios>();
+// Responsável atendente: quem pode ser responsável por um chamado (Seguranca/Atendentes.cs).
+builder.Services.AddScoped<Atendentes>();
 
 // Gestão de usuários: o cookie confere o carimbo de segurança a cada minuto (o padrão é 30). Uma conta
 // desativada ou com o acesso alterado perde a sessão em até 1 minuto; com o carimbo igual, as claims são

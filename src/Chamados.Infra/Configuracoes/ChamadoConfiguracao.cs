@@ -31,6 +31,10 @@ public sealed class ChamadoConfiguracao : IEntityTypeConfiguration<Chamado>
         // O EF grava e lê pelo campo gerado pelo compilador.
         builder.Property(c => c.CriadoEm);
         builder.Property(c => c.Responsavel).HasMaxLength(Chamado.TamanhoMaximoResponsavel);
+
+        // Responsável atendente: o Id do atendente, com índice para "Meus atendimentos" e a carga por atendente.
+        builder.Property(c => c.ResponsavelId).HasMaxLength(Autor.TamanhoMaximoId);
+        builder.HasIndex(c => c.ResponsavelId);
         builder.Property(c => c.Solucao).HasMaxLength(Chamado.TamanhoMaximoJustificativa);
 
         // Status como texto ("EmAtendimento"): legível em qualquer ferramenta de banco.
@@ -109,6 +113,8 @@ public sealed class ChamadoConfiguracao : IEntityTypeConfiguration<Chamado>
             edicao.Property(e => e.PrioridadeNova).HasConversion<string>().HasMaxLength(20);
             edicao.Property(e => e.PorId).HasMaxLength(Autor.TamanhoMaximoId);
             edicao.Property(e => e.PorNome).HasMaxLength(Autor.TamanhoMaximoNome);
+            edicao.Property(e => e.ResponsavelAnterior).HasMaxLength(Chamado.TamanhoMaximoResponsavel);
+            edicao.Property(e => e.ResponsavelNovo).HasMaxLength(Chamado.TamanhoMaximoResponsavel);
             edicao.Ignore(e => e.Por);
         });
 

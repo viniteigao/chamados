@@ -22,6 +22,7 @@ A senha precisa ter 10 caracteres ou mais, com maiúscula, minúscula, número e
 | Login (e-mail) | Nome exibido | Papel ou claim | Pode |
 | --- | --- | --- | --- |
 | `ana@chamados.local` | Ana | papel `Atendente` | ver todos os chamados, a fila de atendimento, editar e mudar status |
+| `davi@chamados.local` | Davi | papel `Atendente` | o mesmo que a ana (dois atendentes, para atribuir e reatribuir chamados) |
 | `bruno@chamados.local` | Bruno | nenhum | abrir chamados e acompanhar só os que abriu ("Meus chamados") |
 | `carla@chamados.local` | Carla | claim `cargo = Coordenacao` | ver todos os chamados e os indicadores |
 
@@ -60,7 +61,7 @@ dotnet ef migrations add NomeDaMudanca --project src/Chamados.Infra --startup-pr
 dotnet ef database update --project src/Chamados.Infra --startup-project src/Chamados.Web
 ```
 
-O projeto traz seis migrations: `Inicial` (tabelas `Chamados` e `HistoricoChamados`), `IndicePrioridade` (um índice criado depois, para mostrar o banco evoluindo sem perder dados), `Identidade` (tabelas de usuários do Módulo 8), `AutoriaDosChamados` (quem abriu e quem fez cada mudança), `ComentariosDosChamados` (tabela `ComentariosChamados`) e `EdicoesDosChamados` (tabela `EdicoesChamados`). Um banco antigo recebe as que faltam no próximo início, sem perder dados.
+O projeto traz sete migrations: `Inicial` (tabelas `Chamados` e `HistoricoChamados`), `IndicePrioridade` (um índice criado depois, para mostrar o banco evoluindo sem perder dados), `Identidade` (tabelas de usuários do Módulo 8), `AutoriaDosChamados` (quem abriu e quem fez cada mudança), `ComentariosDosChamados` (tabela `ComentariosChamados`), `EdicoesDosChamados` (tabela `EdicoesChamados`) e `ResponsavelAtendente` (o Id do atendente responsável). Um banco antigo recebe as que faltam no próximo início, sem perder dados.
 
 Em Development, o log mostra cada comando SQL (categoria `Microsoft.EntityFrameworkCore.Database.Command`), com os valores dos parâmetros ocultos.
 
@@ -95,7 +96,7 @@ Componentes acrescentados no Módulo 6: `Formularios/FormularioChamado` (EditFor
 
 | Rota | Função |
 | --- | --- |
-| `GET /api/chamados?status=&prioridadeMinima=&texto=&ordem=&somenteVencidos=&meus=` | Lista com filtros e ordenação (`Prioridade`, `MaisRecentes`, `MaisAntigos`, `Titulo`); `somenteVencidos=true` traz só os em andamento com o prazo vencido; `meus=true` só os que o usuário abriu (quem não é atendente nem da coordenação sempre recebe só os seus) |
+| `GET /api/chamados?status=&prioridadeMinima=&texto=&ordem=&somenteVencidos=&meus=&atribuidosAMim=` | Lista com filtros e ordenação (`Prioridade`, `MaisRecentes`, `MaisAntigos`, `Titulo`); `somenteVencidos=true` traz só os em andamento com o prazo vencido; `meus=true` só os que o usuário abriu (quem não é atendente nem da coordenação sempre recebe só os seus); `atribuidosAMim=true` só os que estão com quem pede |
 | `GET /api/chamados/estatisticas` | Totais e tempo médio de resolução |
 | `GET /api/chamados/prazos` | Vencidos, perto de vencer, percentual resolvido no prazo e a tabela de prazos (política `VerIndicadores`) |
 | `GET /api/chamados/{id}` | Um chamado com o histórico (com quem fez cada mudança), as edições, o prazo, quem abriu e a conversa (DTO `DetalheChamadoResposta`, inclui `versao`); id inexistente ou de outra pessoa → 404 |
@@ -103,7 +104,10 @@ Componentes acrescentados no Módulo 6: `Formularios/FormularioChamado` (EditFor
 | `POST /api/chamados/{id}/comentarios` | Escreve uma mensagem (corpo: `{"texto": "..."}`) → 201; vazia ou com mais de 2000 caracteres → 400 |
 | `POST /api/chamados` | Abre chamado (corpo: `{"titulo": "...", "prioridade": "Alta"}`); corpo inválido → 400 com erros por campo |
 | `PUT /api/chamados/{id}` | Edita (corpo com `versaoEsperada`; versão desatualizada → 409, chamado encerrado → 409) |
-| `POST /api/chamados/{id}/atendimento` | Inicia atendimento (corpo: `{"responsavel": "..."}`) |
+| `POST /api/chamados/{id}/atendimento` | Inicia atendimento. Corpo `{}`: quem atende é quem chama; `{"responsavelId": "..."}`: o atendente indicado (Id de `GET /api/atendentes`); quem não é atendente ativo → 400 |
+| `POST /api/chamados/{id}/responsavel` | Passa um chamado em atendimento a outro atendente (corpo: `{"responsavelId": "..."}`); chamado aberto ou encerrado → 409 |
+| `GET /api/atendentes` | Atendentes ativos, com Id e nome, para escolher o responsável (política `Atender`) |
+| `GET /api/chamados/carga` | Chamados em atendimento e vencidos de cada atendente (política `VerIndicadores`) |
 | `POST /api/chamados/{id}/resolucao` | Resolve (corpo: `{"solucao": "..."}`) |
 | `POST /api/chamados/{id}/cancelamento` | Cancela (corpo: `{"motivo": "..."}`) |
 | `GET /api/chamados/por-responsavel?nome=` | Chamados de um responsável (Módulo 8; SQL escrito à mão com `FromSql`, parametrizado) |
@@ -218,6 +222,18 @@ Feito na branch `historico-edicoes`. Antes, editar título, prioridade ou descri
 - **API**: o detalhe traz `edicoes`, cada uma com `em`, `tituloAnterior`, `tituloNovo`, `prioridadeAnterior`, `prioridadeNova`, `descricaoAlterada` e `por`.
 - **Banco antigo**: as edições feitas antes deste recurso não têm como ser recuperadas; o histórico delas começa agora.
 
+### Responsável atendente
+
+Feito na branch `responsavel-atendente`. Antes, o responsável era um texto livre ("Equipe de climatização", "ana", "Ana"): o sistema não sabia quem era quem. Agora quem atende é sempre uma pessoa, escolhida na lista de atendentes ativos, e o chamado guarda o Id e o nome dela (migration `ResponsavelAtendente`).
+
+- **Iniciar atendimento**: na página do chamado e na fila, uma lista com os atendentes ativos, com você já marcado (na fila, o último atendente escolhido neste navegador). Pela API, sem `responsavelId`, quem atende é quem chama.
+- **Reatribuir**: um chamado em atendimento pode passar para outra pessoa, pela página ("Passar para outra pessoa"), pela fila ("Reatribuir") ou pela API. A troca entra no histórico: "Responsável alterado · Ana → Davi · por Ana".
+- **Meus atendimentos**: na fila, "Só os meus atendimentos" mostra os chamados em atendimento com você, do mais perto de vencer ao mais folgado (a coluna "Abertos" continua inteira, para pegar novos). Na lista, "Atribuídos a mim", para quem atende. Na API, `?atribuidosAMim=true`.
+- **Carga por atendente**: nos Indicadores, quantos chamados cada atendente tem em atendimento e quantos já venceram, com os mais pendentes primeiro (contagem agrupada no banco).
+- **Só atendentes ativos**: a escolha é conferida no servidor, na página, na fila e na API. Um solicitante, uma conta desativada ou um Id inventado são recusados (400 na API, mensagem na tela). Na fila, a lista é conferida de novo no clique, porque alguém pode ter sido desativado desde que ela abriu.
+- **Chamados antigos**: os atribuídos antes deste recurso continuam mostrando o texto que tinham. Eles não entram em "Meus atendimentos" e aparecem na carga como "Responsável não cadastrado (texto antigo)". Ao reatribuir um deles, ele passa a ter um atendente de verdade.
+- **Semente**: o davi (`davi@chamados.local`, mesma senha) atende junto com a ana; o ar-condicionado da sala 204 e o Wi-Fi do bloco B estão com ele.
+
 ### Nome de exibição
 
 Feito na branch `nome-de-exibicao`. O login continua pelo e-mail, mas o cabeçalho, "Aberto por", o histórico, a conversa, a fila e a API mostram um nome ("Ana", "Bruno", "Carla"). O e-mail de login aparece só no próprio cabeçalho, ao passar o mouse sobre o nome.
@@ -251,7 +267,7 @@ Feito na branch `gestao-usuarios`. Antes, os únicos usuários eram os três de 
 
 ## Testar
 
-No Visual Studio: **Teste > Gerenciador de Testes > Executar Todos** (`Ctrl+R, A`). Pela CLI: `dotnet test`. São 178 testes: 94 do domínio (com a política de prazos e um relógio controlado), 17 de integração com o banco e 67 da aplicação web (integração com `WebApplicationFactory`, inclusive em ambiente Production com o banco falhando, com prazos de milissegundos, com os três usuários vendo cada um o que pode e conversando nos chamados, com a coordenação cadastrando, desativando e mudando o acesso de outras pessoas, componentes com `HtmlRenderer` e unidade das políticas de autorização). O GitHub roda os mesmos testes a cada push (`.github/workflows/ci.yml`).
+No Visual Studio: **Teste > Gerenciador de Testes > Executar Todos** (`Ctrl+R, A`). Pela CLI: `dotnet test`. São 195 testes: 102 do domínio (com a política de prazos e um relógio controlado), 18 de integração com o banco e 75 da aplicação web (integração com `WebApplicationFactory`, inclusive em ambiente Production com o banco falhando, com prazos de milissegundos, com os três usuários vendo cada um o que pode e conversando nos chamados, com a coordenação cadastrando, desativando e mudando o acesso de outras pessoas, componentes com `HtmlRenderer` e unidade das políticas de autorização). O GitHub roda os mesmos testes a cada push (`.github/workflows/ci.yml`).
 
 ## Estrutura
 
@@ -332,3 +348,6 @@ No Visual Studio: **Teste > Gerenciador de Testes > Executar Todos** (`Ctrl+R, A
 - **Carimbo de segurança em vez de lista de tokens revogados** (gestão de usuários): o Identity já guarda um carimbo por conta e o põe no cookie e no token. Trocar o carimbo invalida tudo que foi emitido antes, sem tabela nova. O custo é uma consulta ao banco por requisição da API (`FiltroSessaoValida`) e uma a cada minuto para cada cookie e cada fila aberta.
 - **A regra vale no clique, não só ao abrir a página** (gestão de usuários): o circuito do Blazor guarda quem entrou enquanto a aba estiver aberta. Por isso a fila confere a política a cada ação e esconde o conteúdo quando a revalidação encerra a sessão. Sem isso, uma atendente desativada continuaria resolvendo chamados até recarregar a página.
 - **Sem cadastro aberto nem "esqueci a senha" por e-mail** (gestão de usuários): quem cria contas é a coordenação, e o sistema não tem servidor de e-mail. Quem esquece a senha pede à coordenação, que redefine. Se um dia houver e-mail, o Identity já tem o token de redefinição (`AddDefaultTokenProviders`).
+- **Responsável é sempre uma pessoa** (responsável atendente): é o que permite "Meus atendimentos" e a carga por atendente. Equipes ("Redes", "Hidráulica") não são mais responsáveis; se o sistema precisar delas, elas cabem melhor como categoria do chamado.
+- **Id do usuário só onde a API precisa dele** (responsável atendente): a regra continua sendo mostrar nomes. A exceção é `GET /api/atendentes`, só para quem atende, porque é pelo Id que a API recebe a escolha do responsável (nomes podem se repetir e mudar).
+- **Reatribuir é uma edição, não uma transição** (responsável atendente): o status não muda, então a troca fica no histórico das edições, com o nome de antes e o de depois, e aumenta a versão do chamado, como uma edição.

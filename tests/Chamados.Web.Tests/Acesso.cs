@@ -1,7 +1,9 @@
 using System.Net;
 using System.Net.Http.Json;
 using System.Text.RegularExpressions;
+using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc.Testing;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace Chamados.Web.Tests;
 
@@ -63,6 +65,14 @@ public static partial class Acesso
         var token = await resposta.Content.ReadFromJsonAsync<RespostaToken>();
         cliente.DefaultRequestHeaders.Authorization = new("Bearer", token!.AccessToken);
         return cliente;
+    }
+
+    /// <summary>Responsável atendente: o Id de um usuário, para os testes que escolhem quem atende.</summary>
+    public static async Task<string> IdDoUsuarioAsync(this WebApplicationFactory<Program> fabrica, string email)
+    {
+        await using var escopo = fabrica.Services.CreateAsyncScope();
+        var usuarios = escopo.ServiceProvider.GetRequiredService<UserManager<IdentityUser>>();
+        return (await usuarios.FindByEmailAsync(email))!.Id;
     }
 
     private sealed record RespostaToken(string AccessToken);

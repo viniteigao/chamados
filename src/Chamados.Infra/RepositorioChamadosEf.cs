@@ -163,6 +163,20 @@ public sealed class RepositorioChamadosEf(IDbContextFactory<ChamadosDbContext> f
             .ToListAsync(cancellationToken);
     }
 
+    public async Task<IReadOnlyList<ContagemPorResponsavel>> ContarPorResponsavelAsync(FiltroChamados filtro,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(filtro);
+        await using var db = await fabrica.CreateDbContextAsync(cancellationToken);
+
+        // Responsável atendente: GROUP BY no banco; só as contagens trafegam. O nome é o gravado nos
+        // chamados (MAX escolhe um, caso o mesmo atendente tenha sido gravado com nomes diferentes).
+        return await Filtrar(db.Chamados.AsNoTracking(), filtro)
+            .GroupBy(c => c.ResponsavelId)
+            .Select(g => new ContagemPorResponsavel(g.Key, g.Max(c => c.Responsavel), g.Count()))
+            .ToListAsync(cancellationToken);
+    }
+
     public async Task<IReadOnlyList<ResolucaoChamado>> ListarResolucoesAsync(CancellationToken cancellationToken = default)
     {
         await using var db = await fabrica.CreateDbContextAsync(cancellationToken);
@@ -220,6 +234,12 @@ public sealed class RepositorioChamadosEf(IDbContextFactory<ChamadosDbContext> f
         {
             // Meus chamados: comparação exata, com índice na coluna (migration AutoriaDosChamados).
             chamados = chamados.Where(c => c.AbertoPorId == dono);
+        }
+
+        if (filtro.ResponsavelId is { } responsavel)
+        {
+            // Responsável atendente: "Meus atendimentos", comparação exata com índice.
+            chamados = chamados.Where(c => c.ResponsavelId == responsavel);
         }
 
         return chamados;

@@ -184,6 +184,10 @@ button.neutro:hover { background: #ece8df; }
 .cartao-fila.cartao-alerta { border-left: 4px solid var(--laranja); }
 .filtros .marcar { display: flex; align-items: center; gap: .4rem; font-weight: 600; }
 .filtros .marcar input { width: auto; }
+/* Responsável atendente: a caixa "Só os meus atendimentos" na barra da fila, alinhada aos botões. */
+.barra-fila label.marcar { display: flex; align-items: center; gap: .4rem; min-height: 2.5rem; }
+.barra-fila label.marcar input { width: auto; }
+.tabela-carga { margin-bottom: 1.5rem; }
 .tabela-prazos td:last-child { text-align: right; }
 .cartao-acao h3 { margin: 0; font-size: 1.05rem; }
 

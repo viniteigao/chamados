@@ -55,6 +55,10 @@ public sealed class RepositorioSimulado(IChamadoRepositorio interno, TimeProvide
     public Task<Chamado> AlterarAsync(Guid id, Action<Chamado> alteracao, CancellationToken cancellationToken = default)
         => interno.AlterarAsync(id, alteracao, cancellationToken);
 
+    public Task<IReadOnlyList<ContagemPorResponsavel>> ContarPorResponsavelAsync(FiltroChamados filtro,
+        CancellationToken cancellationToken = default)
+        => interno.ContarPorResponsavelAsync(filtro, cancellationToken);
+
     private Task AtrasarAsync(CancellationToken cancellationToken)
         => opcoes.LatenciaMs > 0
             ? Task.Delay(TimeSpan.FromMilliseconds(opcoes.LatenciaMs), relogio, cancellationToken)

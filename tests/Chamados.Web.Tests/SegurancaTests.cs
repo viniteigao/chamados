@@ -45,8 +45,8 @@ public sealed class SegurancaTests(FabricaChamados fabrica) : IClassFixture<Fabr
             new Uri("/api/chamados?status=Aberto", UriKind.Relative), Json.Opcoes);
         var rota = new Uri($"/api/chamados/{abertos![0].Id}/atendimento", UriKind.Relative);
 
-        var negado = await solicitante.PostAsJsonAsync(rota, new { responsavel = "Bruno" });
-        var aceito = await atendente.PostAsJsonAsync(rota, new { responsavel = "Ana" });
+        var negado = await solicitante.PostAsJsonAsync(rota, new { });
+        var aceito = await atendente.PostAsJsonAsync(rota, new { });
 
         Assert.Equal(HttpStatusCode.Forbidden, negado.StatusCode);
         Assert.Equal(HttpStatusCode.OK, aceito.StatusCode);
@@ -183,22 +183,23 @@ public sealed class SegurancaTests(FabricaChamados fabrica) : IClassFixture<Fabr
     }
 
     [Fact]
-    public async Task Responsavel_longo_demais_responde_400_com_o_erro_no_campo_sem_mudar_o_chamado()
+    public async Task Responsavel_que_nao_e_atendente_responde_400_com_o_erro_no_campo_sem_mudar_o_chamado()
     {
+        // Responsável atendente: antes, um nome longo demais; agora, a pessoa precisa ser um atendente ativo.
         var atendente = await fabrica.ClienteComTokenAsync(Acesso.Atendente);
         var abertos = await atendente.GetFromJsonAsync<List<ResumoChamado>>(
             new Uri("/api/chamados?status=Aberto", UriKind.Relative), Json.Opcoes);
         var chamado = abertos![^1];
 
         var resposta = await atendente.PostAsJsonAsync(new Uri($"/api/chamados/{chamado.Id}/atendimento", UriKind.Relative),
-            new { responsavel = new string('a', Chamado.TamanhoMaximoResponsavel + 1) });
+            new { responsavelId = await fabrica.IdDoUsuarioAsync(Acesso.Solicitante) });
         using var problema = JsonDocument.Parse(await resposta.Content.ReadAsStringAsync());
         var depois = await atendente.GetFromJsonAsync<ResumoChamado>(
             new Uri($"/api/chamados/{chamado.Id}", UriKind.Relative), Json.Opcoes);
 
         Assert.Equal(HttpStatusCode.BadRequest, resposta.StatusCode);
         Assert.Contains(problema.RootElement.GetProperty("errors").EnumerateObject(),
-            campo => campo.Name.Equals("Responsavel", StringComparison.OrdinalIgnoreCase));
+            campo => campo.Name.Equals("ResponsavelId", StringComparison.OrdinalIgnoreCase));
         Assert.Equal(chamado.Versao, depois!.Versao);
         Assert.Equal(StatusChamado.Aberto, depois.Status);
     }

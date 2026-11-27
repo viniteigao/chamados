@@ -9,7 +9,8 @@
 
 <h1>Indicadores</h1>
 <p class="apoio">
-    Lidos pela API (<code>GET /api/chamados/estatisticas</code> e <code>GET /api/chamados/prazos</code>),
+    Lidos pela API (<code>GET /api/chamados/estatisticas</code>, <code>GET /api/chamados/prazos</code> e
+    <code>GET /api/chamados/carga</code>),
     e não direto do serviço: é assim que o aplicativo MAUI do Módulo 10 vai consultar os mesmos números.
 </p>
 
@@ -17,7 +18,7 @@
 {
     <p class="erros aviso-erro" role="alert">@falha</p>
 }
-else if (estatisticas is null || prazos is null)
+else if (estatisticas is null || prazos is null || carga is null)
 {
     @* Com [StreamRendering], o servidor envia esta parte logo e o resto quando a API responder. *@
     <p class="vazio" aria-busy="true">Consultando a API…</p>
@@ -79,6 +80,29 @@ else
             <p class="apoio">@prazos.ResolvidosNoPrazo de @(prazos.ResolvidosNoPrazo + prazos.ResolvidosForaDoPrazo) resolvidos</p>
         </article>
     </section>
+    @* Responsável atendente: quem está com quantos chamados, e quantos deles já venceram. *@
+    <h2>Carga por atendente</h2>
+    @if (carga!.Count == 0)
+    {
+        <p class="vazio">Nenhum chamado em atendimento agora.</p>
+    }
+    else
+    {
+        <table class="tabela tabela-carga">
+            <thead><tr><th scope="col">Atendente</th><th scope="col">Em atendimento</th><th scope="col">Vencidos</th></tr></thead>
+            <tbody>
+                @foreach (var linha in carga)
+                {
+                    <tr>
+                        <td>@(linha.Atendente ?? "Responsável não cadastrado (texto antigo)")</td>
+                        <td>@linha.EmAtendimento</td>
+                        <td class="@(linha.Vencidos > 0 ? "situacao-desativado" : null)">@linha.Vencidos</td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    }
+
     <table class="tabela tabela-prazos">
         <caption>Prazo de atendimento por prioridade (horas corridas, desde a abertura)</caption>
         <thead><tr><th scope="col">Prioridade</th><th scope="col">Prazo</th></tr></thead>
@@ -94,6 +118,7 @@ else
 @code {
     private EstatisticasChamados? estatisticas;
     private IndicadoresDePrazo? prazos;
+    private IReadOnlyList<CargaResposta>? carga;
     private string? falha;
 
     protected override async Task OnInitializedAsync()
@@ -103,9 +128,11 @@ else
             // As duas chamadas à API em paralelo: a página espera pela mais lenta, não pela soma.
             var buscaEstatisticas = Api.ObterEstatisticasAsync();
             var buscaPrazos = Api.ObterIndicadoresDePrazoAsync();
-            await Task.WhenAll(buscaEstatisticas, buscaPrazos);
+            var buscaCarga = Api.ObterCargaAsync();
+            await Task.WhenAll(buscaEstatisticas, buscaPrazos, buscaCarga);
             estatisticas = await buscaEstatisticas;
             prazos = await buscaPrazos;
+            carga = await buscaCarga;
         }
         catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException or System.Text.Json.JsonException)
         {
