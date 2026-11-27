@@ -210,9 +210,9 @@ public class RepositorioChamadosEfTests
 
     // --- Meus chamados ---
 
-    private static readonly Autor Bruno = new("id-bruno", "bruno@chamados.local");
-    private static readonly Autor Carla = new("id-carla", "carla@chamados.local");
-    private static readonly Autor Ana = new("id-ana", "ana@chamados.local");
+    private static readonly Autor Bruno = new("id-bruno", "Bruno");
+    private static readonly Autor Carla = new("id-carla", "Carla");
+    private static readonly Autor Ana = new("id-ana", "Ana");
 
     [Fact]
     public async Task Dono_e_autores_do_historico_sao_gravados_e_lidos_do_banco()
@@ -228,7 +228,7 @@ public class RepositorioChamadosEfTests
 
         Assert.Equal(Bruno, lido!.AbertoPor);
         Assert.Equal(Ana, Assert.Single(lido.Historico).Por);
-        Assert.Equal("bruno@chamados.local", resumo.AbertoPorNome);
+        Assert.Equal("Bruno", resumo.AbertoPorNome);
     }
 
     [Fact]

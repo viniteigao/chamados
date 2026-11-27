@@ -53,7 +53,8 @@
                 <a class="botao" asp-page="/Chamados/Novo">Novo chamado</a>
             </nav>
             <form method="post" asp-page="/Conta/Sair" class="sessao">
-                <span>@User.Identity!.Name</span>
+                @* Nome de exibição; o e-mail de login aparece ao passar o mouse. *@
+                <span title="@User.Identity!.Name">@User.NomeParaExibir()</span>
                 <button type="submit" class="link">Sair</button>
             </form>
         }

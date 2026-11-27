@@ -31,7 +31,7 @@ public sealed class ComentariosTests(FabricaChamados fabrica) : IClassFixture<Fa
         // Post/Redirect/Get, de volta à conversa.
         Assert.Equal(HttpStatusCode.Redirect, envio.StatusCode);
         Assert.Equal($"{detalhe}#conversa", envio.Headers.Location!.OriginalString);
-        Assert.Equal(Acesso.Solicitante, mensagem.Autor);
+        Assert.Equal(Acesso.NomeSolicitante, mensagem.Autor);
         Assert.Contains("Faísca quando liga o carregador.", html, StringComparison.Ordinal);
         Assert.Contains("<strong>Você</strong>", html, StringComparison.Ordinal);
 
@@ -56,8 +56,8 @@ public sealed class ComentariosTests(FabricaChamados fabrica) : IClassFixture<Fa
         var conversa = await ConversaAsync(Acesso.Solicitante, chamado.Id);
 
         Assert.Equal(HttpStatusCode.Redirect, resposta.StatusCode);
-        Assert.Equal([Acesso.Solicitante, Acesso.Atendente], conversa.Select(m => m.Autor));
-        Assert.Contains($"<strong>{Acesso.Solicitante}</strong>", html, StringComparison.Ordinal);
+        Assert.Equal([Acesso.NomeSolicitante, Acesso.NomeAtendente], conversa.Select(m => m.Autor));
+        Assert.Contains($"<strong>{Acesso.NomeSolicitante}</strong>", html, StringComparison.Ordinal);
         Assert.Contains("<span class=\"papel\">solicitante</span>", html, StringComparison.Ordinal);
         Assert.Contains("class=\"mensagem minha\"", html, StringComparison.Ordinal);   // a da própria atendente
     }
@@ -67,7 +67,7 @@ public sealed class ComentariosTests(FabricaChamados fabrica) : IClassFixture<Fa
     {
         var atendente = await fabrica.ClienteComTokenAsync(Acesso.Atendente);
         var daCarla = (await atendente.GetFromJsonAsync<List<ResumoChamado>>(
-            new Uri("/api/chamados", UriKind.Relative), Json.Opcoes))!.First(c => c.AbertoPorNome == Acesso.Coordenadora);
+            new Uri("/api/chamados", UriKind.Relative), Json.Opcoes))!.First(c => c.AbertoPorNome == Acesso.NomeCoordenadora);
         var antes = (await ConversaAsync(Acesso.Atendente, daCarla.Id)).Count;
         var solicitanteApi = await fabrica.ClienteComTokenAsync(Acesso.Solicitante);
         var solicitanteNavegador = await fabrica.ClienteConectadoAsync(Acesso.Solicitante);
@@ -108,14 +108,14 @@ public sealed class ComentariosTests(FabricaChamados fabrica) : IClassFixture<Fa
         Assert.Equal(HttpStatusCode.Created, criada.StatusCode);
         Assert.Equal(rota.OriginalString, criada.Headers.Location!.OriginalString);
         Assert.Equal("Chego em 10 minutos.", mensagem!.Texto);
-        Assert.Equal(Acesso.Atendente, mensagem.Autor);
+        Assert.Equal(Acesso.NomeAtendente, mensagem.Autor);
         Assert.InRange(mensagem.Em, antes, DateTimeOffset.UtcNow);
         Assert.Equal(HttpStatusCode.BadRequest, vazia.StatusCode);
         Assert.Equal(HttpStatusCode.BadRequest, longa.StatusCode);
         Assert.Contains(problema.RootElement.GetProperty("errors").EnumerateObject(),
             campo => campo.Name.Equals("Texto", StringComparison.OrdinalIgnoreCase));
         var unica = Assert.Single(detalhe.RootElement.GetProperty("comentarios").EnumerateArray());
-        Assert.Equal(Acesso.Atendente, unica.GetProperty("autor").GetString());
+        Assert.Equal(Acesso.NomeAtendente, unica.GetProperty("autor").GetString());
     }
 
     [Fact]

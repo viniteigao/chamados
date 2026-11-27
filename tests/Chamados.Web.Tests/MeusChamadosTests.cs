@@ -21,8 +21,8 @@ public sealed class MeusChamadosTests(FabricaChamados fabrica) : IClassFixture<F
         var todos = await ListarAsync(atendente, "/api/chamados");
 
         Assert.NotEmpty(doBruno);
-        Assert.All(doBruno, c => Assert.Equal(Acesso.Solicitante, c.AbertoPorNome));
-        Assert.Contains(todos, c => c.AbertoPorNome == Acesso.Coordenadora);
+        Assert.All(doBruno, c => Assert.Equal(Acesso.NomeSolicitante, c.AbertoPorNome));
+        Assert.Contains(todos, c => c.AbertoPorNome == Acesso.NomeCoordenadora);
         Assert.True(todos.Count > doBruno.Count);
     }
 
@@ -30,7 +30,7 @@ public sealed class MeusChamadosTests(FabricaChamados fabrica) : IClassFixture<F
     public async Task Chamado_de_outra_pessoa_responde_404_na_api_e_na_pagina_e_fica_no_log()
     {
         var atendente = await fabrica.ClienteComTokenAsync(Acesso.Atendente);
-        var daCarla = (await ListarAsync(atendente, "/api/chamados")).First(c => c.AbertoPorNome == Acesso.Coordenadora);
+        var daCarla = (await ListarAsync(atendente, "/api/chamados")).First(c => c.AbertoPorNome == Acesso.NomeCoordenadora);
         var solicitanteApi = await fabrica.ClienteComTokenAsync(Acesso.Solicitante);
         var solicitanteNavegador = await fabrica.ClienteConectadoAsync(Acesso.Solicitante);
 
@@ -62,11 +62,11 @@ public sealed class MeusChamadosTests(FabricaChamados fabrica) : IClassFixture<F
         var html = WebUtility.HtmlDecode(
             await navegador.GetStringAsync(new Uri($"/Chamados/Detalhes/{criado.Id}", UriKind.Relative)));
 
-        Assert.Equal(Acesso.Solicitante, detalhe.RootElement.GetProperty("abertoPor").GetString());
+        Assert.Equal(Acesso.NomeSolicitante, detalhe.RootElement.GetProperty("abertoPor").GetString());
         var registro = Assert.Single(detalhe.RootElement.GetProperty("historico").EnumerateArray());
-        Assert.Equal(Acesso.Atendente, registro.GetProperty("por").GetString());
+        Assert.Equal(Acesso.NomeAtendente, registro.GetProperty("por").GetString());
         Assert.Contains("Aberto por", html, StringComparison.Ordinal);
-        Assert.Contains($"por {Acesso.Atendente}", html, StringComparison.Ordinal);
+        Assert.Contains($"por {Acesso.NomeAtendente}", html, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -96,7 +96,7 @@ public sealed class MeusChamadosTests(FabricaChamados fabrica) : IClassFixture<F
         var todos = await ListarAsync(atendente, "/api/chamados");
 
         Assert.NotEmpty(meus);
-        Assert.All(meus, c => Assert.Equal(Acesso.Atendente, c.AbertoPorNome));
+        Assert.All(meus, c => Assert.Equal(Acesso.NomeAtendente, c.AbertoPorNome));
         Assert.True(todos.Count > meus.Count);
     }
 
@@ -136,8 +136,8 @@ public sealed class MeusChamadosTests(FabricaChamados fabrica) : IClassFixture<F
 
         Assert.Equal(HttpStatusCode.Redirect, abertura.StatusCode);
         Assert.Equal(HttpStatusCode.Redirect, inicio.StatusCode);
-        Assert.Equal(Acesso.Solicitante, json.RootElement.GetProperty("abertoPor").GetString());
-        Assert.Equal(Acesso.Atendente,
+        Assert.Equal(Acesso.NomeSolicitante, json.RootElement.GetProperty("abertoPor").GetString());
+        Assert.Equal(Acesso.NomeAtendente,
             Assert.Single(json.RootElement.GetProperty("historico").EnumerateArray()).GetProperty("por").GetString());
     }
 

@@ -35,7 +35,8 @@
         <form method="post" action="/Conta/Sair" class="sessao">
             @* O mesmo token antifalsificação que as Razor Pages conferem. *@
             <AntiforgeryToken />
-            <span>@context.User.Identity?.Name</span>
+            @* Nome de exibição; o e-mail de login aparece ao passar o mouse. *@
+            <span title="@context.User.Identity?.Name">@context.User.NomeParaExibir()</span>
             <button type="submit" class="link">Sair</button>
         </form>
     </AuthorizeView>

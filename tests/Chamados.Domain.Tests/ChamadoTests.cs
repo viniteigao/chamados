@@ -275,8 +275,8 @@ public class ChamadoTests
 
     // --- Meus chamados ---
 
-    private static readonly Autor Bruno = new("id-bruno", "bruno@chamados.local");
-    private static readonly Autor Ana = new("id-ana", "ana@chamados.local");
+    private static readonly Autor Bruno = new("id-bruno", "Bruno");
+    private static readonly Autor Ana = new("id-ana", "Ana");
 
     [Fact]
     public void NovoChamado_GuardaQuemAbriu()
@@ -311,7 +311,7 @@ public class ChamadoTests
     }
 
     [Theory]
-    [InlineData("", "bruno@chamados.local")]
+    [InlineData("", "Bruno")]
     [InlineData("id-bruno", "  ")]
     public void Autor_SemIdOuSemNome_EhRecusado(string id, string nome)
     {

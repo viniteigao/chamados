@@ -39,7 +39,7 @@ public sealed class ResilienciaTests(FabricaProducao fabrica) : IClassFixture<Fa
         Assert.Equal(HttpStatusCode.InternalServerError, resposta.StatusCode);
         Assert.Equal("text/html", resposta.Content.Headers.ContentType?.MediaType);
         Assert.Contains("Algo deu errado", html, StringComparison.Ordinal);
-        Assert.Contains(Acesso.Atendente, html, StringComparison.Ordinal);   // o cabeçalho continua, sem o contador
+        Assert.Contains($">{Acesso.NomeAtendente}</span>", html, StringComparison.Ordinal);   // o cabeçalho continua, sem o contador
     }
 
     [Fact]

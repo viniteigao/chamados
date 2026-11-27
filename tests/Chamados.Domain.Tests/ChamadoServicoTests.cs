@@ -328,9 +328,9 @@ public class ChamadoServicoTests
 
     // --- Meus chamados ---
 
-    private static readonly Autor Bruno = new("id-bruno", "bruno@chamados.local");
-    private static readonly Autor Carla = new("id-carla", "carla@chamados.local");
-    private static readonly Autor Ana = new("id-ana", "ana@chamados.local");
+    private static readonly Autor Bruno = new("id-bruno", "Bruno");
+    private static readonly Autor Carla = new("id-carla", "Carla");
+    private static readonly Autor Ana = new("id-ana", "Ana");
 
     [Fact]
     public async Task ListarAsync_ComDono_TrazSoOsChamadosQueEleAbriu()
@@ -342,7 +342,7 @@ public class ChamadoServicoTests
         var lista = await _servico.ListarAsync(new FiltroChamados(AbertoPorId: Bruno.Id));
 
         Assert.Equal(new[] { doBruno.Id }, lista.Select(c => c.Id));
-        Assert.Equal("bruno@chamados.local", lista[0].AbertoPorNome);
+        Assert.Equal("Bruno", lista[0].AbertoPorNome);
     }
 
     [Fact]

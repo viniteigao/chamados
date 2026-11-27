@@ -46,11 +46,14 @@ public static class Visibilidade
             || (usuario.IdDoUsuario() is { } id && chamado.FoiAbertoPor(id));
     }
 
-    /// <summary>O usuário conectado como autor de uma ação; null se não houver login.</summary>
+    /// <summary>
+    /// O usuário conectado como autor de uma ação; null se não houver login.
+    /// Nome de exibição: o nome gravado é o de exibição ("Ana"), não o e-mail de login.
+    /// </summary>
     public static Autor? ComoAutor(this ClaimsPrincipal usuario)
     {
         ArgumentNullException.ThrowIfNull(usuario);
-        return usuario.IdDoUsuario() is { } id && usuario.Identity?.Name is { Length: > 0 } nome
+        return usuario.IdDoUsuario() is { } id && usuario.NomeParaExibir() is { Length: > 0 } nome
             ? new Autor(id, nome)
             : null;
     }

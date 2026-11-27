@@ -19,13 +19,13 @@ No Visual Studio: botão direito em `Chamados.Web` › **Gerenciar Segredos do U
 Pela CLI: `dotnet user-secrets set "Semente:SenhaInicial" "escolha-uma-senha-forte" --project src/Chamados.Web`.
 A senha precisa ter 10 caracteres ou mais, com maiúscula, minúscula, número e símbolo (regras do Identity no `Program.cs`).
 
-| Usuário | Papel ou claim | Pode |
-| --- | --- | --- |
-| `ana@chamados.local` | papel `Atendente` | ver todos os chamados, a fila de atendimento, editar e mudar status |
-| `bruno@chamados.local` | nenhum | abrir chamados e acompanhar só os que abriu ("Meus chamados") |
-| `carla@chamados.local` | claim `cargo = Coordenacao` | ver todos os chamados e os indicadores |
+| Login (e-mail) | Nome exibido | Papel ou claim | Pode |
+| --- | --- | --- | --- |
+| `ana@chamados.local` | Ana | papel `Atendente` | ver todos os chamados, a fila de atendimento, editar e mudar status |
+| `bruno@chamados.local` | Bruno | nenhum | abrir chamados e acompanhar só os que abriu ("Meus chamados") |
+| `carla@chamados.local` | Carla | claim `cargo = Coordenacao` | ver todos os chamados e os indicadores |
 
-Os usuários são criados uma vez; para trocar a senha depois, apague `chamados.db` e execute de novo.
+O login é pelo e-mail; nas telas e na API aparece o nome (veja "Nome de exibição"). Os usuários são criados uma vez; para trocar a senha depois, apague `chamados.db` e execute de novo.
 
 ## Como executar
 
@@ -204,13 +204,22 @@ Feito na branch `comentarios`. Cada chamado tem uma conversa entre quem pediu e 
 - **Log**: evento 2007 a cada mensagem, só com o Id do chamado e o do usuário (o texto não vai para o log).
 - **Semente**: num banco novo, o chamado do ar-condicionado da sala 204 (da carla) já tem três mensagens, e o da impressora (do bruno), uma resposta da ana.
 
+### Nome de exibição
+
+Feito na branch `nome-de-exibicao`. O login continua pelo e-mail, mas o cabeçalho, "Aberto por", o histórico, a conversa, a fila e a API mostram um nome ("Ana", "Bruno", "Carla"). O e-mail de login aparece só no próprio cabeçalho, ao passar o mouse sobre o nome.
+
+- **Onde fica**: numa claim `nome` de cada usuário, na tabela de claims que o Identity já tem (a mesma da claim `cargo`). Não houve coluna nova nem migration. No login, o Identity põe as claims no cookie e no token, e `Seguranca/NomeDeExibicao.cs` lê o nome de lá.
+- **O que é gravado**: as ações passam a registrar o nome (`AbertoPorNome`, `PorNome` do histórico e `AutorNome` da conversa), em vez do e-mail.
+- **Banco que já existia**: ao iniciar, a semente acrescenta o nome aos usuários que ainda não o têm (sem trocar um nome já gravado). Os chamados, registros e mensagens gravados antes continuam com o e-mail, porque o nome é guardado como era no momento da ação; num banco novo, tudo já sai com os nomes.
+- **Sessão aberta antes**: um cookie emitido antes deste recurso não tem a claim; até sair e entrar de novo, vale o e-mail.
+
 ### Bibliotecas do lado do cliente
 
 `wwwroot/lib` traz jQuery 3.7.1, jQuery Validation 1.21.0 e jQuery Validation Unobtrusive 4.0.0 (licenças MIT e Apache 2.0, arquivos de licença incluídos), usados só pela validação no cliente. O `libman.json` registra a origem; no Visual Studio, botão direito em `libman.json` › **Restaurar Bibliotecas do Lado do Cliente** baixa de novo.
 
 ## Testar
 
-No Visual Studio: **Teste > Gerenciador de Testes > Executar Todos** (`Ctrl+R, A`). Pela CLI: `dotnet test`. São 151 testes: 88 do domínio (com a política de prazos e um relógio controlado), 16 de integração com o banco e 47 da aplicação web (integração com `WebApplicationFactory`, inclusive em ambiente Production com o banco falhando, com prazos de milissegundos, com os três usuários vendo cada um o que pode e conversando nos chamados, componentes com `HtmlRenderer` e unidade das políticas de autorização). O GitHub roda os mesmos testes a cada push (`.github/workflows/ci.yml`).
+No Visual Studio: **Teste > Gerenciador de Testes > Executar Todos** (`Ctrl+R, A`). Pela CLI: `dotnet test`. São 157 testes: 88 do domínio (com a política de prazos e um relógio controlado), 16 de integração com o banco e 53 da aplicação web (integração com `WebApplicationFactory`, inclusive em ambiente Production com o banco falhando, com prazos de milissegundos, com os três usuários vendo cada um o que pode e conversando nos chamados, componentes com `HtmlRenderer` e unidade das políticas de autorização). O GitHub roda os mesmos testes a cada push (`.github/workflows/ci.yml`).
 
 ## Estrutura
 
@@ -282,3 +291,5 @@ No Visual Studio: **Teste > Gerenciador de Testes > Executar Todos** (`Ctrl+R, A
 - **Duas coleções, um JOIN só** (comentários): com histórico e conversa no mesmo chamado, o detalhe usa `AsSingleQuery`. O JOIN repete cada registro do histórico a cada mensagem, mas o histórico tem no máximo dois registros (iniciar e resolver ou cancelar). Em troca, o SQL ordena pela chave das mensagens, e elas chegam na ordem em que foram gravadas; com `AsSplitQuery` (uma consulta por tabela), o EF ordena só pelo chamado, e essa ordem ficaria por conta do banco.
 - **`totalComentarios` na lista, `comentarios` no detalhe** (comentários): nomes diferentes porque os tipos são diferentes (número e lista). Com o mesmo nome, um cliente que lesse o detalhe com o tipo da lista quebraria; um teste já existente pegou exatamente isso.
 - **Sem atualização ao vivo** (comentários): a conversa aparece ao abrir ou recarregar o detalhe (Post/Redirect/Get). Mensagens chegando sozinhas pediriam o detalhe em Blazor ou SignalR; ficou de fora por ora.
+- **Nome de exibição numa claim, não numa coluna** (nome de exibição): o sistema já usava claims do Identity para o cargo; o nome entra do mesmo jeito, sem trocar o `IdentityUser` por uma classe própria nem criar migration. O nome de usuário do Identity continua sendo o e-mail, que serve só para o login, e o nome pode ter espaços e acentos (o nome de usuário do Identity não aceita espaço). Se um dia houver uma tela para cada um editar o próprio perfil, a troca é `ReplaceClaimAsync`.
+- **Nomes na tela e na API, e-mail só no login** (nome de exibição): o e-mail de uma pessoa não aparece mais para as outras, nem no JSON. Os logs continuam só com Ids.

@@ -12,6 +12,12 @@ public static partial class Acesso
     public const string Solicitante = "bruno@chamados.local";
     public const string Coordenadora = "carla@chamados.local";
 
+    // Nome de exibição de cada um (claim "nome", criada pela semente de usuários). O login é pelo e-mail;
+    // telas, histórico, conversa e API mostram o nome.
+    public const string NomeAtendente = "Ana";
+    public const string NomeSolicitante = "Bruno";
+    public const string NomeCoordenadora = "Carla";
+
     [GeneratedRegex("name=\"__RequestVerificationToken\" type=\"hidden\" value=\"([^\"]+)\"")]
     private static partial Regex TokenAntifalsificacao();
 

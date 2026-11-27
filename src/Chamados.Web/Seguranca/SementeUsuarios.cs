@@ -6,16 +6,17 @@ namespace Chamados.Web.Seguranca;
 /// <summary>
 /// Usuários de exemplo, só em Development. A senha NÃO está aqui: vem da configuração
 /// (Segredos do Usuário no computador do desenvolvedor), na chave Semente:SenhaInicial.
+/// Nome de exibição: cada usuário ganha a claim "nome". O login continua pelo e-mail.
 /// </summary>
 public static class SementeUsuarios
 {
     public const string ChaveSenha = "Semente:SenhaInicial";
 
-    public static readonly (string Email, string? Papel, string? Cargo)[] Usuarios =
+    public static readonly (string Email, string Nome, string? Papel, string? Cargo)[] Usuarios =
     [
-        ("ana@chamados.local", Politicas.PapelAtendente, null),        // atende chamados
-        ("bruno@chamados.local", null, null),                           // só abre e acompanha
-        ("carla@chamados.local", null, Politicas.CargoCoordenacao),    // vê os indicadores
+        ("ana@chamados.local", "Ana", Politicas.PapelAtendente, null),        // atende chamados
+        ("bruno@chamados.local", "Bruno", null, null),                         // só abre e acompanha
+        ("carla@chamados.local", "Carla", null, Politicas.CargoCoordenacao),  // vê os indicadores
     ];
 
     public static async Task PopularAsync(IServiceProvider services, IConfiguration configuracao)
@@ -39,10 +40,12 @@ public static class SementeUsuarios
             Garantir(await papeis.CreateAsync(new IdentityRole(Politicas.PapelAtendente)));
         }
 
-        foreach (var (email, papel, cargo) in Usuarios)
+        foreach (var (email, nome, papel, cargo) in Usuarios)
         {
-            if (await usuarios.FindByEmailAsync(email) is not null)
+            if (await usuarios.FindByEmailAsync(email) is { } existente)
             {
+                // Um banco criado antes do nome de exibição: o usuário já existe, só falta o nome.
+                await GarantirNomeAsync(usuarios, existente, nome);
                 continue;
             }
 
@@ -60,6 +63,18 @@ public static class SementeUsuarios
             {
                 Garantir(await usuarios.AddClaimAsync(usuario, new Claim(Politicas.ClaimCargo, cargo)));
             }
+
+            await GarantirNomeAsync(usuarios, usuario, nome);
+        }
+    }
+
+    // Acrescenta a claim "nome" se o usuário ainda não tiver uma. Um nome já gravado não é trocado.
+    private static async Task GarantirNomeAsync(UserManager<IdentityUser> usuarios, IdentityUser usuario, string nome)
+    {
+        var claims = await usuarios.GetClaimsAsync(usuario);
+        if (!claims.Any(c => c.Type == NomeDeExibicao.Claim))
+        {
+            Garantir(await usuarios.AddClaimAsync(usuario, new Claim(NomeDeExibicao.Claim, nome)));
         }
     }
 

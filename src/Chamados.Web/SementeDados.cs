@@ -1,4 +1,5 @@
 using Chamados.Domain;
+using Chamados.Web.Seguranca;
 using Microsoft.AspNetCore.Identity;
 
 namespace Chamados.Web;
@@ -8,6 +9,7 @@ namespace Chamados.Web;
 /// Meus chamados: cada exemplo tem dono (ana, bruno ou carla), e as mudanças de status são da ana,
 /// a atendente. Por isso a semente de usuários roda antes desta (Program.cs).
 /// Comentários: duas conversas de exemplo, uma num chamado da carla e outra num do bruno.
+/// Nome de exibição: os autores são gravados com o nome ("Ana"), como acontece pelas telas.
 /// </summary>
 public static class SementeDados
 {
@@ -85,7 +87,16 @@ public static class SementeDados
         }
     }
 
-    // Usuário de exemplo como autor; null se ele não existir (o chamado fica sem dono).
+    // Usuário de exemplo como autor, com o nome de exibição (ou o e-mail, se não houver nome);
+    // null se ele não existir (o chamado fica sem dono).
     private static async Task<Autor?> AutorAsync(UserManager<IdentityUser> usuarios, string email)
-        => await usuarios.FindByEmailAsync(email) is { UserName: { } nome } usuario ? new Autor(usuario.Id, nome) : null;
+    {
+        if (await usuarios.FindByEmailAsync(email) is not { UserName: { } login } usuario)
+        {
+            return null;
+        }
+
+        var nome = (await usuarios.GetClaimsAsync(usuario)).FirstOrDefault(c => c.Type == NomeDeExibicao.Claim)?.Value;
+        return new Autor(usuario.Id, nome ?? login);
+    }
 }
