@@ -1,0 +1,10 @@
+# Melhorias: fins de linha normalizados. No repositório, todo arquivo de texto fica com LF;
+# no checkout, cada sistema recebe o seu padrão (CRLF no Windows, LF no Linux do CI).
+# Evita diffs de "arquivo inteiro mudou" quando um arquivo chega com LF ou CRLF.
+* text=auto
+
+# Binários: nunca converter.
+*.png binary
+*.jpg binary
+*.ico binary
+*.db binary

@@ -2,6 +2,8 @@
 @model ErroModel
 @{
     ViewData["Title"] = Model.Titulo;
+    // Melhorias: nada que dependa do banco nesta página (o contador do cabeçalho consulta o banco).
+    ViewData["SemResumo"] = true;
 }
 
 <section class="pagina-erro">

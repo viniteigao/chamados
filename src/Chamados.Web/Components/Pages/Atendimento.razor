@@ -214,7 +214,7 @@ else
         }
         catch (ArgumentException ex)
         {
-            Avisar(ex.Message, erro: true);
+            Avisar(ex.ParaUsuario(), erro: true);
         }
         finally
         {

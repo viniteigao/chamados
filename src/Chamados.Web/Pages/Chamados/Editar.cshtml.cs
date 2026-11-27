@@ -1,4 +1,5 @@
 using Chamados.Domain;
+using Chamados.Web.Apresentacao;
 using Chamados.Web.Diagnostico;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
@@ -77,7 +78,7 @@ public sealed class EditarModel(ChamadoServico servico, ILogger<EditarModel> log
         }
         catch (ArgumentException ex)
         {
-            ModelState.AddModelError(string.Empty, ex.Message);
+            ModelState.AddModelError(string.Empty, ex.ParaUsuario());
             return Page();
         }
     }

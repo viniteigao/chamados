@@ -1,0 +1,36 @@
+# Melhorias: integração contínua. A cada push e a cada pull request (inclusive os do Dependabot),
+# o GitHub compila a solução com os avisos tratados como erro e roda todos os testes.
+# Um pacote com vulnerabilidade conhecida (avisos NU1901 a NU1904 da auditoria) também quebra o CI.
+name: CI
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  compilar-e-testar:
+    name: Compilar e testar
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Baixar o código
+        uses: actions/checkout@v7
+
+      - name: Instalar o SDK do .NET (versão do global.json)
+        uses: actions/setup-dotnet@v6
+        with:
+          global-json-file: global.json
+
+      - name: Restaurar pacotes (com auditoria de vulnerabilidades)
+        run: dotnet restore
+
+      - name: Compilar (0 avisos; aviso vira erro)
+        run: dotnet build --no-restore --configuration Release -warnaserror
+
+      - name: Testar (domínio, banco e aplicação web)
+        run: dotnet test --no-build --configuration Release

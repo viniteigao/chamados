@@ -16,11 +16,11 @@ public static partial class Acesso
     private static partial Regex TokenAntifalsificacao();
 
     /// <summary>Cliente sem redirecionamento automático, para os testes verem o 302.</summary>
-    public static HttpClient ClienteAnonimo(this FabricaChamados fabrica)
+    public static HttpClient ClienteAnonimo(this WebApplicationFactory<Program> fabrica)
         => fabrica.CreateClient(new WebApplicationFactoryClientOptions { AllowAutoRedirect = false });
 
     /// <summary>Faz login pelo formulário, como no navegador: GET, token antifalsificação, POST.</summary>
-    public static async Task<HttpClient> ClienteConectadoAsync(this FabricaChamados fabrica, string email)
+    public static async Task<HttpClient> ClienteConectadoAsync(this WebApplicationFactory<Program> fabrica, string email)
     {
         var cliente = fabrica.ClienteAnonimo();
         var resposta = await cliente.PostAsync(new Uri("/Conta/Entrar", UriKind.Relative),
@@ -44,7 +44,7 @@ public static partial class Acesso
     }
 
     /// <summary>Pede um token à API e devolve um cliente que o envia em toda requisição.</summary>
-    public static async Task<HttpClient> ClienteComTokenAsync(this FabricaChamados fabrica, string email)
+    public static async Task<HttpClient> ClienteComTokenAsync(this WebApplicationFactory<Program> fabrica, string email)
     {
         var cliente = fabrica.ClienteAnonimo();
         var resposta = await cliente.PostAsJsonAsync(new Uri("/api/conta/token", UriKind.Relative),

@@ -137,8 +137,8 @@ else
         catch (ArgumentException ex)
         {
             // Regra do domínio que a tela não conhecia: a mensagem é a do próprio domínio,
-            // sem o sufixo " (Parameter 'titulo')" que o .NET acrescenta.
-            AdicionarErro(ex.ParamName is null ? ex.Message : ex.Message.Replace($" (Parameter '{ex.ParamName}')", ""));
+            // sem o sufixo " (Parameter 'titulo')" que o .NET acrescenta (Apresentacao/MensagensDeErro).
+            AdicionarErro(ex.ParaUsuario());
         }
         finally
         {

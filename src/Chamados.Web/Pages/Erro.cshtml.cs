@@ -25,6 +25,7 @@ public sealed class ErroModel : PageModel
     {
         404 => "Página não encontrada",
         400 => "Requisição inválida",
+        429 => "Muitas tentativas",
         _ => "Algo deu errado"
     };
 
@@ -32,6 +33,8 @@ public sealed class ErroModel : PageModel
     {
         404 => "O endereço não existe ou o chamado foi digitado errado. Volte à lista e procure por lá.",
         400 => "Não foi possível processar o envio. Recarregue a página e tente de novo.",
+        // Melhorias: o limite de tentativas de login (Program.cs) responde 429.
+        429 => "Por segurança, novas tentativas de entrar foram pausadas por alguns instantes. Aguarde um minuto e tente de novo.",
         _ => "Não foi possível concluir a operação. Tente novamente em instantes."
     };
 

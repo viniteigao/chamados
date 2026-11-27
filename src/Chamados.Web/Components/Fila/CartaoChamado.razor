@@ -37,6 +37,7 @@
             @RotuloDoCampo
             @* @ref guarda a referência ao elemento, para levar o foco até ele. *@
             <input @ref="campo" @bind="texto" @bind:event="oninput" @onkeydown="AoTeclar" autocomplete="off"
+                   maxlength="@TamanhoMaximo"
                    aria-invalid="@(erro is not null ? "true" : null)" aria-describedby="@(erro is not null ? $"erro-{Chamado.Id}" : null)" />
         </label>
         @if (erro is not null)
@@ -76,6 +77,11 @@
     /// <summary>Verdadeiro enquanto a página executa outra ação: evita clique duplo.</summary>
     [Parameter]
     public bool Desabilitado { get; set; }
+
+    // Melhorias: o mesmo limite do domínio, para o navegador não deixar digitar além dele.
+    private int TamanhoMaximo => acao == TipoTransicao.Iniciar
+        ? global::Chamados.Domain.Chamado.TamanhoMaximoResponsavel
+        : global::Chamados.Domain.Chamado.TamanhoMaximoJustificativa;
 
     private string RotuloDoCampo => acao switch
     {

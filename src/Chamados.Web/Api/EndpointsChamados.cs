@@ -1,3 +1,4 @@
+using System.ComponentModel.DataAnnotations;
 using Chamados.Domain;
 using Chamados.Web.Pages.Chamados;
 using Chamados.Web.Seguranca;
@@ -87,8 +88,20 @@ public static class EndpointsChamados
     }
 }
 
-public sealed record IniciarAtendimentoRequest(string Responsavel);
+// Melhorias: os corpos das transições passam pela validação automática (AddValidation), como o
+// ChamadoInput: campo ausente ou longo demais responde 400 com o erro no campo, em português.
+// O domínio confere de novo e tem a palavra final.
+public sealed record IniciarAtendimentoRequest(
+    [Required(ErrorMessage = "Informe o responsável.")]
+    [StringLength(Chamado.TamanhoMaximoResponsavel, ErrorMessage = "O responsável deve ter no máximo {1} caracteres.")]
+    string Responsavel);
 
-public sealed record ResolverRequest(string Solucao);
+public sealed record ResolverRequest(
+    [Required(ErrorMessage = "Informe a solução.")]
+    [StringLength(Chamado.TamanhoMaximoJustificativa, ErrorMessage = "A solução deve ter no máximo {1} caracteres.")]
+    string Solucao);
 
-public sealed record CancelarRequest(string Motivo);
+public sealed record CancelarRequest(
+    [Required(ErrorMessage = "Informe o motivo.")]
+    [StringLength(Chamado.TamanhoMaximoJustificativa, ErrorMessage = "O motivo deve ter no máximo {1} caracteres.")]
+    string Motivo);

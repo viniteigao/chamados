@@ -82,6 +82,9 @@ builder.Services.AddAuthentication()
 // Políticas de autorização (Seguranca/Politicas.cs), com fallback: tudo exige login.
 builder.Services.AddPoliticasChamados();
 
+// Melhorias: limite de tentativas de login por origem (Seguranca/LimiteDeLogin.cs).
+builder.Services.AddLimiteDeLogin();
+
 // Blazor: o estado de autenticação chega aos componentes como parâmetro em cascata.
 builder.Services.AddCascadingAuthenticationState();
 
@@ -105,7 +108,16 @@ builder.Services.AddRazorPages(opcoes =>
         mensagens.SetValueIsInvalidAccessor(valor => $"O valor '{valor}' não é válido.");
         mensagens.SetValueMustNotBeNullAccessor(_ => "Preencha este campo.");
     });
-builder.Services.AddProblemDetails();
+builder.Services.AddProblemDetails(opcoes => opcoes.CustomizeProblemDetails = contexto =>
+{
+    // Melhorias: o erro 500 da API (UseExceptionHandler, só em produção) sai em português, como os
+    // outros Problem Details do projeto, e nunca com o detalhe da exceção: esse fica no log.
+    if (contexto.ProblemDetails.Status == StatusCodes.Status500InternalServerError)
+    {
+        contexto.ProblemDetails.Title = "Erro interno";
+        contexto.ProblemDetails.Detail = "Não foi possível concluir a operação. Se o problema continuar, informe o traceId ao suporte.";
+    }
+});
 
 // Blazor: componentes Razor renderizados no servidor, com interatividade por conexão (SignalR).
 builder.Services.AddRazorComponents()
@@ -157,9 +169,12 @@ app.UseCabecalhosSeguranca(app.Environment.IsDevelopment());
 
 if (!app.Environment.IsDevelopment())
 {
-    // Em produção: página de erro genérica (sem stack trace) e HSTS.
+    // Em produção: erro sem stack trace e HSTS.
     // Em Development o ASP.NET Core já mostra a página de exceção do desenvolvedor.
-    app.UseExceptionHandler("/Erro");
+    // Melhorias: antes, /Erro valia para tudo, e um erro 500 da API respondia a página HTML.
+    // Agora a API responde Problem Details em JSON (com traceId), e as páginas, a página /Erro.
+    app.UseWhen(EhApi, ramo => ramo.UseExceptionHandler());
+    app.UseWhen(contexto => !EhApi(contexto), ramo => ramo.UseExceptionHandler("/Erro"));
     app.UseHsts();
 }
 
@@ -167,7 +182,7 @@ if (!app.Environment.IsDevelopment())
 // são reexecutadas em /Erro/{código}, com o layout do site. Só fora de /api:
 // a API continua respondendo JSON, nunca HTML.
 app.UseWhen(
-    contexto => !contexto.Request.Path.StartsWithSegments("/api"),
+    contexto => !EhApi(contexto),
     ramo => ramo.UseStatusCodePagesWithReExecute("/Erro/{0}"));
 
 // Cultura pt-BR para formatar datas e números, nas páginas e nos circuitos do Blazor.
@@ -176,6 +191,10 @@ app.UseRequestLocalization("pt-BR");
 
 app.UseHttpsRedirection();
 app.UseRouting();
+
+// Melhorias: limite de tentativas de login. Depois do roteamento, porque o limite vale só
+// para os endpoints que o pedem (formulário /Conta/Entrar e POST /api/conta/token).
+app.UseRateLimiter();
 
 // Quem é o usuário (cookie ou token) e o que ele pode fazer. Depois do roteamento,
 // porque a autorização precisa saber qual endpoint foi escolhido e quais regras ele declara.
@@ -216,3 +235,6 @@ if (app.Environment.IsDevelopment())
 }
 
 app.Run();
+
+// Melhorias: um critério só para "é requisição da API", usado no tratamento de erros.
+static bool EhApi(HttpContext contexto) => contexto.Request.Path.StartsWithSegments("/api");

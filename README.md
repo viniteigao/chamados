@@ -122,6 +122,8 @@ $env:Simulacao__FalhaNaListagemACada = "3"; dotnet run --project src/Chamados.We
 
 No Visual Studio, o perfil **https-falha** (em `launchSettings.json`) já liga `Simulacao__FalhaNaListagemACada = 3` e abre em `/atendimento`; pela CLI: `dotnet run --project src/Chamados.Web --launch-profile https-falha`.
 
+`LimiteDeLogin:TentativasPorMinuto` (1 a 1000, padrão 10) é quantas tentativas de login cada endereço IP pode fazer por minuto, somando o formulário e o endpoint de token.
+
 Datas e números saem em pt-BR também no servidor de hospedagem (`UseRequestLocalization("pt-BR")`).
 
 ### Segurança e observabilidade (Módulo 8)
@@ -134,13 +136,26 @@ Datas e números saem em pt-BR também no servidor de hospedagem (`UseRequestLoc
 - **Análise estática**: `Directory.Build.props` liga `AnalysisLevel=latest-recommended` em todos os projetos e transforma em erro os avisos de injeção de SQL (`EF1002`, `EF1003`) e de comando SQL montado com texto (`CA2100`).
 - **Dependências**: a restauração audita os pacotes, inclusive os transitivos (`NuGetAuditMode=all`). Conferência manual: `dotnet package list --vulnerable --include-transitive` e `dotnet package list --outdated`. O `.github/dependabot.yml` pede atualizações semanais.
 
+### Melhorias depois do curso
+
+Feitas na branch `melhorias`, a partir da análise do projeto ao fim do Módulo 8:
+
+- **Erros da API sempre em JSON**: em produção, um erro 500 em `/api` responde Problem Details com `traceId` (antes respondia a página HTML de erro). As páginas continuam com a página `/Erro`.
+- **Página de erro sem banco**: a página de erro não mostra o contador do cabeçalho, que consulta o banco, e o contador falha em silêncio (com log) em qualquer página. Antes, com o banco fora do ar, a própria página de erro caía e o usuário recebia uma tela em branco.
+- **Limite de tentativas de login** (`Seguranca/LimiteDeLogin.cs`): 10 por minuto por endereço IP, no formulário e no token; acima disso, 429 com `Retry-After`. O bloqueio do Identity (5 erros, 5 minutos) continua protegendo cada conta.
+- **Login pela API no log**: o endpoint de token registra os mesmos eventos do formulário (1001 a 1003), pelo Id do usuário; o limite atingido é o evento 1008.
+- **Tamanho máximo em todos os textos**: responsável (120), solução e motivo (2000) validados no domínio, nas telas (`maxlength`) e nos corpos da API (400 com o erro no campo).
+- **Mensagens limpas**: erros do domínio aparecem sem o "(Parameter '…')" que o .NET acrescenta (`Apresentacao/MensagensDeErro.cs`), na API e nas telas.
+- **Integração contínua** (`.github/workflows/ci.yml`): cada push e pull request compila com aviso tratado como erro e roda todos os testes no GitHub. O Dependabot não propõe mais a versão 11 do EF Core e do ASP.NET Core (exigiria o .NET 11) e passa a atualizar as actions do CI.
+- **`.gitattributes`**: fins de linha normalizados (LF no repositório, o padrão de cada sistema no checkout).
+
 ### Bibliotecas do lado do cliente
 
 `wwwroot/lib` traz jQuery 3.7.1, jQuery Validation 1.21.0 e jQuery Validation Unobtrusive 4.0.0 (licenças MIT e Apache 2.0, arquivos de licença incluídos), usados só pela validação no cliente. O `libman.json` registra a origem; no Visual Studio, botão direito em `libman.json` › **Restaurar Bibliotecas do Lado do Cliente** baixa de novo.
 
 ## Testar
 
-No Visual Studio: **Teste > Gerenciador de Testes > Executar Todos** (`Ctrl+R, A`). Pela CLI: `dotnet test`. São 70 testes: 43 do domínio, 9 de integração com o banco e 18 da aplicação web (integração com `WebApplicationFactory`, componentes com `HtmlRenderer` e unidade das políticas de autorização).
+No Visual Studio: **Teste > Gerenciador de Testes > Executar Todos** (`Ctrl+R, A`). Pela CLI: `dotnet test`. São 82 testes: 47 do domínio, 9 de integração com o banco e 26 da aplicação web (integração com `WebApplicationFactory`, inclusive em ambiente Production com o banco falhando, componentes com `HtmlRenderer` e unidade das políticas de autorização). O GitHub roda os mesmos testes a cada push (`.github/workflows/ci.yml`).
 
 ## Estrutura
 
@@ -151,7 +166,7 @@ No Visual Studio: **Teste > Gerenciador de Testes > Executar Todos** (`Ctrl+R, A
 | `src/Chamados.Web` | Páginas Razor, componentes Blazor, API JSON, composição e pipeline | Domain, Infra |
 | `tests/Chamados.Domain.Tests` | Testes xUnit do domínio (repositório em memória) | Domain |
 | `tests/Chamados.Infra.Tests` | Testes de integração do repositório com SQLite em memória | Infra |
-| `tests/Chamados.Web.Tests` | Aplicação inteira em memória (`WebApplicationFactory`), componentes e políticas | Web |
+| `tests/Chamados.Web.Tests` | Aplicação inteira em memória (`WebApplicationFactory`, em Development e em Production), componentes e políticas | Web |
 
 ## Decisões
 
@@ -192,3 +207,8 @@ No Visual Studio: **Teste > Gerenciador de Testes > Executar Todos** (`Ctrl+R, A
 - **SQL à mão só com parâmetros** (Módulo 8): `FromSql` com string interpolada vira parâmetro; `FromSqlRaw` com texto montado é bloqueado na compilação (`EF1002`/`EF1003` como erro).
 - **Observabilidade sem pacotes extras** (Módulo 8): logs com `[LoggerMessage]`, correlação por `TraceId` e métricas com `System.Diagnostics.Metrics`. Exportar para um painel (OpenTelemetry) fica para quando houver onde guardar os dados.
 - **Teste de componente com `HtmlRenderer`** (Módulo 8), que vem no ASP.NET Core: confere o HTML de cada estado. Interação (clique, digitação) pede a biblioteca bUnit, da comunidade, não usada aqui.
+- **Erros da API e das páginas por caminhos separados** (melhorias): o mesmo critério `EhApi` decide o tratador de exceções e as páginas de status. A API nunca recebe HTML, nem num erro 500.
+- **Página de erro sem dependências** (melhorias): o que aparece quando algo quebra não pode depender do que pode ter quebrado. A página de erro não consulta o banco; o contador do cabeçalho, informação de apoio, falha em silêncio e registra no log.
+- **Limite por origem soma-se ao bloqueio por conta** (melhorias): o bloqueio do Identity impede adivinhar a senha de uma conta; o limite de 10 tentativas por minuto por IP impede testar senhas em volume e bloquear contas em série. Ainda é possível bloquear uma conta específica com 5 tentativas; fechar isso pediria um segundo fator ou CAPTCHA. Atrás de um proxy reverso, o limite precisa de `UseForwardedHeaders`, senão todos chegam com o IP do proxy.
+- **Toda entrada de texto tem tamanho máximo no domínio** (melhorias): o banco declara os tamanhos, mas o SQLite não os confere. As mesmas constantes do `Chamado` alimentam o domínio, o mapeamento do EF, os atributos da API e o `maxlength` das telas.
+- **CI como porta de entrada** (melhorias): o que não compila sem aviso ou não passa nos testes não entra, inclusive as atualizações do Dependabot. Um pacote com vulnerabilidade conhecida também quebra o CI de propósito.

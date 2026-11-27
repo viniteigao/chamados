@@ -1,4 +1,5 @@
 using Chamados.Domain;
+using Chamados.Web.Apresentacao;
 
 namespace Chamados.Web.Api;
 
@@ -37,7 +38,8 @@ public sealed class FiltroExcecoesDominio : IEndpointFilter
         catch (ArgumentException ex)
         {
             // Mensagens de ArgumentException vêm das regras do domínio, não de detalhes internos.
-            return TypedResults.Problem(ex.Message, statusCode: StatusCodes.Status400BadRequest,
+            // ParaUsuario tira o "(Parameter 'x')" e o "Actual value was …" que o .NET acrescenta.
+            return TypedResults.Problem(ex.ParaUsuario(), statusCode: StatusCodes.Status400BadRequest,
                 title: "Dados inválidos");
         }
         catch (OperationCanceledException) when (context.HttpContext.RequestAborted.IsCancellationRequested)

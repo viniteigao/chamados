@@ -215,4 +215,61 @@ public class ChamadoTests
 
         Assert.Equal(2, chamado.Versao);
     }
+
+    // --- Melhorias: tamanho máximo dos textos das transições ---
+
+    [Fact]
+    public void IniciarAtendimento_ResponsavelLongoDemais_LancaArgumentExceptionSemMudarNada()
+    {
+        var chamado = new Chamado("Tomada solta", criadoEm: Abertura);
+        var nome = new string('a', Chamado.TamanhoMaximoResponsavel + 1);
+
+        var erro = Assert.Throws<ArgumentException>(() => chamado.IniciarAtendimento(nome, Abertura.AddMinutes(10)));
+
+        Assert.Equal("responsavel", erro.ParamName);
+        Assert.Equal(StatusChamado.Aberto, chamado.Status);
+        Assert.Null(chamado.Responsavel);
+        Assert.Empty(chamado.Historico);
+        Assert.Equal(1, chamado.Versao);
+    }
+
+    [Fact]
+    public void IniciarAtendimento_ResponsavelNoLimite_AceitaEMedeDepoisDeTirarOsEspacos()
+    {
+        var chamado = new Chamado("Tomada solta", criadoEm: Abertura);
+        var nome = new string('a', Chamado.TamanhoMaximoResponsavel);
+
+        chamado.IniciarAtendimento($"  {nome}  ", Abertura.AddMinutes(10));
+
+        Assert.Equal(nome, chamado.Responsavel);
+    }
+
+    [Fact]
+    public void Resolver_SolucaoLongaDemais_LancaArgumentExceptionSemEncerrar()
+    {
+        var chamado = new Chamado("Tomada solta", criadoEm: Abertura);
+        chamado.IniciarAtendimento("Elétrica", Abertura.AddMinutes(10));
+        var solucao = new string('x', Chamado.TamanhoMaximoJustificativa + 1);
+
+        var erro = Assert.Throws<ArgumentException>(() => chamado.Resolver(solucao, Abertura.AddHours(1)));
+
+        Assert.Equal("solucao", erro.ParamName);
+        Assert.Equal(StatusChamado.EmAtendimento, chamado.Status);
+        Assert.Null(chamado.Solucao);
+        Assert.Null(chamado.EncerradoEm);
+    }
+
+    [Fact]
+    public void Cancelar_MotivoLongoDemais_LancaArgumentExceptionSemEncerrar()
+    {
+        var chamado = new Chamado("Tomada solta", criadoEm: Abertura);
+        var motivo = new string('x', Chamado.TamanhoMaximoJustificativa + 1);
+
+        var erro = Assert.Throws<ArgumentException>(() => chamado.Cancelar(motivo, Abertura.AddHours(1)));
+
+        Assert.Equal("motivo", erro.ParamName);
+        Assert.Equal(StatusChamado.Aberto, chamado.Status);
+        Assert.Null(chamado.EncerradoEm);
+        Assert.Empty(chamado.Historico);
+    }
 }

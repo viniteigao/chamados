@@ -20,6 +20,7 @@ public sealed class DetalhesModel(ChamadoServico servico, IAuthorizationService 
     ILogger<DetalhesModel> logger) : PageModel
 {
     private const string Obrigatorio = "Preencha este campo antes de confirmar.";
+    private const string LongoDemais = "Use no máximo {1} caracteres.";
 
     public Chamado Chamado { get; private set; } = null!;
 
@@ -40,17 +41,21 @@ public sealed class DetalhesModel(ChamadoServico servico, IAuthorizationService 
 
     // Aqui o model binding preenche parâmetros do método, não uma [BindProperty]:
     // cada formulário envia um campo diferente.
-    public Task<IActionResult> OnPostIniciarAsync(Guid id, [Required(ErrorMessage = Obrigatorio)] string responsavel,
+    // Melhorias: o tamanho máximo vem das constantes do domínio, como no ChamadoInput.
+    public Task<IActionResult> OnPostIniciarAsync(Guid id,
+        [Required(ErrorMessage = Obrigatorio), StringLength(Chamado.TamanhoMaximoResponsavel, ErrorMessage = LongoDemais)] string responsavel,
         CancellationToken cancellationToken)
         => TransicionarAsync(id, "Iniciar", () => servico.IniciarAtendimentoAsync(id, responsavel, cancellationToken),
             "Atendimento iniciado.", cancellationToken);
 
-    public Task<IActionResult> OnPostResolverAsync(Guid id, [Required(ErrorMessage = Obrigatorio)] string solucao,
+    public Task<IActionResult> OnPostResolverAsync(Guid id,
+        [Required(ErrorMessage = Obrigatorio), StringLength(Chamado.TamanhoMaximoJustificativa, ErrorMessage = LongoDemais)] string solucao,
         CancellationToken cancellationToken)
         => TransicionarAsync(id, "Resolver", () => servico.ResolverAsync(id, solucao, cancellationToken),
             "Chamado resolvido.", cancellationToken);
 
-    public Task<IActionResult> OnPostCancelarAsync(Guid id, [Required(ErrorMessage = Obrigatorio)] string motivo,
+    public Task<IActionResult> OnPostCancelarAsync(Guid id,
+        [Required(ErrorMessage = Obrigatorio), StringLength(Chamado.TamanhoMaximoJustificativa, ErrorMessage = LongoDemais)] string motivo,
         CancellationToken cancellationToken)
         => TransicionarAsync(id, "Cancelar", () => servico.CancelarAsync(id, motivo, cancellationToken),
             "Chamado cancelado.", cancellationToken);
@@ -92,7 +97,7 @@ public sealed class DetalhesModel(ChamadoServico servico, IAuthorizationService 
             }
             catch (ArgumentException ex)
             {
-                ModelState.AddModelError(string.Empty, ex.Message);
+                ModelState.AddModelError(string.Empty, ex.ParaUsuario());
             }
         }
 

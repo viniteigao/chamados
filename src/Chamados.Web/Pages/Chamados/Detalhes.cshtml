@@ -48,7 +48,7 @@
             <form method="post" asp-page-handler="Iniciar" asp-route-id="@chamado.Id" class="cartao-acao">
                 <h2>Iniciar atendimento</h2>
                 <label for="responsavel">Responsável</label>
-                <input id="responsavel" name="responsavel" autocomplete="off" />
+                <input id="responsavel" name="responsavel" autocomplete="off" maxlength="@Chamado.TamanhoMaximoResponsavel" />
                 @Html.ValidationMessage("responsavel", new { @class = "erro" })
                 <button type="submit">Iniciar</button>
             </form>
@@ -58,7 +58,7 @@
             <form method="post" asp-page-handler="Resolver" asp-route-id="@chamado.Id" class="cartao-acao">
                 <h2>Resolver</h2>
                 <label for="solucao">Solução aplicada</label>
-                <input id="solucao" name="solucao" autocomplete="off" />
+                <input id="solucao" name="solucao" autocomplete="off" maxlength="@Chamado.TamanhoMaximoJustificativa" />
                 @Html.ValidationMessage("solucao", new { @class = "erro" })
                 <button type="submit">Resolver</button>
             </form>
@@ -67,7 +67,7 @@
         <form method="post" asp-page-handler="Cancelar" asp-route-id="@chamado.Id" class="cartao-acao">
             <h2>Cancelar</h2>
             <label for="motivo">Motivo</label>
-            <input id="motivo" name="motivo" autocomplete="off" />
+            <input id="motivo" name="motivo" autocomplete="off" maxlength="@Chamado.TamanhoMaximoJustificativa" />
             @Html.ValidationMessage("motivo", new { @class = "erro" })
             <button type="submit" class="secundario">Cancelar chamado</button>
         </form>

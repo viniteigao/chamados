@@ -1,5 +1,6 @@
 # Módulo 8: o GitHub abre pull requests quando sai versão nova de um pacote NuGet do projeto.
 # Cada pull request passa pelos testes antes de entrar; nada é atualizado sozinho.
+# Melhorias: quem roda os testes é o workflow .github/workflows/ci.yml.
 version: 2
 updates:
   - package-ecosystem: "nuget"
@@ -19,3 +20,17 @@ updates:
           - "xunit*"
           - "Microsoft.NET.Test.Sdk"
           - "coverlet.collector"
+    ignore:
+      # Melhorias: EF Core e ASP.NET Core acompanham a versão do .NET. A 11.0 exige o .NET 11, e o
+      # projeto fica no .NET 10 (LTS); sem esta regra, os pull requests da 11.0 nem restaurariam.
+      # As correções da linha 10.0.x continuam chegando normalmente.
+      - dependency-name: "Microsoft.AspNetCore.*"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "Microsoft.EntityFrameworkCore*"
+        update-types: ["version-update:semver-major"]
+
+  # Melhorias: as actions do CI (checkout, setup-dotnet) também recebem atualização.
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"

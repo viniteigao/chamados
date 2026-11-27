@@ -1,6 +1,11 @@
+using System.Globalization;
 using System.Net;
 using System.Net.Http.Json;
+using System.Text.Json;
 using Chamados.Domain;
+using Chamados.Web.Seguranca;
+using Microsoft.AspNetCore.Hosting;
+using Microsoft.AspNetCore.Mvc.Testing;
 
 namespace Chamados.Web.Tests;
 
@@ -120,4 +125,87 @@ public sealed class SegurancaTests(FabricaChamados fabrica) : IClassFixture<Fabr
         Assert.Contains("frame-ancestors 'none'", csp, StringComparison.Ordinal);
         Assert.Equal("nosniff", Assert.Single(resposta.Headers.GetValues("X-Content-Type-Options")));
     }
+
+    // --- Melhorias ---
+
+    [Fact]
+    public async Task Muitas_tentativas_de_token_respondem_429_em_json_e_ficam_no_log()
+    {
+        await using var restrita = ComLimiteDeLogin(3);
+        var cliente = restrita.ClienteAnonimo();
+
+        var respostas = new List<HttpResponseMessage>();
+        for (var i = 0; i < 4; i++)
+        {
+            // E-mail que não existe: nenhuma conta real fica bloqueada pelo teste.
+            respostas.Add(await cliente.PostAsJsonAsync(new Uri("/api/conta/token", UriKind.Relative),
+                new { email = "ninguem@chamados.local", senha = "qualquer-coisa" }));
+        }
+
+        Assert.All(respostas.Take(3), r => Assert.Equal(HttpStatusCode.Unauthorized, r.StatusCode));
+        var recusada = respostas[3];
+        Assert.Equal(HttpStatusCode.TooManyRequests, recusada.StatusCode);
+        Assert.Equal("application/problem+json", recusada.Content.Headers.ContentType?.MediaType);
+        Assert.NotNull(recusada.Headers.RetryAfter);
+        Assert.Contains(fabrica.Registros.Todos, r => r.EventoId == 1008);
+    }
+
+    [Fact]
+    public async Task Muitas_tentativas_no_formulario_mostram_a_pagina_429()
+    {
+        await using var restrita = ComLimiteDeLogin(3);
+        var cliente = restrita.ClienteAnonimo();
+
+        HttpResponseMessage? ultima = null;
+        for (var i = 0; i < 4; i++)
+        {
+            // Abrir a página (GET) não conta; só o envio da senha (POST).
+            var formulario = await Acesso.FormularioDeLoginAsync(cliente, "ninguem@chamados.local", "qualquer-coisa", "/");
+            ultima = await cliente.PostAsync(new Uri("/Conta/Entrar", UriKind.Relative), formulario);
+        }
+
+        Assert.Equal(HttpStatusCode.TooManyRequests, ultima!.StatusCode);
+        Assert.Contains("Muitas tentativas", await ultima.Content.ReadAsStringAsync(), StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task Prioridade_inexistente_responde_400_so_com_a_mensagem_do_dominio()
+    {
+        var atendente = await fabrica.ClienteComTokenAsync(Acesso.Atendente);
+
+        var resposta = await atendente.PostAsJsonAsync(new Uri("/api/chamados", UriKind.Relative),
+            new { titulo = "Prioridade fora da lista", prioridade = 99 });
+        using var problema = JsonDocument.Parse(await resposta.Content.ReadAsStringAsync());
+
+        // Antes: "Prioridade inexistente. (Parameter 'prioridade')\r\nActual value was 99."
+        Assert.Equal(HttpStatusCode.BadRequest, resposta.StatusCode);
+        Assert.Equal("Prioridade inexistente.", problema.RootElement.GetProperty("detail").GetString());
+    }
+
+    [Fact]
+    public async Task Responsavel_longo_demais_responde_400_com_o_erro_no_campo_sem_mudar_o_chamado()
+    {
+        var atendente = await fabrica.ClienteComTokenAsync(Acesso.Atendente);
+        var abertos = await atendente.GetFromJsonAsync<List<ResumoChamado>>(
+            new Uri("/api/chamados?status=Aberto", UriKind.Relative), Json.Opcoes);
+        var chamado = abertos![^1];
+
+        var resposta = await atendente.PostAsJsonAsync(new Uri($"/api/chamados/{chamado.Id}/atendimento", UriKind.Relative),
+            new { responsavel = new string('a', Chamado.TamanhoMaximoResponsavel + 1) });
+        using var problema = JsonDocument.Parse(await resposta.Content.ReadAsStringAsync());
+        var depois = await atendente.GetFromJsonAsync<ResumoChamado>(
+            new Uri($"/api/chamados/{chamado.Id}", UriKind.Relative), Json.Opcoes);
+
+        Assert.Equal(HttpStatusCode.BadRequest, resposta.StatusCode);
+        Assert.Contains(problema.RootElement.GetProperty("errors").EnumerateObject(),
+            campo => campo.Name.Equals("Responsavel", StringComparison.OrdinalIgnoreCase));
+        Assert.Equal(chamado.Versao, depois!.Versao);
+        Assert.Equal(StatusChamado.Aberto, depois.Status);
+    }
+
+    // Uma cópia da aplicação (mesmo banco da classe) com um limite baixo de tentativas de login.
+    private WebApplicationFactory<Program> ComLimiteDeLogin(int tentativasPorMinuto)
+        => fabrica.WithWebHostBuilder(builder => builder.UseSetting(
+            $"{LimiteDeLoginOptions.Secao}:{nameof(LimiteDeLoginOptions.TentativasPorMinuto)}",
+            tentativasPorMinuto.ToString(CultureInfo.InvariantCulture)));
 }

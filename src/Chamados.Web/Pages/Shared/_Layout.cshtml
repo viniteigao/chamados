@@ -6,6 +6,9 @@
     var podeAtender = (await Autorizacao.AuthorizeAsync(User, Politicas.Atender)).Succeeded;
     var podeVerIndicadores = (await Autorizacao.AuthorizeAsync(User, Politicas.VerIndicadores)).Succeeded;
     var conectado = User.Identity?.IsAuthenticated == true;
+    // Melhorias: a página de erro pede um cabeçalho sem o contador, que consulta o banco.
+    // Se o erro foi justamente o banco fora do ar, a página de erro precisa abrir mesmo assim.
+    var semResumo = ViewData["SemResumo"] is true;
 }
 <!DOCTYPE html>
 <html lang="pt-BR">
@@ -21,7 +24,10 @@
         @* View Component: tem lógica e dependências próprias, ao contrário de uma partial. *@
         @if (conectado)
         {
-            <vc:resumo-status />
+            @if (!semResumo)
+            {
+                <vc:resumo-status />
+            }
             <nav>
                 @* Página Blazor (Módulo 5): link comum, porque não é uma Razor Page. *@
                 @if (podeAtender)

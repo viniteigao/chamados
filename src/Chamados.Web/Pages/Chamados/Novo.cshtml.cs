@@ -1,4 +1,5 @@
 using Chamados.Domain;
+using Chamados.Web.Apresentacao;
 using Chamados.Web.Diagnostico;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
@@ -42,7 +43,7 @@ public sealed class NovoModel(ChamadoServico servico, ILogger<NovoModel> logger)
         catch (ArgumentException ex)
         {
             // Regra que só o domínio conhece: volta ao formulário com a mensagem dele.
-            ModelState.AddModelError(string.Empty, ex.Message);
+            ModelState.AddModelError(string.Empty, ex.ParaUsuario());
             return Page();
         }
     }

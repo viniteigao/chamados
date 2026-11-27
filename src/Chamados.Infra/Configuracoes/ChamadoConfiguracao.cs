@@ -30,8 +30,8 @@ public sealed class ChamadoConfiguracao : IEntityTypeConfiguration<Chamado>
         // Propriedades sem set (só get) não viram colunas por convenção: é preciso pedir.
         // O EF grava e lê pelo campo gerado pelo compilador.
         builder.Property(c => c.CriadoEm);
-        builder.Property(c => c.Responsavel).HasMaxLength(120);
-        builder.Property(c => c.Solucao).HasMaxLength(Chamado.TamanhoMaximoDescricao);
+        builder.Property(c => c.Responsavel).HasMaxLength(Chamado.TamanhoMaximoResponsavel);
+        builder.Property(c => c.Solucao).HasMaxLength(Chamado.TamanhoMaximoJustificativa);
 
         // Status como texto ("EmAtendimento"): legível em qualquer ferramenta de banco.
         builder.Property(c => c.Status).HasConversion<string>().HasMaxLength(20);
@@ -62,7 +62,7 @@ public sealed class ChamadoConfiguracao : IEntityTypeConfiguration<Chamado>
             historico.HasKey("Id");
             historico.Property(r => r.De).HasConversion<string>().HasMaxLength(20);
             historico.Property(r => r.Para).HasConversion<string>().HasMaxLength(20);
-            historico.Property(r => r.Observacao).HasMaxLength(Chamado.TamanhoMaximoDescricao);
+            historico.Property(r => r.Observacao).HasMaxLength(Chamado.TamanhoMaximoJustificativa);
         });
 
         // O EF escreve na lista privada _historico; a propriedade pública é só leitura.

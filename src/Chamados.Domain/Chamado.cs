@@ -12,6 +12,11 @@ public sealed class Chamado
     public const int TamanhoMaximoTitulo = 120;
     public const int TamanhoMaximoDescricao = 2000;
 
+    // Melhorias: o nome do responsável tinha 120 caracteres só no banco, e solução e motivo,
+    // nenhum limite no domínio. Agora toda entrada de texto tem tamanho máximo aqui.
+    public const int TamanhoMaximoResponsavel = 120;
+    public const int TamanhoMaximoJustificativa = TamanhoMaximoDescricao;   // solução e motivo
+
     private readonly List<RegistroHistorico> _historico = [];
 
     public Chamado(
@@ -88,18 +93,14 @@ public sealed class Chamado
 
     public void IniciarAtendimento(string responsavel, DateTimeOffset em)
     {
-        ArgumentException.ThrowIfNullOrWhiteSpace(responsavel);
-
-        var nome = responsavel.Trim();
+        var nome = ValidarTextoObrigatorio(responsavel, TamanhoMaximoResponsavel, "O responsável", nameof(responsavel));
         MudarStatus(StatusChamado.EmAtendimento, em, $"Atribuído a {nome}");
         Responsavel = nome;
     }
 
     public void Resolver(string solucao, DateTimeOffset em)
     {
-        ArgumentException.ThrowIfNullOrWhiteSpace(solucao);
-
-        var texto = solucao.Trim();
+        var texto = ValidarTextoObrigatorio(solucao, TamanhoMaximoJustificativa, "A solução", nameof(solucao));
         MudarStatus(StatusChamado.Resolvido, em, texto);
         Solucao = texto;
         EncerradoEm = em;
@@ -107,9 +108,8 @@ public sealed class Chamado
 
     public void Cancelar(string motivo, DateTimeOffset em)
     {
-        ArgumentException.ThrowIfNullOrWhiteSpace(motivo);
-
-        MudarStatus(StatusChamado.Cancelado, em, motivo.Trim());
+        var texto = ValidarTextoObrigatorio(motivo, TamanhoMaximoJustificativa, "O motivo", nameof(motivo));
+        MudarStatus(StatusChamado.Cancelado, em, texto);
         EncerradoEm = em;
     }
 
@@ -149,6 +149,21 @@ public sealed class Chamado
         }
 
         return descricao;
+    }
+
+    // Texto obrigatório das transições (responsável, solução, motivo): validado antes de mudar
+    // qualquer coisa, para que um texto longo demais não deixe o chamado pela metade.
+    private static string ValidarTextoObrigatorio(string valor, int tamanhoMaximo, string campo, string nomeDoParametro)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(valor, nomeDoParametro);
+
+        var texto = valor.Trim();
+        if (texto.Length > tamanhoMaximo)
+        {
+            throw new ArgumentException($"{campo} deve ter no máximo {tamanhoMaximo} caracteres.", nomeDoParametro);
+        }
+
+        return texto;
     }
 
     private static Prioridade ValidarPrioridade(Prioridade prioridade)

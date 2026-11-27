@@ -1,17 +1,22 @@
 using System.ComponentModel.DataAnnotations;
 using Chamados.Web.Diagnostico;
+using Chamados.Web.Seguranca;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
+using Microsoft.AspNetCore.RateLimiting;
 
 namespace Chamados.Web.Pages.Conta;
 
 /// <summary>
 /// Login com o ASP.NET Core Identity. A senha é conferida contra o hash guardado no banco;
 /// depois de 5 erros seguidos a conta fica bloqueada por 5 minutos (opções no Program.cs).
+/// Melhorias: o envio do formulário também respeita o limite de tentativas por origem
+/// (Seguranca/LimiteDeLogin.cs); abrir a página (GET) não conta.
 /// </summary>
 [AllowAnonymous]
+[EnableRateLimiting(LimiteDeLogin.Politica)]
 public sealed class EntrarModel(SignInManager<IdentityUser> entrada, UserManager<IdentityUser> usuarios,
     ILogger<EntrarModel> logger) : PageModel
 {

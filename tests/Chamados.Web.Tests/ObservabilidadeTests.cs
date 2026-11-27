@@ -39,4 +39,20 @@ public sealed class ObservabilidadeTests(FabricaChamados fabrica) : IClassFixtur
         Assert.Equal(1, Interlocked.Read(ref total));
         Assert.Equal(nameof(Prioridade.Critica), prioridade);
     }
+
+    [Fact]
+    public async Task Login_pela_api_registra_recusa_e_aceite_pelo_id_e_nunca_pelo_email()
+    {
+        // Melhorias: antes, o endpoint de token não registrava nada além de "respondeu 401".
+        var cliente = fabrica.ClienteAnonimo();
+        await cliente.PostAsJsonAsync(new Uri("/api/conta/token", UriKind.Relative),
+            new { email = Acesso.Coordenadora, senha = "senha-errada" });
+        await fabrica.ClienteComTokenAsync(Acesso.Coordenadora);
+
+        var eventos = fabrica.Registros.Todos.Where(r => r.Categoria == "Chamados.Web.Api.EndpointsConta").ToList();
+
+        Assert.Contains(eventos, r => r.EventoId == 1002);   // Login recusado
+        Assert.Contains(eventos, r => r.EventoId == 1001);   // Login aceito
+        Assert.DoesNotContain(eventos, r => r.Mensagem.Contains(Acesso.Coordenadora, StringComparison.Ordinal));
+    }
 }

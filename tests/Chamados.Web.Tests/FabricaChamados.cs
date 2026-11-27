@@ -6,6 +6,7 @@ using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.AspNetCore.TestHost;
 using Microsoft.Data.Sqlite;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
 
 namespace Chamados.Web.Tests;
 
@@ -23,6 +24,9 @@ public sealed class FabricaChamados : WebApplicationFactory<Program>
     private readonly string _arquivoDoBanco =
         Path.Combine(Path.GetTempPath(), $"chamados-teste-{Guid.NewGuid():N}.db");
 
+    /// <summary>Melhorias: o que a aplicação escreveu no log, para conferir eventos de segurança.</summary>
+    public RegistrosEmMemoria Registros { get; } = new();
+
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
         builder.UseEnvironment("Development");
@@ -33,12 +37,20 @@ public sealed class FabricaChamados : WebApplicationFactory<Program>
         builder.UseSetting("Simulacao:LatenciaMs", "0");
         builder.UseSetting("Api:UrlBase", "http://localhost/");
 
+        // Melhorias: todos os testes de uma classe chegam da mesma origem e fazem vários logins.
+        // O limite de tentativas tem testes próprios, com um limite baixo (SegurancaTests).
+        builder.UseSetting($"{LimiteDeLoginOptions.Secao}:{nameof(LimiteDeLoginOptions.TentativasPorMinuto)}", "1000");
+
         builder.ConfigureTestServices(services =>
+        {
             // A página /indicadores chama a API por HTTP. Nos testes não há porta aberta: o cliente
             // tipado passa a falar direto com o servidor em memória.
             services.AddHttpClient<ChamadosApiCliente>()
                 .ConfigurePrimaryHttpMessageHandler(sp =>
-                    ((TestServer)sp.GetRequiredService<IServer>()).CreateHandler()));
+                    ((TestServer)sp.GetRequiredService<IServer>()).CreateHandler());
+
+            services.AddSingleton<ILoggerProvider>(Registros);
+        });
     }
 
     protected override void Dispose(bool disposing)
