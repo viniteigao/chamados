@@ -1,11 +1,12 @@
 @page
 @model IndexModel
 @{
-    ViewData["Title"] = "Chamados";
+    // Meus chamados: o título diz de quem é a lista.
+    ViewData["Title"] = Model.SoOsMeus ? "Meus chamados" : "Chamados";
     var pagina = Model.Resultado;
 }
 
-<h1>Chamados</h1>
+<h1>@ViewData["Title"]</h1>
 
 <form method="get" class="filtros">
     <label>
@@ -34,6 +35,14 @@
         <input type="checkbox" name="somenteVencidos" value="true" checked="@Model.SomenteVencidos" />
         Só vencidos
     </label>
+    @* Meus chamados: a escolha só existe para quem vê todos; os demais já veem só os seus. *@
+    @if (Model.PodeEscolher)
+    {
+        <label class="marcar">
+            <input type="checkbox" name="meus" value="true" checked="@Model.Meus" />
+            Só os meus
+        </label>
+    }
     @* Sem campo "pagina": filtrar de novo sempre volta para a página 1. *@
     <button type="submit">Filtrar</button>
     <a asp-page="./Index">Limpar</a>
@@ -41,7 +50,10 @@
 
 @if (pagina.TotalItens == 0)
 {
-    <p class="vazio">Nenhum chamado encontrado com esses filtros.</p>
+    <p class="vazio">
+        @(Model.SoOsMeus ? "Nenhum chamado seu com esses filtros." : "Nenhum chamado encontrado com esses filtros.")
+        <a asp-page="./Novo">Abrir um chamado</a>
+    </p>
 }
 else
 {

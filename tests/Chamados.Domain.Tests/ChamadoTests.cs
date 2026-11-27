@@ -272,4 +272,49 @@ public class ChamadoTests
         Assert.Null(chamado.EncerradoEm);
         Assert.Empty(chamado.Historico);
     }
+
+    // --- Meus chamados ---
+
+    private static readonly Autor Bruno = new("id-bruno", "bruno@chamados.local");
+    private static readonly Autor Ana = new("id-ana", "ana@chamados.local");
+
+    [Fact]
+    public void NovoChamado_GuardaQuemAbriu()
+    {
+        var chamado = new Chamado("Tomada solta", criadoEm: Abertura, abertoPor: Bruno);
+
+        Assert.Equal(Bruno, chamado.AbertoPor);
+        Assert.True(chamado.FoiAbertoPor("id-bruno"));
+        Assert.False(chamado.FoiAbertoPor("id-ana"));
+    }
+
+    [Fact]
+    public void NovoChamado_SemAutor_NaoTemDonoENinguemEDono()
+    {
+        var chamado = new Chamado("Tomada solta", criadoEm: Abertura);
+
+        Assert.Null(chamado.AbertoPor);
+        Assert.False(chamado.FoiAbertoPor("id-bruno"));
+    }
+
+    [Fact]
+    public void Transicoes_RegistramQuemFezCadaMudanca()
+    {
+        var chamado = new Chamado("Tomada solta", criadoEm: Abertura, abertoPor: Bruno);
+
+        chamado.IniciarAtendimento("Elétrica", Abertura.AddMinutes(10), por: Ana);
+        chamado.Resolver("Tomada fixada", Abertura.AddHours(1));   // sem autor: registro sem "por"
+
+        Assert.Equal(Ana, chamado.Historico[0].Por);
+        Assert.Null(chamado.Historico[1].Por);
+        Assert.Equal(Bruno, chamado.AbertoPor);   // quem abriu não muda com o atendimento
+    }
+
+    [Theory]
+    [InlineData("", "bruno@chamados.local")]
+    [InlineData("id-bruno", "  ")]
+    public void Autor_SemIdOuSemNome_EhRecusado(string id, string nome)
+    {
+        Assert.ThrowsAny<ArgumentException>(() => new Autor(id, nome));
+    }
 }

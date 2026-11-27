@@ -24,6 +24,9 @@
     <dd class="texto-livre">@(chamado.Descricao ?? "—")</dd>
     <dt>Aberto em</dt>
     <dd>@chamado.CriadoEm.DataHora()</dd>
+    @* Meus chamados: quem abriu. Chamados anteriores a este recurso não têm dono. *@
+    <dt>Aberto por</dt>
+    <dd>@(chamado.AbertoPor?.Nome ?? "—")</dd>
     @* Prazos: vencimento = abertura + prazo da prioridade atual. Cancelado não tem prazo. *@
     @if (Model.Prazo is { } prazo)
     {
@@ -96,6 +99,11 @@ else
                 @if (registro.Observacao is not null)
                 {
                     <span class="apoio">· @registro.Observacao</span>
+                }
+                @* Meus chamados: quem fez a mudança (registros antigos não têm). *@
+                @if (registro.Por is { } por)
+                {
+                    <span class="apoio">· por @por.Nome</span>
                 }
             </li>
         }

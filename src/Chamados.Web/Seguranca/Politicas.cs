@@ -14,6 +14,9 @@ public static class Politicas
     public const string VerIndicadores = "VerIndicadores";
     public const string Api = "Api";
 
+    /// <summary>Meus chamados: atendentes e coordenação veem todos os chamados (Seguranca/Visibilidade.cs).</summary>
+    public const string VerTodosOsChamados = "VerTodosOsChamados";
+
     // Papel (role) e claim usados pelas políticas.
     public const string PapelAtendente = "Atendente";
     public const string ClaimCargo = "cargo";
@@ -33,6 +36,10 @@ public static class Politicas
             .AddPolicy(Atender, politica => politica.RequireRole(PapelAtendente))
             // Baseada em claim: o usuário carrega a informação "cargo = Coordenacao".
             .AddPolicy(VerIndicadores, politica => politica.RequireClaim(ClaimCargo, CargoCoordenacao))
+            // Meus chamados: papel OU claim. A mesma regra de Visibilidade.VeTodosOsChamados, para
+            // menus (AuthorizeView) e páginas usarem a política pelo nome.
+            .AddPolicy(VerTodosOsChamados, politica => politica.RequireAssertion(
+                contexto => contexto.User.VeTodosOsChamados()))
             // A API aceita cookie ou token e, sem nenhum dos dois, responde 401 (nunca redireciona).
             .AddPolicy(Api, politica => politica
                 .AddAuthenticationSchemes(EsquemasDaApi)

@@ -105,6 +105,10 @@ else
     private ErrorBoundary? limiteDaFila;
     private Timer? relogioDosPrazos;
 
+    /// <summary>Meus chamados: o usuário conectado, entregue em cascata (AddCascadingAuthenticationState).</summary>
+    [CascadingParameter]
+    private Task<AuthenticationState>? Autenticacao { get; set; }
+
     /// <summary>
     /// A fila. [PersistentState] guarda o valor carregado na pré-renderização dentro do HTML
     /// e o devolve quando o circuito começa: a lista não é buscada duas vezes.
@@ -193,11 +197,13 @@ else
         executando = true;
         try
         {
+            // Meus chamados: quem clicou vai para o histórico do chamado.
+            var por = Autenticacao is null ? null : (await Autenticacao).User.ComoAutor();
             var chamado = pedido.Tipo switch
             {
-                TipoTransicao.Iniciar => await Servico.IniciarAtendimentoAsync(pedido.ChamadoId, pedido.Texto),
-                TipoTransicao.Resolver => await Servico.ResolverAsync(pedido.ChamadoId, pedido.Texto),
-                _ => await Servico.CancelarAsync(pedido.ChamadoId, pedido.Texto)
+                TipoTransicao.Iniciar => await Servico.IniciarAtendimentoAsync(pedido.ChamadoId, pedido.Texto, por),
+                TipoTransicao.Resolver => await Servico.ResolverAsync(pedido.ChamadoId, pedido.Texto, por),
+                _ => await Servico.CancelarAsync(pedido.ChamadoId, pedido.Texto, por)
             };
 
             Avisar($"\"{chamado.Titulo}\" agora está {chamado.Status.Rotulo().ToLowerInvariant()}.", erro: false);

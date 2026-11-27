@@ -22,6 +22,14 @@ namespace Chamados.Infra.Migrations
                     b.Property<Guid>("Id")
                         .HasColumnType("TEXT");
 
+                    b.Property<string>("AbertoPorId")
+                        .HasMaxLength(450)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("AbertoPorNome")
+                        .HasMaxLength(256)
+                        .HasColumnType("TEXT");
+
                     b.Property<long>("CriadoEm")
                         .HasColumnType("INTEGER");
 
@@ -59,6 +67,8 @@ namespace Chamados.Infra.Migrations
                         .HasColumnType("INTEGER");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("AbertoPorId");
 
                     b.HasIndex("Prioridade");
 
@@ -285,6 +295,14 @@ namespace Chamados.Infra.Migrations
                             b1.Property<string>("Para")
                                 .IsRequired()
                                 .HasMaxLength(20)
+                                .HasColumnType("TEXT");
+
+                            b1.Property<string>("PorId")
+                                .HasMaxLength(450)
+                                .HasColumnType("TEXT");
+
+                            b1.Property<string>("PorNome")
+                                .HasMaxLength(256)
                                 .HasColumnType("TEXT");
 
                             b1.HasKey("Id");

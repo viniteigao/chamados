@@ -68,6 +68,10 @@ else
     [Parameter]
     public EventCallback AoFechar { get; set; }
 
+    /// <summary>Meus chamados: o usuário conectado, entregue em cascata; é quem abre o chamado.</summary>
+    [CascadingParameter]
+    private Task<AuthenticationState>? Autenticacao { get; set; }
+
     private string TextoDoBotao => ChamadoId is null ? "Abrir chamado" : "Salvar alterações";
 
     protected override async Task OnInitializedAsync()
@@ -114,9 +118,10 @@ else
         salvando = true;
         try
         {
+            var abertoPor = Autenticacao is null ? null : (await Autenticacao).User.ComoAutor();
             var chamado = ChamadoId is { } id
                 ? await Servico.EditarAsync(id, modelo!.ParaEdicao(versao))
-                : await Servico.AbrirAsync(modelo!.ParaComando());
+                : await Servico.AbrirAsync(modelo!.ParaComando(abertoPor));
 
             await AoSalvar.InvokeAsync(ResumoChamado.De(chamado));
         }

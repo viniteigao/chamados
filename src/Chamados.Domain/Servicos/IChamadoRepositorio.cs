@@ -26,10 +26,18 @@ public interface IChamadoRepositorio
     Task<IReadOnlyList<ResumoChamado>> ListarAsync(
         FiltroChamados filtro, int pular = 0, int? pegar = null, CancellationToken cancellationToken = default);
 
-    Task<EstatisticasChamados> ObterEstatisticasAsync(CancellationToken cancellationToken = default);
+    /// <summary>
+    /// Totais por status e prioridade. Meus chamados: com <paramref name="abertoPorId"/>, só os
+    /// chamados que esse usuário abriu.
+    /// </summary>
+    Task<EstatisticasChamados> ObterEstatisticasAsync(string? abertoPorId = null, CancellationToken cancellationToken = default);
 
-    /// <summary>Resumos dos chamados de um responsável (comparação exata), por prioridade.</summary>
-    Task<IReadOnlyList<ResumoChamado>> ListarPorResponsavelAsync(string responsavel, CancellationToken cancellationToken = default);
+    /// <summary>
+    /// Resumos dos chamados de um responsável (comparação exata), por prioridade.
+    /// Meus chamados: com <paramref name="abertoPorId"/>, só entre os que esse usuário abriu.
+    /// </summary>
+    Task<IReadOnlyList<ResumoChamado>> ListarPorResponsavelAsync(
+        string responsavel, string? abertoPorId = null, CancellationToken cancellationToken = default);
 
     /// <summary>Prazos: prioridade, abertura e resolução de cada chamado resolvido.</summary>
     Task<IReadOnlyList<ResolucaoChamado>> ListarResolucoesAsync(CancellationToken cancellationToken = default);

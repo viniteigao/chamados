@@ -1,6 +1,7 @@
 using Chamados.Domain;
 using Chamados.Web.Apresentacao;
 using Chamados.Web.Diagnostico;
+using Chamados.Web.Seguranca;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
 
@@ -31,7 +32,8 @@ public sealed class NovoModel(ChamadoServico servico, ILogger<NovoModel> logger)
         try
         {
             // 2. Camada de negócio: o domínio confere de novo e tem a palavra final.
-            var chamado = await servico.AbrirAsync(Input.ParaComando(), cancellationToken);
+            // Meus chamados: quem abre é o usuário conectado.
+            var chamado = await servico.AbrirAsync(Input.ParaComando(User.ComoAutor()), cancellationToken);
 
             // Log estruturado: Id e prioridade, nunca o texto digitado (pode conter dados pessoais).
             Registro.ChamadoAberto(logger, chamado.Id, chamado.Prioridade);

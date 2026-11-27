@@ -4,8 +4,11 @@
 
 <header class="topo">
     <a class="marca" href="/">Chamados</a>
-    @* Componente interativo dentro de um layout estático: ganha a própria raiz no circuito. *@
-    <ResumoFila @rendermode="InteractiveServer" />
+    @* Componente interativo dentro de um layout estático: ganha a própria raiz no circuito.
+       Meus chamados: o resumo é da fila inteira, então só para quem vê todos os chamados. *@
+    <AuthorizeView Policy="@Politicas.VerTodosOsChamados">
+        <ResumoFila @rendermode="InteractiveServer" />
+    </AuthorizeView>
     <nav>
         @* NavLink acrescenta a classe "active" quando a URL atual é a do link. *@
         @* Módulo 8: cada link só aparece para quem pode usá-lo. Esconder não protege nada:
@@ -16,7 +19,16 @@
         <AuthorizeView Policy="@Politicas.VerIndicadores">
             <NavLink href="indicadores">Indicadores</NavLink>
         </AuthorizeView>
-        <a href="/Chamados">Lista</a>
+        @* Meus chamados: para quem vê só os seus, a lista já é "Meus chamados". *@
+        <AuthorizeView Policy="@Politicas.VerTodosOsChamados">
+            <Authorized>
+                <a href="/Chamados">Lista</a>
+                <a href="/Chamados?meus=true">Meus chamados</a>
+            </Authorized>
+            <NotAuthorized>
+                <a href="/Chamados">Meus chamados</a>
+            </NotAuthorized>
+        </AuthorizeView>
         <a class="botao" href="/Chamados/Novo">Novo chamado</a>
     </nav>
     <AuthorizeView>

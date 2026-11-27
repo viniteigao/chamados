@@ -35,8 +35,11 @@ public sealed class ChamadoInput
         Descricao = chamado.Descricao
     };
 
-    /// <summary>Converte o que veio da tela no comando de abertura.</summary>
-    public NovoChamado ParaComando() => new(Titulo, Prioridade, Descricao);
+    /// <summary>
+    /// Converte o que veio da tela no comando de abertura.
+    /// Meus chamados: <paramref name="abertoPor"/> é o usuário conectado, nunca um campo do formulário.
+    /// </summary>
+    public NovoChamado ParaComando(Autor? abertoPor = null) => new(Titulo, Prioridade, Descricao, abertoPor);
 
     /// <summary>Converte o que veio da tela no comando de edição, com a versão lida.</summary>
     public EdicaoChamado ParaEdicao(int versaoEsperada) => new(Titulo, Prioridade, Descricao, versaoEsperada);

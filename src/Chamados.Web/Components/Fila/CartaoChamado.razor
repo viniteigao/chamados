@@ -8,6 +8,11 @@
 
     <p class="apoio">
         Aberto em @Chamado.CriadoEm.DataHora()
+        @* Meus chamados: quem pediu (chamados antigos não têm). *@
+        @if (Chamado.AbertoPorNome is not null)
+        {
+            <text> por @Chamado.AbertoPorNome</text>
+        }
         @if (Chamado.Responsavel is not null)
         {
             <text> · @Chamado.Responsavel</text>

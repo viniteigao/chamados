@@ -37,6 +37,14 @@ public sealed class DetalhesModel(ChamadoServico servico, IAuthorizationService 
             return NotFound();
         }
 
+        // Meus chamados: chamado de outra pessoa responde 404, como se não existisse
+        // (um "acesso negado" confirmaria que o Id existe). A tentativa fica no log.
+        if (!User.PodeVer(chamado))
+        {
+            Registro.ChamadoDeOutroUsuario(logger, id, User.IdDoUsuario() ?? "desconhecido");
+            return NotFound();
+        }
+
         Chamado = chamado;
         Prazo = servico.PrazoDe(chamado);
         PodeAtender = (await autorizacao.AuthorizeAsync(User, Politicas.Atender)).Succeeded;
@@ -49,19 +57,19 @@ public sealed class DetalhesModel(ChamadoServico servico, IAuthorizationService 
     public Task<IActionResult> OnPostIniciarAsync(Guid id,
         [Required(ErrorMessage = Obrigatorio), StringLength(Chamado.TamanhoMaximoResponsavel, ErrorMessage = LongoDemais)] string responsavel,
         CancellationToken cancellationToken)
-        => TransicionarAsync(id, "Iniciar", () => servico.IniciarAtendimentoAsync(id, responsavel, cancellationToken),
+        => TransicionarAsync(id, "Iniciar", () => servico.IniciarAtendimentoAsync(id, responsavel, User.ComoAutor(), cancellationToken),
             "Atendimento iniciado.", cancellationToken);
 
     public Task<IActionResult> OnPostResolverAsync(Guid id,
         [Required(ErrorMessage = Obrigatorio), StringLength(Chamado.TamanhoMaximoJustificativa, ErrorMessage = LongoDemais)] string solucao,
         CancellationToken cancellationToken)
-        => TransicionarAsync(id, "Resolver", () => servico.ResolverAsync(id, solucao, cancellationToken),
+        => TransicionarAsync(id, "Resolver", () => servico.ResolverAsync(id, solucao, User.ComoAutor(), cancellationToken),
             "Chamado resolvido.", cancellationToken);
 
     public Task<IActionResult> OnPostCancelarAsync(Guid id,
         [Required(ErrorMessage = Obrigatorio), StringLength(Chamado.TamanhoMaximoJustificativa, ErrorMessage = LongoDemais)] string motivo,
         CancellationToken cancellationToken)
-        => TransicionarAsync(id, "Cancelar", () => servico.CancelarAsync(id, motivo, cancellationToken),
+        => TransicionarAsync(id, "Cancelar", () => servico.CancelarAsync(id, motivo, User.ComoAutor(), cancellationToken),
             "Chamado cancelado.", cancellationToken);
 
     private async Task<IActionResult> TransicionarAsync(Guid id, string acao, Func<Task<Chamado>> transicao, string sucesso,

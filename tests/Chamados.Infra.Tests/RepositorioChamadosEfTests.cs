@@ -208,6 +208,54 @@ public class RepositorioChamadosEfTests
         Assert.Equal(Abertura.AddHours(2), resumo.EncerradoEm);
     }
 
+    // --- Meus chamados ---
+
+    private static readonly Autor Bruno = new("id-bruno", "bruno@chamados.local");
+    private static readonly Autor Carla = new("id-carla", "carla@chamados.local");
+    private static readonly Autor Ana = new("id-ana", "ana@chamados.local");
+
+    [Fact]
+    public async Task Dono_e_autores_do_historico_sao_gravados_e_lidos_do_banco()
+    {
+        await using var banco = await BancoEmMemoria.CriarAsync();
+        var repositorio = new RepositorioChamadosEf(banco);
+        var chamado = new Chamado("Cadeira quebrada", criadoEm: Abertura, abertoPor: Bruno);
+        await repositorio.AdicionarAsync(chamado);
+
+        await repositorio.AlterarAsync(chamado.Id, c => c.IniciarAtendimento("Elétrica", Abertura.AddHours(1), Ana));
+        var lido = await repositorio.ObterAsync(chamado.Id);
+        var resumo = Assert.Single(await repositorio.ListarAsync(FiltroChamados.Todos));
+
+        Assert.Equal(Bruno, lido!.AbertoPor);
+        Assert.Equal(Ana, Assert.Single(lido.Historico).Por);
+        Assert.Equal("bruno@chamados.local", resumo.AbertoPorNome);
+    }
+
+    [Fact]
+    public async Task Filtros_por_dono_viram_sql_na_lista_nas_estatisticas_e_na_busca_por_responsavel()
+    {
+        await using var banco = await BancoEmMemoria.CriarAsync();
+        var repositorio = new RepositorioChamadosEf(banco);
+        var doBruno = new Chamado("Cadeira quebrada", Prioridade.Baixa, criadoEm: Abertura, abertoPor: Bruno);
+        doBruno.IniciarAtendimento("Redes", Abertura.AddHours(1), Ana);
+        var daCarla = new Chamado("Wi-Fi instável", Prioridade.Alta, criadoEm: Abertura, abertoPor: Carla);
+        daCarla.IniciarAtendimento("Redes", Abertura.AddHours(1), Ana);
+        await repositorio.AdicionarAsync(doBruno);
+        await repositorio.AdicionarAsync(daCarla);
+        await repositorio.AdicionarAsync(new Chamado("Sem dono", criadoEm: Abertura));
+
+        var lista = await repositorio.ListarAsync(FiltroChamados.Todos with { AbertoPorId = Bruno.Id });
+        var total = await repositorio.ContarAsync(FiltroChamados.Todos with { AbertoPorId = Bruno.Id });
+        var estatisticas = await repositorio.ObterEstatisticasAsync(Bruno.Id);
+        var porResponsavel = await repositorio.ListarPorResponsavelAsync("Redes", Bruno.Id);
+
+        Assert.Equal("Cadeira quebrada", Assert.Single(lista).Titulo);
+        Assert.Equal(1, total);
+        Assert.Equal(1, estatisticas.Total);
+        Assert.Equal(1, estatisticas.PorPrioridade[Prioridade.Baixa]);
+        Assert.Equal(doBruno.Id, Assert.Single(porResponsavel).Id);
+    }
+
     [Fact]
     public async Task Migrations_estao_em_dia_com_o_modelo()
     {

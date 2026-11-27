@@ -23,7 +23,8 @@ public sealed class EstadoFila(ChamadoServico servico, ILogger<EstadoFila> logge
     {
         try
         {
-            Estatisticas = await servico.ObterEstatisticasAsync(cancellationToken);
+            // Totais da fila inteira: o resumo do cabeçalho só aparece para quem vê todos (MainLayout).
+            Estatisticas = await servico.ObterEstatisticasAsync(cancellationToken: cancellationToken);
             Mudou?.Invoke();
         }
         catch (Exception ex) when (ex is not OperationCanceledException)

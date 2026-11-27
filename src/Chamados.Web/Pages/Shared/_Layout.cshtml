@@ -6,6 +6,8 @@
     var podeAtender = (await Autorizacao.AuthorizeAsync(User, Politicas.Atender)).Succeeded;
     var podeVerIndicadores = (await Autorizacao.AuthorizeAsync(User, Politicas.VerIndicadores)).Succeeded;
     var conectado = User.Identity?.IsAuthenticated == true;
+    // Meus chamados: o contador e a "Lista" (todos os chamados) são de quem vê todos.
+    var veTodos = (await Autorizacao.AuthorizeAsync(User, Politicas.VerTodosOsChamados)).Succeeded;
     // Melhorias: a página de erro pede um cabeçalho sem o contador, que consulta o banco.
     // Se o erro foi justamente o banco fora do ar, a página de erro precisa abrir mesmo assim.
     var semResumo = ViewData["SemResumo"] is true;
@@ -24,7 +26,7 @@
         @* View Component: tem lógica e dependências próprias, ao contrário de uma partial. *@
         @if (conectado)
         {
-            @if (!semResumo)
+            @if (!semResumo && veTodos)
             {
                 <vc:resumo-status />
             }
@@ -38,7 +40,16 @@
                 {
                     <a href="/indicadores">Indicadores</a>
                 }
-                <a asp-page="/Chamados/Index">Lista</a>
+                @if (veTodos)
+                {
+                    <a asp-page="/Chamados/Index">Lista</a>
+                    <a asp-page="/Chamados/Index" asp-route-meus="true">Meus chamados</a>
+                }
+                else
+                {
+                    @* Para quem vê só os seus, a lista já é "Meus chamados". *@
+                    <a asp-page="/Chamados/Index">Meus chamados</a>
+                }
                 <a class="botao" asp-page="/Chamados/Novo">Novo chamado</a>
             </nav>
             <form method="post" asp-page="/Conta/Sair" class="sessao">

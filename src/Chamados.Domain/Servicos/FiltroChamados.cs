@@ -9,8 +9,12 @@ public sealed record FiltroChamados(
     Prioridade? PrioridadeMinima = null,
     string? Texto = null,
     OrdemChamados Ordem = OrdemChamados.Prioridade,
-    bool SomenteVencidos = false)
+    bool SomenteVencidos = false,
+    string? AbertoPorId = null)
 {
+    // Meus chamados: AbertoPorId restringe aos chamados que esse usuário abriu. Quem preenche é a
+    // camada Web, a partir do login (Seguranca/Visibilidade.cs); o domínio só aplica o critério.
+
     public static FiltroChamados Todos { get; } = new();
 
     /// <summary>

@@ -21,9 +21,9 @@ A senha precisa ter 10 caracteres ou mais, com maiúscula, minúscula, número e
 
 | Usuário | Papel ou claim | Pode |
 | --- | --- | --- |
-| `ana@chamados.local` | papel `Atendente` | tudo o que um usuário conectado faz, mais a fila de atendimento, editar e mudar status |
-| `bruno@chamados.local` | nenhum | abrir chamados, ver a lista e os detalhes |
-| `carla@chamados.local` | claim `cargo = Coordenacao` | o que o bruno faz, mais os indicadores |
+| `ana@chamados.local` | papel `Atendente` | ver todos os chamados, a fila de atendimento, editar e mudar status |
+| `bruno@chamados.local` | nenhum | abrir chamados e acompanhar só os que abriu ("Meus chamados") |
+| `carla@chamados.local` | claim `cargo = Coordenacao` | ver todos os chamados e os indicadores |
 
 Os usuários são criados uma vez; para trocar a senha depois, apague `chamados.db` e execute de novo.
 
@@ -93,10 +93,10 @@ Componentes acrescentados no Módulo 6: `Formularios/FormularioChamado` (EditFor
 
 | Rota | Função |
 | --- | --- |
-| `GET /api/chamados?status=&prioridadeMinima=&texto=&ordem=&somenteVencidos=` | Lista com filtros e ordenação (`Prioridade`, `MaisRecentes`, `MaisAntigos`, `Titulo`); `somenteVencidos=true` traz só os em andamento com o prazo vencido |
+| `GET /api/chamados?status=&prioridadeMinima=&texto=&ordem=&somenteVencidos=&meus=` | Lista com filtros e ordenação (`Prioridade`, `MaisRecentes`, `MaisAntigos`, `Titulo`); `somenteVencidos=true` traz só os em andamento com o prazo vencido; `meus=true` só os que o usuário abriu (quem não é atendente nem da coordenação sempre recebe só os seus) |
 | `GET /api/chamados/estatisticas` | Totais e tempo médio de resolução |
 | `GET /api/chamados/prazos` | Vencidos, perto de vencer, percentual resolvido no prazo e a tabela de prazos (política `VerIndicadores`) |
-| `GET /api/chamados/{id}` | Um chamado com o histórico e o prazo (DTO `DetalheChamadoResposta`, inclui `versao`); id inexistente → 404 |
+| `GET /api/chamados/{id}` | Um chamado com o histórico (com quem fez cada mudança), o prazo e quem abriu (DTO `DetalheChamadoResposta`, inclui `versao`); id inexistente ou de outra pessoa → 404 |
 | `POST /api/chamados` | Abre chamado (corpo: `{"titulo": "...", "prioridade": "Alta"}`); corpo inválido → 400 com erros por campo |
 | `PUT /api/chamados/{id}` | Edita (corpo com `versaoEsperada`; versão desatualizada → 409, chamado encerrado → 409) |
 | `POST /api/chamados/{id}/atendimento` | Inicia atendimento (corpo: `{"responsavel": "..."}`) |
@@ -174,13 +174,29 @@ Chamado cancelado não tem prazo. Onde aparece:
 - **API**: o detalhe traz `prazo: { vencimento, situacao }`; a lista aceita `somenteVencidos`.
 - **Métrica**: `chamados.resolvidos`, com a etiqueta `no_prazo` (verdadeiro ou falso).
 
+### Meus chamados
+
+Feito na branch `meus-chamados`. Cada chamado guarda quem o abriu, e o histórico guarda quem fez cada mudança de status (migration `AutoriaDosChamados`).
+
+| Quem | Vê |
+| --- | --- |
+| Atendentes (papel `Atendente`) e coordenação (claim `cargo = Coordenacao`) | todos os chamados; podem pedir só os seus ("Só os meus", `?meus=true`) |
+| Os demais usuários (como o bruno) | só os chamados que abriram: lista, detalhe, painel, busca e API |
+
+- **Detalhe**: chamado de outra pessoa responde 404, como se não existisse (um "acesso negado" confirmaria que o Id existe). A tentativa fica no log (evento 1009). Mostra "Aberto por" e, no histórico, "por" quem fez cada mudança.
+- **Lista** (`/Chamados`): para quem vê só os seus, o título vira "Meus chamados"; quem vê todos ganha o filtro "Só os meus". O menu mostra "Meus chamados" para todos e "Lista" só para quem vê todos.
+- **Painel** (`/`): para quem vê só os seus, os números são dos chamados que abriu. O contador da fila no cabeçalho aparece só para quem vê todos.
+- **Fila** (`/atendimento`): cada cartão mostra quem pediu.
+- **API**: a lista e a busca por responsável respeitam a mesma regra; o detalhe traz `abertoPor` e, em cada registro do histórico, `por` (só nomes; o Id do usuário não sai na API).
+- **Chamados antigos**: os criados antes deste recurso ficam sem dono e aparecem só para atendentes e coordenação. Num banco novo, a semente já cria os exemplos com dono (5 do bruno, 3 da carla e 4 da ana).
+
 ### Bibliotecas do lado do cliente
 
 `wwwroot/lib` traz jQuery 3.7.1, jQuery Validation 1.21.0 e jQuery Validation Unobtrusive 4.0.0 (licenças MIT e Apache 2.0, arquivos de licença incluídos), usados só pela validação no cliente. O `libman.json` registra a origem; no Visual Studio, botão direito em `libman.json` › **Restaurar Bibliotecas do Lado do Cliente** baixa de novo.
 
 ## Testar
 
-No Visual Studio: **Teste > Gerenciador de Testes > Executar Todos** (`Ctrl+R, A`). Pela CLI: `dotnet test`. São 113 testes: 69 do domínio (com a política de prazos e um relógio controlado), 11 de integração com o banco e 33 da aplicação web (integração com `WebApplicationFactory`, inclusive em ambiente Production com o banco falhando e com prazos de milissegundos, componentes com `HtmlRenderer` e unidade das políticas de autorização). O GitHub roda os mesmos testes a cada push (`.github/workflows/ci.yml`).
+No Visual Studio: **Teste > Gerenciador de Testes > Executar Todos** (`Ctrl+R, A`). Pela CLI: `dotnet test`. São 131 testes: 78 do domínio (com a política de prazos e um relógio controlado), 13 de integração com o banco e 40 da aplicação web (integração com `WebApplicationFactory`, inclusive em ambiente Production com o banco falhando, com prazos de milissegundos e com os três usuários vendo cada um o que pode, componentes com `HtmlRenderer` e unidade das políticas de autorização). O GitHub roda os mesmos testes a cada push (`.github/workflows/ci.yml`).
 
 ## Estrutura
 
@@ -241,3 +257,8 @@ No Visual Studio: **Teste > Gerenciador de Testes > Executar Todos** (`Ctrl+R, A
 - **A regra de prazos é do domínio** (prazos): `PoliticaDePrazos` decide a situação com um "agora" recebido por parâmetro, sem relógio nem banco, e valida a configuração (prazos positivos, Crítica ≤ Alta ≤ Média ≤ Baixa). A configuração inválida impede a aplicação de iniciar com a mensagem dela.
 - **"Só vencidos" filtrado no banco** (prazos): o serviço traduz o pedido em um corte de data por prioridade (agora − prazo), e o repositório compara datas no `WHERE`, com os cortes como parâmetros. As comparações são estritas nos dois lados, para a tela e a contagem nunca discordarem na fronteira. O cumprimento dos resolvidos é calculado em C#, porque o SQLite não soma datas.
 - **Horas corridas** (prazos): o prazo conta noites e fins de semana. Horário comercial e feriados pediriam um calendário; ficou de fora por ora.
+- **Autoria no domínio, sem Identity** (meus chamados): o domínio recebe um `Autor` (Id e nome) da camada Web e grava os dois em colunas simples, no chamado e em cada registro do histórico. O nome fica como era no momento da ação. Colunas simples, e não um tipo "owned" do EF, para não acrescentar concessões ao EF no domínio.
+- **Uma regra de visibilidade, num arquivo** (meus chamados): `Seguranca/Visibilidade.cs` diz quem vê todos (papel ou claim) e devolve o dono a aplicar nas consultas; páginas, componentes e API só citam esses métodos. A restrição vira `WHERE AbertoPorId = @dono` no banco, com índice.
+- **404, e não 403, para chamado de outra pessoa** (meus chamados): quem não pode ver um chamado não fica sabendo que ele existe. A tentativa é registrada no log para quem investiga.
+- **Chamados antigos sem dono** (meus chamados): não há como saber, depois do fato, quem abriu os chamados anteriores; eles ficam visíveis só para atendentes e coordenação, em vez de ganharem um dono inventado.
+- **O autor é opcional no serviço** (meus chamados): os testes do domínio e a semente continuam simples, e a camada Web sempre informa o usuário conectado. Como o compilador não acusa a falta de um parâmetro opcional, testes de integração conferem o autor pela API e pelas Razor Pages (formulário de abertura e botões do detalhe); os caminhos da fila Blazor foram conferidos no navegador.

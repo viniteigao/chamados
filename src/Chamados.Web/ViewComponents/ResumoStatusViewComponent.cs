@@ -17,7 +17,8 @@ public sealed class ResumoStatusViewComponent(ChamadoServico servico, ILogger<Re
         EstatisticasChamados estatisticas;
         try
         {
-            estatisticas = await servico.ObterEstatisticasAsync(HttpContext.RequestAborted);
+            // Totais da fila inteira: o _Layout só mostra o contador para quem vê todos os chamados.
+            estatisticas = await servico.ObterEstatisticasAsync(cancellationToken: HttpContext.RequestAborted);
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {

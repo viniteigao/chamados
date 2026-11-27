@@ -19,7 +19,7 @@ public sealed class ChamadoServico(
     {
         ArgumentNullException.ThrowIfNull(comando);
 
-        var chamado = new Chamado(comando.Titulo, comando.Prioridade, comando.Descricao, relogio.GetUtcNow());
+        var chamado = new Chamado(comando.Titulo, comando.Prioridade, comando.Descricao, relogio.GetUtcNow(), comando.AbertoPor);
         await repositorio.AdicionarAsync(chamado, cancellationToken);
         metricas?.ChamadoAberto(chamado.Prioridade);
         return chamado;
@@ -48,26 +48,35 @@ public sealed class ChamadoServico(
         }, cancellationToken);
     }
 
-    public Task<Chamado> IniciarAtendimentoAsync(Guid id, string responsavel, CancellationToken cancellationToken = default)
-        => TransicionarAsync(id, chamado => chamado.IniciarAtendimento(responsavel, relogio.GetUtcNow()), cancellationToken);
+    // Meus chamados: "por" é quem faz a mudança, gravado no histórico. Opcional para os testes do
+    // domínio e para a semente; a camada Web sempre informa o usuário conectado.
+    public Task<Chamado> IniciarAtendimentoAsync(Guid id, string responsavel, Autor? por = null,
+        CancellationToken cancellationToken = default)
+        => TransicionarAsync(id, chamado => chamado.IniciarAtendimento(responsavel, relogio.GetUtcNow(), por), cancellationToken);
 
-    public async Task<Chamado> ResolverAsync(Guid id, string solucao, CancellationToken cancellationToken = default)
+    public async Task<Chamado> ResolverAsync(Guid id, string solucao, Autor? por = null,
+        CancellationToken cancellationToken = default)
     {
-        var chamado = await TransicionarAsync(id, c => c.Resolver(solucao, relogio.GetUtcNow()), cancellationToken);
+        var chamado = await TransicionarAsync(id, c => c.Resolver(solucao, relogio.GetUtcNow(), por), cancellationToken);
 
         // Prazos: a métrica conta cada resolução, separando as que cumpriram o prazo.
         metricas?.ChamadoResolvido(PrazoDe(chamado)?.Situacao == SituacaoPrazo.Cumprido);
         return chamado;
     }
 
-    public Task<Chamado> CancelarAsync(Guid id, string motivo, CancellationToken cancellationToken = default)
-        => TransicionarAsync(id, chamado => chamado.Cancelar(motivo, relogio.GetUtcNow()), cancellationToken);
+    public Task<Chamado> CancelarAsync(Guid id, string motivo, Autor? por = null,
+        CancellationToken cancellationToken = default)
+        => TransicionarAsync(id, chamado => chamado.Cancelar(motivo, relogio.GetUtcNow(), por), cancellationToken);
 
-    /// <summary>Chamados atribuídos a um responsável (Módulo 8), do mais urgente ao menos.</summary>
-    public Task<IReadOnlyList<ResumoChamado>> ListarPorResponsavelAsync(string responsavel, CancellationToken cancellationToken = default)
+    /// <summary>
+    /// Chamados atribuídos a um responsável (Módulo 8), do mais urgente ao menos.
+    /// Meus chamados: com <paramref name="abertoPorId"/>, só entre os que esse usuário abriu.
+    /// </summary>
+    public Task<IReadOnlyList<ResumoChamado>> ListarPorResponsavelAsync(string responsavel, string? abertoPorId = null,
+        CancellationToken cancellationToken = default)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(responsavel);
-        return repositorio.ListarPorResponsavelAsync(responsavel.Trim(), cancellationToken);
+        return repositorio.ListarPorResponsavelAsync(responsavel.Trim(), abertoPorId, cancellationToken);
     }
 
     public Task<IReadOnlyList<ResumoChamado>> ListarAsync(
@@ -104,8 +113,10 @@ public sealed class ChamadoServico(
         return new Pagina<ResumoChamado>(itens, numero, tamanhoPagina, total);
     }
 
-    public Task<EstatisticasChamados> ObterEstatisticasAsync(CancellationToken cancellationToken = default)
-        => repositorio.ObterEstatisticasAsync(cancellationToken);
+    /// <summary>Totais. Meus chamados: com <paramref name="abertoPorId"/>, só os desse usuário.</summary>
+    public Task<EstatisticasChamados> ObterEstatisticasAsync(string? abertoPorId = null,
+        CancellationToken cancellationToken = default)
+        => repositorio.ObterEstatisticasAsync(abertoPorId, cancellationToken);
 
     /// <summary>Prazo de um chamado agora; null para cancelados.</summary>
     public PrazoDoChamado? PrazoDe(Chamado chamado) => Prazos.Avaliar(chamado, relogio.GetUtcNow());
@@ -113,9 +124,13 @@ public sealed class ChamadoServico(
     /// <summary>Prazo de um chamado da lista agora; null para cancelados.</summary>
     public PrazoDoChamado? PrazoDe(ResumoChamado chamado) => Prazos.Avaliar(chamado, relogio.GetUtcNow());
 
-    /// <summary>Quantos chamados em andamento estão com o prazo vencido agora (contagem no banco).</summary>
-    public Task<int> ContarVencidosAsync(CancellationToken cancellationToken = default)
-        => repositorio.ContarAsync(TraduzirPrazos(new FiltroChamados(SomenteVencidos: true)), cancellationToken);
+    /// <summary>
+    /// Quantos chamados em andamento estão com o prazo vencido agora (contagem no banco).
+    /// Meus chamados: com <paramref name="abertoPorId"/>, só os desse usuário.
+    /// </summary>
+    public Task<int> ContarVencidosAsync(string? abertoPorId = null, CancellationToken cancellationToken = default)
+        => repositorio.ContarAsync(
+            TraduzirPrazos(new FiltroChamados(SomenteVencidos: true, AbertoPorId: abertoPorId)), cancellationToken);
 
     /// <summary>
     /// Indicadores de prazo. Vencidos e perto de vencer são contados no banco; o cumprimento dos

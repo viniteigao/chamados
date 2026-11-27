@@ -33,6 +33,10 @@ public static partial class Registro
     [LoggerMessage(EventId = 1008, Level = LogLevel.Warning, Message = "Limite de tentativas de login atingido em {Caminho}")]
     public static partial void LimiteDeLoginAtingido(ILogger logger, string caminho);
 
+    // Meus chamados: alguém pediu um chamado que não abriu e não pode ver (respondeu 404).
+    [LoggerMessage(EventId = 1009, Level = LogLevel.Warning, Message = "Chamado {ChamadoId} pedido por quem não pode vê-lo (usuário {UsuarioId})")]
+    public static partial void ChamadoDeOutroUsuario(ILogger logger, Guid chamadoId, string usuarioId);
+
     // Eventos que já existiam (Módulos 3 e 6), migrados para cá pela análise estática (CA1848).
     [LoggerMessage(EventId = 2001, Level = LogLevel.Information, Message = "Chamado {ChamadoId} aberto com prioridade {Prioridade}")]
     public static partial void ChamadoAberto(ILogger logger, Guid chamadoId, Domain.Prioridade prioridade);

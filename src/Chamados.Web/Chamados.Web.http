@@ -24,6 +24,10 @@ Authorization: Bearer {{token.response.body.$.accessToken}}
 GET {{base}}/api/chamados?status=Aberto&prioridadeMinima=Alta
 Authorization: Bearer {{token.response.body.$.accessToken}}
 
+### Meus chamados: só os que a ana abriu. Com o token do bruno, a lista já vem só com os dele.
+GET {{base}}/api/chamados?meus=true
+Authorization: Bearer {{token.response.body.$.accessToken}}
+
 ### Busca por texto (título ou descrição, sem diferenciar maiúsculas)
 GET {{base}}/api/chamados?texto=sala
 Authorization: Bearer {{token.response.body.$.accessToken}}

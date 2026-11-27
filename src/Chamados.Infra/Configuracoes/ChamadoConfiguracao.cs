@@ -48,9 +48,16 @@ public sealed class ChamadoConfiguracao : IEntityTypeConfiguration<Chamado>
         builder.HasIndex(c => c.Status);
         builder.HasIndex(c => c.Prioridade);
 
+        // Meus chamados: quem abriu (Id e nome do usuário, nulos nos chamados antigos), com índice
+        // para o filtro "meus chamados". Migration AutoriaDosChamados.
+        builder.Property(c => c.AbertoPorId).HasMaxLength(Autor.TamanhoMaximoId);
+        builder.Property(c => c.AbertoPorNome).HasMaxLength(Autor.TamanhoMaximoNome);
+        builder.HasIndex(c => c.AbertoPorId);
+
         // Propriedades calculadas não viram colunas.
         builder.Ignore(c => c.EstaEncerrado);
         builder.Ignore(c => c.TempoAteEncerramento);
+        builder.Ignore(c => c.AbertoPor);
 
         // O histórico é parte do chamado (entidade "owned"): tabela própria, chave estrangeira
         // ChamadoId, carregado e gravado sempre junto com o chamado.
@@ -63,6 +70,11 @@ public sealed class ChamadoConfiguracao : IEntityTypeConfiguration<Chamado>
             historico.Property(r => r.De).HasConversion<string>().HasMaxLength(20);
             historico.Property(r => r.Para).HasConversion<string>().HasMaxLength(20);
             historico.Property(r => r.Observacao).HasMaxLength(Chamado.TamanhoMaximoJustificativa);
+
+            // Meus chamados: quem fez a mudança. Duas colunas simples, lidas pelo construtor do record.
+            historico.Property(r => r.PorId).HasMaxLength(Autor.TamanhoMaximoId);
+            historico.Property(r => r.PorNome).HasMaxLength(Autor.TamanhoMaximoNome);
+            historico.Ignore(r => r.Por);
         });
 
         // O EF escreve na lista privada _historico; a propriedade pública é só leitura.

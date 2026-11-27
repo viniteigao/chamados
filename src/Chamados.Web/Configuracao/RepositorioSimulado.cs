@@ -20,11 +20,12 @@ public sealed class RepositorioSimulado(IChamadoRepositorio interno, TimeProvide
         return await interno.ListarAsync(filtro, pular, pegar, cancellationToken);
     }
 
-    public async Task<EstatisticasChamados> ObterEstatisticasAsync(CancellationToken cancellationToken = default)
+    public async Task<EstatisticasChamados> ObterEstatisticasAsync(string? abertoPorId = null,
+        CancellationToken cancellationToken = default)
     {
         await AtrasarAsync(cancellationToken);
         FalharSePedido();
-        return await interno.ObterEstatisticasAsync(cancellationToken);
+        return await interno.ObterEstatisticasAsync(abertoPorId, cancellationToken);
     }
 
     public async Task<int> ContarAsync(FiltroChamados filtro, CancellationToken cancellationToken = default)
@@ -33,8 +34,9 @@ public sealed class RepositorioSimulado(IChamadoRepositorio interno, TimeProvide
         return await interno.ContarAsync(filtro, cancellationToken);
     }
 
-    public Task<IReadOnlyList<ResumoChamado>> ListarPorResponsavelAsync(string responsavel, CancellationToken cancellationToken = default)
-        => interno.ListarPorResponsavelAsync(responsavel, cancellationToken);
+    public Task<IReadOnlyList<ResumoChamado>> ListarPorResponsavelAsync(string responsavel, string? abertoPorId = null,
+        CancellationToken cancellationToken = default)
+        => interno.ListarPorResponsavelAsync(responsavel, abertoPorId, cancellationToken);
 
     // Prazos: parte dos indicadores, com a mesma latência das outras consultas.
     public async Task<IReadOnlyList<ResolucaoChamado>> ListarResolucoesAsync(CancellationToken cancellationToken = default)

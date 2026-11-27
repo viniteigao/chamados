@@ -1,4 +1,5 @@
 using Chamados.Domain;
+using Chamados.Web.Seguranca;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
 
@@ -7,6 +8,8 @@ namespace Chamados.Web.Pages.Chamados;
 /// <summary>
 /// Lista com filtros, ordenação e paginação. Tudo vem da query string:
 /// a URL descreve a consulta inteira e pode ser compartilhada.
+/// Meus chamados: quem não vê todos os chamados vê sempre só os que abriu; quem vê todos
+/// pode pedir só os seus com ?meus=true.
 /// </summary>
 public sealed class IndexModel(ChamadoServico servico) : PageModel
 {
@@ -32,6 +35,16 @@ public sealed class IndexModel(ChamadoServico servico) : PageModel
     [BindProperty(SupportsGet = true)]
     public bool SomenteVencidos { get; set; }
 
+    /// <summary>Meus chamados: pedido de ver só os próprios (?meus=true), para quem vê todos.</summary>
+    [BindProperty(SupportsGet = true)]
+    public bool Meus { get; set; }
+
+    /// <summary>Meus chamados: verdadeiro quando a lista mostra só os chamados do usuário.</summary>
+    public bool SoOsMeus { get; private set; }
+
+    /// <summary>Meus chamados: quem vê todos ganha a opção "Só os meus"; os demais já veem só os seus.</summary>
+    public bool PodeEscolher { get; private set; }
+
     public Pagina<ResumoChamado> Resultado { get; private set; } = null!;
 
     /// <summary>Prazos: o prazo de cada linha agora, calculado pelo serviço; null para cancelados.</summary>
@@ -47,9 +60,14 @@ public sealed class IndexModel(ChamadoServico servico) : PageModel
             Ordem = OrdemChamados.Prioridade;
             NumeroPagina = 1;
             SomenteVencidos = false;
+            Meus = false;
         }
 
-        var filtro = new FiltroChamados(Status, PrioridadeMinima, Texto, Ordem, SomenteVencidos);
+        var dono = User.DonoParaListar(Meus);
+        SoOsMeus = dono is not null;
+        PodeEscolher = User.VeTodosOsChamados();
+
+        var filtro = new FiltroChamados(Status, PrioridadeMinima, Texto, Ordem, SomenteVencidos, dono);
         Resultado = await servico.ListarPaginaAsync(filtro, NumeroPagina, TamanhoPagina, cancellationToken);
     }
 
@@ -64,6 +82,7 @@ public sealed class IndexModel(ChamadoServico servico) : PageModel
         texto = string.IsNullOrWhiteSpace(Texto) ? null : Texto,
         ordem = Ordem == OrdemChamados.Prioridade ? (OrdemChamados?)null : Ordem,
         somenteVencidos = SomenteVencidos ? true : (bool?)null,
+        meus = Meus ? true : (bool?)null,
         pagina = pagina == 1 ? (int?)null : pagina
     };
 }

@@ -325,4 +325,66 @@ public class ChamadoServicoTests
         Assert.Equal(SituacaoPrazo.Vencido, servico.PrazoDe(chamado)!.Situacao);
         Assert.Equal(SituacaoPrazo.NoPrazo, _servico.PrazoDe(chamado)!.Situacao);   // a padrão dá 4 h
     }
+
+    // --- Meus chamados ---
+
+    private static readonly Autor Bruno = new("id-bruno", "bruno@chamados.local");
+    private static readonly Autor Carla = new("id-carla", "carla@chamados.local");
+    private static readonly Autor Ana = new("id-ana", "ana@chamados.local");
+
+    [Fact]
+    public async Task ListarAsync_ComDono_TrazSoOsChamadosQueEleAbriu()
+    {
+        var doBruno = await _servico.AbrirAsync(new NovoChamado("Cadeira quebrada", AbertoPor: Bruno));
+        await _servico.AbrirAsync(new NovoChamado("Wi-Fi instável", AbertoPor: Carla));
+        await _servico.AbrirAsync(new NovoChamado("Sem dono"));
+
+        var lista = await _servico.ListarAsync(new FiltroChamados(AbertoPorId: Bruno.Id));
+
+        Assert.Equal(new[] { doBruno.Id }, lista.Select(c => c.Id));
+        Assert.Equal("bruno@chamados.local", lista[0].AbertoPorNome);
+    }
+
+    [Fact]
+    public async Task ObterEstatisticasAsync_ComDono_ContaSoOsDele()
+    {
+        var doBruno = await _servico.AbrirAsync(new NovoChamado("Cadeira quebrada", AbertoPor: Bruno));
+        await _servico.AbrirAsync(new NovoChamado("Bebedouro sem água", AbertoPor: Bruno));
+        await _servico.AbrirAsync(new NovoChamado("Wi-Fi instável", AbertoPor: Carla));
+        await _servico.IniciarAtendimentoAsync(doBruno.Id, "Elétrica", Ana);
+
+        var doBrunoApenas = await _servico.ObterEstatisticasAsync(Bruno.Id);
+        var todas = await _servico.ObterEstatisticasAsync();
+
+        Assert.Equal(2, doBrunoApenas.Total);
+        Assert.Equal(1, doBrunoApenas.PorStatus[StatusChamado.EmAtendimento]);
+        Assert.Equal(3, todas.Total);
+    }
+
+    [Fact]
+    public async Task Transicoes_DoServico_RegistramQuemFez()
+    {
+        var chamado = await _servico.AbrirAsync(new NovoChamado("Tomada solta", AbertoPor: Bruno));
+
+        await _servico.IniciarAtendimentoAsync(chamado.Id, "Elétrica", Ana);
+        var cancelado = await _servico.CancelarAsync(chamado.Id, "Duplicado", Ana);
+
+        Assert.All(cancelado.Historico, r => Assert.Equal(Ana, r.Por));
+        Assert.Equal(Bruno, cancelado.AbertoPor);
+    }
+
+    [Fact]
+    public async Task ListarPorResponsavelAsync_ComDono_FiltraOsDele()
+    {
+        var doBruno = await _servico.AbrirAsync(new NovoChamado("Cadeira quebrada", AbertoPor: Bruno));
+        var daCarla = await _servico.AbrirAsync(new NovoChamado("Wi-Fi instável", AbertoPor: Carla));
+        await _servico.IniciarAtendimentoAsync(doBruno.Id, "Redes", Ana);
+        await _servico.IniciarAtendimentoAsync(daCarla.Id, "Redes", Ana);
+
+        var doBrunoComRedes = await _servico.ListarPorResponsavelAsync("Redes", Bruno.Id);
+        var todosComRedes = await _servico.ListarPorResponsavelAsync("Redes");
+
+        Assert.Equal(new[] { doBruno.Id }, doBrunoComRedes.Select(c => c.Id));
+        Assert.Equal(2, todosComRedes.Count);
+    }
 }

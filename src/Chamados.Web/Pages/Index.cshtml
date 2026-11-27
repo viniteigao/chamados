@@ -5,7 +5,11 @@
 }
 
 <h1>Painel</h1>
-<p class="apoio">@Model.Estatisticas.Total chamados registrados.</p>
+@* Meus chamados: para quem vê só os próprios, os números são dos chamados que abriu. *@
+<p class="apoio">
+    @Model.Estatisticas.Total @(Model.Estatisticas.Total == 1 ? "chamado" : "chamados")
+    @(Model.SoOsMeus ? "abertos por você." : "registrados.")
+</p>
 
 <section class="cartoes">
     @foreach (var (status, quantidade) in Model.Estatisticas.PorStatus)

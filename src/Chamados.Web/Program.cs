@@ -153,8 +153,9 @@ if (app.Environment.IsDevelopment())
     // Development: cria ou atualiza o banco (migrations pendentes) e, se estiver vazio, popula.
     // Em produção, as migrations são aplicadas por script revisado, não na inicialização.
     await app.Services.AplicarMigrationsAsync();
-    await SementeDados.PopularAsync(app.Services);
+    // Meus chamados: usuários antes dos chamados, porque os exemplos têm dono.
     await SementeUsuarios.PopularAsync(app.Services, app.Configuration);
+    await SementeDados.PopularAsync(app.Services);
 }
 
 // ============ 2. Pipeline: por onde cada requisição passa, nesta ordem ============

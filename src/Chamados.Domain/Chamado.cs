@@ -23,13 +23,16 @@ public sealed class Chamado
         string titulo,
         Prioridade prioridade = Prioridade.Media,
         string? descricao = null,
-        DateTimeOffset? criadoEm = null)
+        DateTimeOffset? criadoEm = null,
+        Autor? abertoPor = null)
     {
         // As mesmas regras valem para criar e para editar: ficam em métodos privados.
         Titulo = ValidarTitulo(titulo);
         Descricao = ValidarDescricao(descricao);
         Prioridade = ValidarPrioridade(prioridade);
         CriadoEm = criadoEm ?? DateTimeOffset.UtcNow;
+        AbertoPorId = abertoPor?.Id;
+        AbertoPorNome = abertoPor?.Nome;
     }
 
     // Módulo 7: construtor sem parâmetros, privado, para o Entity Framework Core materializar
@@ -64,6 +67,18 @@ public sealed class Chamado
 
     public DateTimeOffset? EncerradoEm { get; private set; }
 
+    // Meus chamados: quem abriu, em duas colunas simples. Nulo nos chamados anteriores a este
+    // recurso, que ficam sem dono (visíveis só para atendentes e coordenação).
+    public string? AbertoPorId { get; private set; }
+
+    public string? AbertoPorNome { get; private set; }
+
+    /// <summary>Quem abriu o chamado; null nos chamados sem dono.</summary>
+    public Autor? AbertoPor => AbertoPorId is null ? null : new Autor(AbertoPorId, AbertoPorNome ?? AbertoPorId);
+
+    /// <summary>O chamado foi aberto por este usuário? Falso nos chamados sem dono.</summary>
+    public bool FoiAbertoPor(string usuarioId) => AbertoPorId is not null && AbertoPorId == usuarioId;
+
     // AsReadOnly impede que quem recebe a lista faça cast para List<T> e a altere.
     public IReadOnlyList<RegistroHistorico> Historico => _historico.AsReadOnly();
 
@@ -91,29 +106,30 @@ public sealed class Chamado
         Versao++;
     }
 
-    public void IniciarAtendimento(string responsavel, DateTimeOffset em)
+    // Meus chamados: cada transição aceita quem a fez (por), que vai para o histórico.
+    public void IniciarAtendimento(string responsavel, DateTimeOffset em, Autor? por = null)
     {
         var nome = ValidarTextoObrigatorio(responsavel, TamanhoMaximoResponsavel, "O responsável", nameof(responsavel));
-        MudarStatus(StatusChamado.EmAtendimento, em, $"Atribuído a {nome}");
+        MudarStatus(StatusChamado.EmAtendimento, em, $"Atribuído a {nome}", por);
         Responsavel = nome;
     }
 
-    public void Resolver(string solucao, DateTimeOffset em)
+    public void Resolver(string solucao, DateTimeOffset em, Autor? por = null)
     {
         var texto = ValidarTextoObrigatorio(solucao, TamanhoMaximoJustificativa, "A solução", nameof(solucao));
-        MudarStatus(StatusChamado.Resolvido, em, texto);
+        MudarStatus(StatusChamado.Resolvido, em, texto, por);
         Solucao = texto;
         EncerradoEm = em;
     }
 
-    public void Cancelar(string motivo, DateTimeOffset em)
+    public void Cancelar(string motivo, DateTimeOffset em, Autor? por = null)
     {
         var texto = ValidarTextoObrigatorio(motivo, TamanhoMaximoJustificativa, "O motivo", nameof(motivo));
-        MudarStatus(StatusChamado.Cancelado, em, texto);
+        MudarStatus(StatusChamado.Cancelado, em, texto, por);
         EncerradoEm = em;
     }
 
-    private void MudarStatus(StatusChamado novo, DateTimeOffset em, string? observacao)
+    private void MudarStatus(StatusChamado novo, DateTimeOffset em, string? observacao, Autor? por)
     {
         if (!TransicaoPermitida(Status, novo))
         {
@@ -122,7 +138,7 @@ public sealed class Chamado
 
         ArgumentOutOfRangeException.ThrowIfLessThan(em, CriadoEm);
 
-        _historico.Add(new RegistroHistorico(Status, novo, em, observacao));
+        _historico.Add(new RegistroHistorico(Status, novo, em, observacao, por?.Id, por?.Nome));
         Status = novo;
         Versao++;
     }

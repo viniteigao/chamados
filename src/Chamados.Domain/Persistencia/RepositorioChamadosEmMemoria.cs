@@ -68,10 +68,11 @@ public sealed class RepositorioChamadosEmMemoria(TimeProvider relogio, TimeSpan 
         return consulta.Select(ResumoChamado.De).ToList();
     }
 
-    public async Task<EstatisticasChamados> ObterEstatisticasAsync(CancellationToken cancellationToken = default)
+    public async Task<EstatisticasChamados> ObterEstatisticasAsync(string? abertoPorId = null,
+        CancellationToken cancellationToken = default)
     {
         await SimularLatenciaAsync(cancellationToken);
-        var chamados = _chamados.Values.ToList();
+        var chamados = _chamados.Values.Where(c => abertoPorId is null || c.FoiAbertoPor(abertoPorId)).ToList();
 
         // Todos os status aparecem, mesmo com zero: parte do enum, não dos dados.
         var porStatus = Enum.GetValues<StatusChamado>()
@@ -92,10 +93,14 @@ public sealed class RepositorioChamadosEmMemoria(TimeProvider relogio, TimeSpan 
         return new EstatisticasChamados(chamados.Count, porStatus, porPrioridade, tempoMedio);
     }
 
-    public async Task<IReadOnlyList<ResumoChamado>> ListarPorResponsavelAsync(string responsavel, CancellationToken cancellationToken = default)
+    public async Task<IReadOnlyList<ResumoChamado>> ListarPorResponsavelAsync(string responsavel, string? abertoPorId = null,
+        CancellationToken cancellationToken = default)
     {
         await SimularLatenciaAsync(cancellationToken);
-        return Ordenar(_chamados.Values.Where(c => c.Responsavel == responsavel), OrdemChamados.Prioridade)
+        var chamados = _chamados.Values
+            .Where(c => c.Responsavel == responsavel)
+            .Where(c => abertoPorId is null || c.FoiAbertoPor(abertoPorId));
+        return Ordenar(chamados, OrdemChamados.Prioridade)
             .Select(ResumoChamado.De)
             .ToList();
     }
@@ -117,7 +122,9 @@ public sealed class RepositorioChamadosEmMemoria(TimeProvider relogio, TimeSpan 
                     || (c.Descricao?.Contains(filtro.Texto, StringComparison.OrdinalIgnoreCase) ?? false))
         // Prazos: só em andamento e abertos antes do corte da própria prioridade (mesma regra do banco).
         .Where(c => filtro.AbertosAntesDe is not { } cortes
-                    || (!c.EstaEncerrado && c.CriadoEm < cortes[c.Prioridade]));
+                    || (!c.EstaEncerrado && c.CriadoEm < cortes[c.Prioridade]))
+        // Meus chamados: só os que esse usuário abriu (chamados sem dono nunca entram).
+        .Where(c => filtro.AbertoPorId is null || c.FoiAbertoPor(filtro.AbertoPorId));
 
     private static IEnumerable<Chamado> Ordenar(IEnumerable<Chamado> chamados, OrdemChamados ordem) => ordem switch
     {

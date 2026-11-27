@@ -1,5 +1,7 @@
 using System.ComponentModel.DataAnnotations;
+using System.Security.Claims;
 using Chamados.Domain;
+using Chamados.Web.Diagnostico;
 using Chamados.Web.Pages.Chamados;
 using Chamados.Web.Seguranca;
 using Microsoft.AspNetCore.Http.HttpResults;
@@ -21,15 +23,19 @@ public static class EndpointsChamados
             .RequireAuthorization(Politicas.Api)   // cookie ou token; vale para todos os endpoints abaixo
             .WithTags("Chamados");   // agrupa os endpoints no documento OpenAPI
 
+        // Meus chamados: quem não é atendente nem da coordenação recebe só os chamados que abriu;
+        // quem vê todos pode pedir só os seus com ?meus=true.
         api.MapGet("/", (StatusChamado? status, Prioridade? prioridadeMinima, string? texto, OrdemChamados? ordem,
-                bool? somenteVencidos, ChamadoServico servico, CancellationToken cancellationToken)
+                bool? somenteVencidos, bool? meus, ClaimsPrincipal usuario, ChamadoServico servico,
+                CancellationToken cancellationToken)
             => servico.ListarAsync(
-                new FiltroChamados(status, prioridadeMinima, texto, ordem ?? OrdemChamados.Prioridade, somenteVencidos ?? false),
+                new FiltroChamados(status, prioridadeMinima, texto, ordem ?? OrdemChamados.Prioridade, somenteVencidos ?? false,
+                    usuario.DonoParaListar(meus ?? false)),
                 cancellationToken))
-            .WithSummary("Lista chamados, com filtros opcionais por status, prioridade mínima, texto e prazo vencido");
+            .WithSummary("Lista chamados (só os próprios, para quem não é atendente nem da coordenação), com filtros opcionais");
 
         api.MapGet("/estatisticas", (ChamadoServico servico, CancellationToken cancellationToken)
-            => servico.ObterEstatisticasAsync(cancellationToken))
+            => servico.ObterEstatisticasAsync(cancellationToken: cancellationToken))
             .RequireAuthorization(Politicas.VerIndicadores)
             .WithSummary("Totais por status e prioridade e tempo médio de resolução");
 
@@ -40,24 +46,42 @@ public static class EndpointsChamados
             .WithSummary("Vencidos, perto de vencer, percentual resolvido no prazo e a tabela de prazos");
 
         // Módulo 8: busca por responsável. No laboratório, esta rota começa vulnerável a injeção de SQL.
-        api.MapGet("/por-responsavel", (string nome, ChamadoServico servico, CancellationToken cancellationToken)
-            => servico.ListarPorResponsavelAsync(nome, cancellationToken))
+        // Meus chamados: para quem não vê todos, a busca fica restrita aos chamados que a pessoa abriu.
+        api.MapGet("/por-responsavel", (string nome, ClaimsPrincipal usuario, ChamadoServico servico,
+                CancellationToken cancellationToken)
+            => servico.ListarPorResponsavelAsync(nome, usuario.RestricaoDeDono(), cancellationToken))
             .WithSummary("Chamados atribuídos a um responsável");
 
         // Results<Ok<…>, NotFound>: o tipo de retorno declara os dois status possíveis,
         // e o documento OpenAPI os lista sem anotação extra.
+        // Meus chamados: chamado de outra pessoa responde 404, como se não existisse: um 403 confirmaria
+        // que o Id existe. A tentativa fica no log (evento 1009).
         api.MapGet("/{id:guid}", async Task<Results<Ok<DetalheChamadoResposta>, NotFound>> (Guid id,
-                ChamadoServico servico, CancellationToken cancellationToken)
-            => await servico.ObterAsync(id, cancellationToken) is { } chamado
-                ? TypedResults.Ok(DetalheChamadoResposta.De(chamado, servico.PrazoDe(chamado)))
-                : TypedResults.NotFound())
+                ClaimsPrincipal usuario, ChamadoServico servico, ILoggerFactory registros, CancellationToken cancellationToken) =>
+            {
+                if (await servico.ObterAsync(id, cancellationToken) is not { } chamado)
+                {
+                    return TypedResults.NotFound();
+                }
+
+                if (!usuario.PodeVer(chamado))
+                {
+                    Registro.ChamadoDeOutroUsuario(registros.CreateLogger(typeof(EndpointsChamados).FullName!),
+                        id, usuario.IdDoUsuario() ?? "desconhecido");
+                    return TypedResults.NotFound();
+                }
+
+                return TypedResults.Ok(DetalheChamadoResposta.De(chamado, servico.PrazoDe(chamado)));
+            })
             .WithSummary("Detalhe de um chamado, com o histórico de status");
 
         // O corpo usa o mesmo ChamadoInput das telas: as Data Annotations são conferidas
         // pela validação de Minimal APIs (AddValidation) antes do código rodar; inválido = 400.
-        api.MapPost("/", async (ChamadoInput entrada, ChamadoServico servico, CancellationToken cancellationToken) =>
+        // Meus chamados: quem abre é o usuário do token ou do cookie.
+        api.MapPost("/", async (ChamadoInput entrada, ClaimsPrincipal usuario, ChamadoServico servico,
+            CancellationToken cancellationToken) =>
         {
-            var chamado = await servico.AbrirAsync(entrada.ParaComando(), cancellationToken);
+            var chamado = await servico.AbrirAsync(entrada.ParaComando(usuario.ComoAutor()), cancellationToken);
             return TypedResults.Created($"/api/chamados/{chamado.Id}", ResumoChamado.De(chamado));
         })
         .WithSummary("Abre um chamado")
@@ -72,21 +96,22 @@ public static class EndpointsChamados
 
         // Transições sem try/catch: o FiltroExcecoesDominio responde 404, 409 ou 400.
         // Módulo 8: as três mudanças de status exigem a política Atender, como os handlers da página Detalhes.
+        // Meus chamados: quem faz a mudança (usuário do token ou do cookie) vai para o histórico.
         api.MapPost("/{id:guid}/atendimento", async (Guid id, IniciarAtendimentoRequest requisicao,
-                ChamadoServico servico, CancellationToken cancellationToken)
-            => ResumoChamado.De(await servico.IniciarAtendimentoAsync(id, requisicao.Responsavel, cancellationToken)))
+                ClaimsPrincipal usuario, ChamadoServico servico, CancellationToken cancellationToken)
+            => ResumoChamado.De(await servico.IniciarAtendimentoAsync(id, requisicao.Responsavel, usuario.ComoAutor(), cancellationToken)))
             .RequireAuthorization(Politicas.Atender)
             .WithSummary("Inicia o atendimento, atribuindo um responsável");
 
         api.MapPost("/{id:guid}/resolucao", async (Guid id, ResolverRequest requisicao,
-                ChamadoServico servico, CancellationToken cancellationToken)
-            => ResumoChamado.De(await servico.ResolverAsync(id, requisicao.Solucao, cancellationToken)))
+                ClaimsPrincipal usuario, ChamadoServico servico, CancellationToken cancellationToken)
+            => ResumoChamado.De(await servico.ResolverAsync(id, requisicao.Solucao, usuario.ComoAutor(), cancellationToken)))
             .RequireAuthorization(Politicas.Atender)
             .WithSummary("Resolve um chamado em atendimento, registrando a solução");
 
         api.MapPost("/{id:guid}/cancelamento", async (Guid id, CancelarRequest requisicao,
-                ChamadoServico servico, CancellationToken cancellationToken)
-            => ResumoChamado.De(await servico.CancelarAsync(id, requisicao.Motivo, cancellationToken)))
+                ClaimsPrincipal usuario, ChamadoServico servico, CancellationToken cancellationToken)
+            => ResumoChamado.De(await servico.CancelarAsync(id, requisicao.Motivo, usuario.ComoAutor(), cancellationToken)))
             .RequireAuthorization(Politicas.Atender)
             .WithSummary("Cancela um chamado aberto ou em atendimento, registrando o motivo");
 

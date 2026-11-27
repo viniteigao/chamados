@@ -89,16 +89,24 @@ public sealed class RepositorioChamadosEf(IDbContextFactory<ChamadosDbContext> f
 
         // Projeção: o SELECT traz só as colunas do resumo, sem o histórico.
         return await consulta
-            .Select(c => new ResumoChamado(c.Id, c.Titulo, c.Status, c.Prioridade, c.Responsavel, c.CriadoEm, c.Versao, c.EncerradoEm))
+            .Select(c => new ResumoChamado(c.Id, c.Titulo, c.Status, c.Prioridade, c.Responsavel, c.CriadoEm, c.Versao, c.EncerradoEm, c.AbertoPorNome))
             .ToListAsync(cancellationToken);
     }
 
-    public async Task<EstatisticasChamados> ObterEstatisticasAsync(CancellationToken cancellationToken = default)
+    public async Task<EstatisticasChamados> ObterEstatisticasAsync(string? abertoPorId = null,
+        CancellationToken cancellationToken = default)
     {
         await using var db = await fabrica.CreateDbContextAsync(cancellationToken);
 
+        // Meus chamados: com abertoPorId, as três consultas abaixo ganham o mesmo WHERE.
+        IQueryable<Chamado> chamados = db.Chamados;
+        if (abertoPorId is not null)
+        {
+            chamados = chamados.Where(c => c.AbertoPorId == abertoPorId);
+        }
+
         // GROUP BY no banco: só as contagens trafegam, não os chamados.
-        var contagemStatus = await db.Chamados
+        var contagemStatus = await chamados
             .GroupBy(c => c.Status)
             .Select(g => new { Status = g.Key, Total = g.Count() })
             .ToListAsync(cancellationToken);
@@ -107,13 +115,13 @@ public sealed class RepositorioChamadosEf(IDbContextFactory<ChamadosDbContext> f
             status => status,
             status => contagemStatus.FirstOrDefault(x => x.Status == status)?.Total ?? 0);
 
-        var porPrioridade = await db.Chamados
+        var porPrioridade = await chamados
             .GroupBy(c => c.Prioridade)
             .Select(g => new { Prioridade = g.Key, Total = g.Count() })
             .ToDictionaryAsync(x => x.Prioridade, x => x.Total, cancellationToken);
 
         // Subtrair datas não tem tradução para SQL no SQLite: trazemos só as duas colunas e calculamos aqui.
-        var datas = await db.Chamados
+        var datas = await chamados
             .Where(c => c.Status == StatusChamado.Resolvido)
             .Select(c => new { c.CriadoEm, c.EncerradoEm })
             .ToListAsync(cancellationToken);
@@ -126,7 +134,7 @@ public sealed class RepositorioChamadosEf(IDbContextFactory<ChamadosDbContext> f
     }
 
     public async Task<IReadOnlyList<ResumoChamado>> ListarPorResponsavelAsync(
-        string responsavel, CancellationToken cancellationToken = default)
+        string responsavel, string? abertoPorId = null, CancellationToken cancellationToken = default)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(responsavel);
         await using var db = await fabrica.CreateDbContextAsync(cancellationToken);
@@ -134,11 +142,19 @@ public sealed class RepositorioChamadosEf(IDbContextFactory<ChamadosDbContext> f
         // Módulo 8: SQL escrito à mão, e mesmo assim seguro. FromSql recebe uma string interpolada
         // (FormattableString) e transforma cada {valor} num parâmetro (@p0): o texto digitado nunca
         // vira parte do comando. A versão vulnerável, com FromSqlRaw e concatenação, está no roteiro.
-        return await db.Chamados
+        var consulta = db.Chamados
             .FromSql($"SELECT * FROM \"Chamados\" WHERE \"Responsavel\" = {responsavel}")
-            .AsNoTracking()
+            .AsNoTracking();
+
+        // Meus chamados: o LINQ compõe em volta do SQL escrito à mão; o dono também vira parâmetro.
+        if (abertoPorId is not null)
+        {
+            consulta = consulta.Where(c => c.AbertoPorId == abertoPorId);
+        }
+
+        return await consulta
             .OrderByDescending(c => c.Prioridade).ThenBy(c => c.CriadoEm)
-            .Select(c => new ResumoChamado(c.Id, c.Titulo, c.Status, c.Prioridade, c.Responsavel, c.CriadoEm, c.Versao, c.EncerradoEm))
+            .Select(c => new ResumoChamado(c.Id, c.Titulo, c.Status, c.Prioridade, c.Responsavel, c.CriadoEm, c.Versao, c.EncerradoEm, c.AbertoPorNome))
             .ToListAsync(cancellationToken);
     }
 
@@ -193,6 +209,12 @@ public sealed class RepositorioChamadosEf(IDbContextFactory<ChamadosDbContext> f
                     || (c.Prioridade == Prioridade.Media && c.CriadoEm < media)
                     || (c.Prioridade == Prioridade.Alta && c.CriadoEm < alta)
                     || (c.Prioridade == Prioridade.Critica && c.CriadoEm < critica)));
+        }
+
+        if (filtro.AbertoPorId is { } dono)
+        {
+            // Meus chamados: comparação exata, com índice na coluna (migration AutoriaDosChamados).
+            chamados = chamados.Where(c => c.AbertoPorId == dono);
         }
 
         return chamados;
