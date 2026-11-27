@@ -1,4 +1,5 @@
 using Chamados.Domain;
+using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
 
 namespace Chamados.Infra;
@@ -10,6 +11,10 @@ namespace Chamados.Infra;
 /// </summary>
 public sealed class RepositorioChamadosEf(IDbContextFactory<ChamadosDbContext> fabrica) : IChamadoRepositorio
 {
+    // Mensagens não lidas: códigos estendidos do SQLite para a violação de chave primária e de chave estrangeira.
+    private const int ChaveRepetida = 1555;      // SQLITE_CONSTRAINT_PRIMARYKEY
+    private const int ChamadoInexistente = 787;  // SQLITE_CONSTRAINT_FOREIGNKEY
+
     public async Task<Chamado?> ObterAsync(Guid id, CancellationToken cancellationToken = default)
     {
         await using var db = await fabrica.CreateDbContextAsync(cancellationToken);
@@ -72,7 +77,7 @@ public sealed class RepositorioChamadosEf(IDbContextFactory<ChamadosDbContext> f
         ArgumentNullException.ThrowIfNull(filtro);
         await using var db = await fabrica.CreateDbContextAsync(cancellationToken);
 
-        return await Filtrar(db.Chamados, filtro).CountAsync(cancellationToken);   // SELECT COUNT(*)
+        return await Filtrar(db.Chamados, filtro, db.Leituras).CountAsync(cancellationToken);   // SELECT COUNT(*)
     }
 
     public async Task<IReadOnlyList<ResumoChamado>> ListarAsync(
@@ -81,7 +86,7 @@ public sealed class RepositorioChamadosEf(IDbContextFactory<ChamadosDbContext> f
         ArgumentNullException.ThrowIfNull(filtro);
         await using var db = await fabrica.CreateDbContextAsync(cancellationToken);
 
-        var consulta = Ordenar(Filtrar(db.Chamados.AsNoTracking(), filtro), filtro.Ordem);
+        var consulta = Ordenar(Filtrar(db.Chamados.AsNoTracking(), filtro, db.Leituras), filtro.Ordem);
         if (pular > 0)
         {
             consulta = consulta.Skip(pular);
@@ -93,8 +98,9 @@ public sealed class RepositorioChamadosEf(IDbContextFactory<ChamadosDbContext> f
         }
 
         // Projeção: o SELECT traz só as colunas do resumo, sem o histórico nem a conversa.
+        // Mensagens não lidas: com leitor, a contagem das não lidas entra no mesmo SELECT.
         return await consulta
-            .Select(ParaResumo)
+            .Select(filtro.LeitorId is { } leitor ? ParaResumoDoLeitor(db.Leituras, leitor) : ParaResumo)
             .ToListAsync(cancellationToken);
     }
 
@@ -171,7 +177,7 @@ public sealed class RepositorioChamadosEf(IDbContextFactory<ChamadosDbContext> f
 
         // Responsável atendente: GROUP BY no banco; só as contagens trafegam. O nome é o gravado nos
         // chamados (MAX escolhe um, caso o mesmo atendente tenha sido gravado com nomes diferentes).
-        return await Filtrar(db.Chamados.AsNoTracking(), filtro)
+        return await Filtrar(db.Chamados.AsNoTracking(), filtro, db.Leituras)
             .GroupBy(c => c.ResponsavelId)
             .Select(g => new ContagemPorResponsavel(g.Key, g.Max(c => c.Responsavel), g.Count()))
             .ToListAsync(cancellationToken);
@@ -190,7 +196,58 @@ public sealed class RepositorioChamadosEf(IDbContextFactory<ChamadosDbContext> f
             .ToListAsync(cancellationToken);
     }
 
-    private static IQueryable<Chamado> Filtrar(IQueryable<Chamado> chamados, FiltroChamados filtro)
+    public async Task<DateTimeOffset?> ObterLeituraAsync(Guid chamadoId, string usuarioId,
+        CancellationToken cancellationToken = default)
+    {
+        await using var db = await fabrica.CreateDbContextAsync(cancellationToken);
+
+        return await db.Leituras
+            .AsNoTracking()
+            .Where(l => l.ChamadoId == chamadoId && l.UsuarioId == usuarioId)
+            .Select(l => (DateTimeOffset?)l.LidoAte)
+            .FirstOrDefaultAsync(cancellationToken);
+    }
+
+    public async Task MarcarLeituraAsync(Guid chamadoId, string usuarioId, DateTimeOffset ate,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(usuarioId);
+        await using var db = await fabrica.CreateDbContextAsync(cancellationToken);
+
+        // Primeiro tenta avançar a leitura que já existe. Se nada mudou, ou ela não existe, ou já está
+        // num instante igual ou posterior (outra aba leu depois): no segundo caso, não há o que fazer.
+        if (await AvancarAsync(db, chamadoId, usuarioId, ate, cancellationToken) > 0
+            || await db.Leituras.AnyAsync(l => l.ChamadoId == chamadoId && l.UsuarioId == usuarioId, cancellationToken))
+        {
+            return;
+        }
+
+        db.Leituras.Add(new LeituraConversa(chamadoId, usuarioId, ate));
+        try
+        {
+            await db.SaveChangesAsync(cancellationToken);
+        }
+        catch (DbUpdateException ex) when (ex.InnerException is SqliteException { SqliteExtendedErrorCode: ChaveRepetida })
+        {
+            // Outra requisição do mesmo usuário gravou a leitura entre a consulta e o INSERT: avança a dela.
+            await AvancarAsync(db, chamadoId, usuarioId, ate, cancellationToken);
+        }
+        catch (DbUpdateException ex) when (ex.InnerException is SqliteException { SqliteExtendedErrorCode: ChamadoInexistente })
+        {
+            throw new ChamadoNaoEncontradoException(chamadoId);
+        }
+    }
+
+    // UPDATE ... SET LidoAte = @ate WHERE ChamadoId = @id AND UsuarioId = @usuario AND LidoAte < @ate.
+    // A condição vai no próprio UPDATE: a leitura só avança, mesmo com duas abas gravando ao mesmo tempo.
+    private static Task<int> AvancarAsync(ChamadosDbContext db, Guid chamadoId, string usuarioId, DateTimeOffset ate,
+        CancellationToken cancellationToken)
+        => db.Leituras
+            .Where(l => l.ChamadoId == chamadoId && l.UsuarioId == usuarioId && l.LidoAte < ate)
+            .ExecuteUpdateAsync(s => s.SetProperty(l => l.LidoAte, ate), cancellationToken);
+
+    private static IQueryable<Chamado> Filtrar(IQueryable<Chamado> chamados, FiltroChamados filtro,
+        IQueryable<LeituraConversa> leituras)
     {
         // Cada Where vira uma condição no WHERE do SQL; nada é filtrado em memória.
         if (filtro.Status is { } status)
@@ -242,6 +299,19 @@ public sealed class RepositorioChamadosEf(IDbContextFactory<ChamadosDbContext> f
             chamados = chamados.Where(c => c.ResponsavelId == responsavel);
         }
 
+        if (filtro.SomenteComNaoLidas)
+        {
+            // Mensagens não lidas: a regra de MensagensNaoLidas, em SQL. O chamado entra se o leitor
+            // acompanha a conversa (abriu, atende ou já escreveu) e se há mensagem de outra pessoa sem
+            // leitura igual ou posterior a ela (NOT EXISTS na tabela LeiturasConversas). Sem leitor, nenhum.
+            chamados = filtro.LeitorId is { } leitor
+                ? chamados.Where(c =>
+                    (c.AbertoPorId == leitor || c.ResponsavelId == leitor || c.Comentarios.Any(m => m.AutorId == leitor))
+                    && c.Comentarios.Any(m => m.AutorId != leitor
+                        && !leituras.Any(l => l.ChamadoId == c.Id && l.UsuarioId == leitor && l.LidoAte >= m.Em)))
+                : chamados.Where(c => false);
+        }
+
         return chamados;
     }
 
@@ -258,6 +328,17 @@ public sealed class RepositorioChamadosEf(IDbContextFactory<ChamadosDbContext> f
     private static readonly System.Linq.Expressions.Expression<Func<Chamado, ResumoChamado>> ParaResumo =
         c => new ResumoChamado(c.Id, c.Titulo, c.Status, c.Prioridade, c.Responsavel, c.CriadoEm, c.Versao,
             c.EncerradoEm, c.AbertoPorNome, c.Comentarios.Count);
+
+    // Mensagens não lidas: a mesma projeção, mais as não lidas do leitor, num CASE com um COUNT(*)
+    // correlacionado (a mesma regra do filtro SomenteComNaoLidas). Quem não acompanha a conversa: zero.
+    private static System.Linq.Expressions.Expression<Func<Chamado, ResumoChamado>> ParaResumoDoLeitor(
+        IQueryable<LeituraConversa> leituras, string leitor)
+        => c => new ResumoChamado(c.Id, c.Titulo, c.Status, c.Prioridade, c.Responsavel, c.CriadoEm, c.Versao,
+            c.EncerradoEm, c.AbertoPorNome, c.Comentarios.Count,
+            c.AbertoPorId == leitor || c.ResponsavelId == leitor || c.Comentarios.Any(m => m.AutorId == leitor)
+                ? c.Comentarios.Count(m => m.AutorId != leitor
+                    && !leituras.Any(l => l.ChamadoId == c.Id && l.UsuarioId == leitor && l.LidoAte >= m.Em))
+                : 0);
 
     private static string EscaparLike(string texto)
         => texto.Replace("\\", "\\\\").Replace("%", "\\%").Replace("_", "\\_");

@@ -27,13 +27,16 @@ public static class EndpointsChamados
         // Meus chamados: quem não é atendente nem da coordenação recebe só os chamados que abriu;
         // quem vê todos pode pedir só os seus com ?meus=true.
         // Responsável atendente: ?atribuidosAMim=true traz só os chamados que estão com quem pede.
+        // Mensagens não lidas: cada chamado traz comentariosNaoLidos (de quem pede), e ?comNaoLidas=true
+        // deixa só os que têm alguma.
         api.MapGet("/", (StatusChamado? status, Prioridade? prioridadeMinima, string? texto, OrdemChamados? ordem,
-                bool? somenteVencidos, bool? meus, bool? atribuidosAMim, ClaimsPrincipal usuario, ChamadoServico servico,
-                CancellationToken cancellationToken)
+                bool? somenteVencidos, bool? meus, bool? atribuidosAMim, bool? comNaoLidas, ClaimsPrincipal usuario,
+                ChamadoServico servico, CancellationToken cancellationToken)
             => servico.ListarAsync(
                 new FiltroChamados(status, prioridadeMinima, texto, ordem ?? OrdemChamados.Prioridade, somenteVencidos ?? false,
                     usuario.DonoParaListar(meus ?? false),
-                    atribuidosAMim == true ? usuario.IdDoUsuario() ?? "-" : null),
+                    atribuidosAMim == true ? usuario.IdDoUsuario() ?? "-" : null,
+                    usuario.IdDoUsuario(), comNaoLidas ?? false),
                 cancellationToken))
             .WithSummary("Lista chamados (só os próprios, para quem não é atendente nem da coordenação), com filtros opcionais");
 
@@ -71,10 +74,13 @@ public static class EndpointsChamados
         api.MapGet("/{id:guid}", async Task<Results<Ok<DetalheChamadoResposta>, NotFound>> (Guid id,
                 ClaimsPrincipal usuario, ChamadoServico servico, ILoggerFactory registros, CancellationToken cancellationToken) =>
             {
-                var chamado = await ObterVisivelAsync(id, usuario, servico, registros, cancellationToken);
-                return chamado is null
-                    ? TypedResults.NotFound()
-                    : TypedResults.Ok(DetalheChamadoResposta.De(chamado, servico.PrazoDe(chamado)));
+                if (await ObterVisivelAsync(id, usuario, servico, registros, cancellationToken) is not { } chamado)
+                {
+                    return TypedResults.NotFound();
+                }
+
+                var (leitor, lidoAte) = await LeituraAsync(id, usuario, servico, cancellationToken);
+                return TypedResults.Ok(DetalheChamadoResposta.De(chamado, servico.PrazoDe(chamado), leitor, lidoAte));
             })
             .WithSummary("Detalhe de um chamado, com o histórico de status, as edições e a conversa");
 
@@ -83,10 +89,37 @@ public static class EndpointsChamados
         api.MapGet("/{id:guid}/comentarios", async Task<Results<Ok<IReadOnlyList<ComentarioResposta>>, NotFound>> (Guid id,
                 ClaimsPrincipal usuario, ChamadoServico servico, ILoggerFactory registros, CancellationToken cancellationToken) =>
             {
-                var chamado = await ObterVisivelAsync(id, usuario, servico, registros, cancellationToken);
-                return chamado is null ? TypedResults.NotFound() : TypedResults.Ok(ComentarioResposta.Da(chamado));
+                if (await ObterVisivelAsync(id, usuario, servico, registros, cancellationToken) is not { } chamado)
+                {
+                    return TypedResults.NotFound();
+                }
+
+                var (leitor, lidoAte) = await LeituraAsync(id, usuario, servico, cancellationToken);
+                return TypedResults.Ok(ComentarioResposta.Da(chamado, leitor, lidoAte));
             })
-            .WithSummary("Mensagens da conversa de um chamado, da mais antiga para a mais nova");
+            .WithSummary("Mensagens da conversa de um chamado, da mais antiga para a mais nova (cada uma diz se é nova)");
+
+        // Mensagens não lidas: ler pela API não marca a conversa como lida (um GET não muda nada no servidor);
+        // o cliente marca quando mostrar as mensagens. Vale até a mensagem mais recente do chamado agora.
+        // As mesmas regras da conversa: quem não pode ver o chamado recebe 404.
+        api.MapPost("/{id:guid}/comentarios/lidos", async Task<Results<NoContent, NotFound, UnauthorizedHttpResult>> (
+                Guid id, ClaimsPrincipal usuario, ChamadoServico servico, ILoggerFactory registros,
+                CancellationToken cancellationToken) =>
+            {
+                if (usuario.IdDoUsuario() is not { } usuarioId)
+                {
+                    return TypedResults.Unauthorized();
+                }
+
+                if (await ObterVisivelAsync(id, usuario, servico, registros, cancellationToken) is not { } chamado)
+                {
+                    return TypedResults.NotFound();
+                }
+
+                await servico.MarcarComoLidaAsync(chamado, usuarioId, cancellationToken);
+                return TypedResults.NoContent();
+            })
+            .WithSummary("Marca a conversa do chamado como lida, até a mensagem mais recente");
 
         // A data e a hora da mensagem vêm do relógio do servidor, nunca do corpo da requisição.
         api.MapPost("/{id:guid}/comentarios", async Task<Results<Created<ComentarioResposta>, NotFound, UnauthorizedHttpResult>> (
@@ -201,6 +234,13 @@ public static class EndpointsChamados
         });
 
     private static ILogger Registros(ILoggerFactory registros) => registros.CreateLogger(typeof(EndpointsChamados).FullName!);
+
+    // Mensagens não lidas: quem pede e até quando ele leu a conversa, para marcar as mensagens novas.
+    private static async Task<(string? Leitor, DateTimeOffset? LidoAte)> LeituraAsync(Guid id, ClaimsPrincipal usuario,
+        ChamadoServico servico, CancellationToken cancellationToken)
+        => usuario.IdDoUsuario() is { } leitor
+            ? (leitor, await servico.ObterLeituraAsync(id, leitor, cancellationToken))
+            : (null, null);
 
     // O chamado, se existir e o usuário puder vê-lo; senão null (e, se existir, a tentativa vai para o log).
     private static async Task<Chamado?> ObterVisivelAsync(Guid id, ClaimsPrincipal usuario, ChamadoServico servico,

@@ -17,6 +17,9 @@ public sealed class ChamadosDbContext(DbContextOptions<ChamadosDbContext> option
 {
     public DbSet<Chamado> Chamados => Set<Chamado>();
 
+    /// <summary>Mensagens não lidas: até quando cada usuário leu cada conversa.</summary>
+    public DbSet<LeituraConversa> Leituras => Set<LeituraConversa>();
+
     protected override void OnModelCreating(ModelBuilder builder)
     {
         // Primeiro o mapeamento do Identity: sem esta linha, as tabelas de usuários ficam sem chaves.

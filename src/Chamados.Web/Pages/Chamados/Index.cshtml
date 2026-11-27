@@ -1,8 +1,9 @@
 @page
 @model IndexModel
 @{
-    // Meus chamados: o título diz de quem é a lista.
-    ViewData["Title"] = Model.AtribuidosAMim ? "Meus atendimentos" : Model.SoOsMeus ? "Meus chamados" : "Chamados";
+    // Meus chamados: o título diz de quem é a lista. Mensagens não lidas: e se ela traz só as com mensagens novas.
+    ViewData["Title"] = Model.ComNaoLidas ? "Mensagens novas"
+        : Model.AtribuidosAMim ? "Meus atendimentos" : Model.SoOsMeus ? "Meus chamados" : "Chamados";
     var pagina = Model.Resultado;
 }
 
@@ -51,6 +52,11 @@
             Atribuídos a mim
         </label>
     }
+    @* Mensagens não lidas: os chamados com mensagem que você ainda não leu. *@
+    <label class="marcar">
+        <input type="checkbox" name="comNaoLidas" value="true" checked="@Model.ComNaoLidas" />
+        Com mensagens novas
+    </label>
     @* Sem campo "pagina": filtrar de novo sempre volta para a página 1. *@
     <button type="submit">Filtrar</button>
     <a asp-page="./Index">Limpar</a>
@@ -59,7 +65,8 @@
 @if (pagina.TotalItens == 0)
 {
     <p class="vazio">
-        @(Model.SoOsMeus ? "Nenhum chamado seu com esses filtros." : "Nenhum chamado encontrado com esses filtros.")
+        @(Model.ComNaoLidas ? "Nenhuma mensagem nova para você com esses filtros."
+            : Model.SoOsMeus ? "Nenhum chamado seu com esses filtros." : "Nenhum chamado encontrado com esses filtros.")
         <a asp-page="./Novo">Abrir um chamado</a>
     </p>
 }
@@ -85,6 +92,12 @@ else
                         @if (chamado.TotalComentarios > 0)
                         {
                             <a class="contador-mensagens" asp-page="./Detalhes" asp-route-id="@chamado.Id" asp-fragment="conversa">@chamado.TotalComentarios.Mensagens()</a>
+                        }
+                        @* Mensagens não lidas: o selo leva direto à primeira mensagem nova. *@
+                        @if (chamado.ComentariosNaoLidos is int novas and > 0)
+                        {
+                            <a class="selo-novas" asp-page="./Detalhes" asp-route-id="@chamado.Id" asp-fragment="novas"
+                               title="@novas.MensagensNovas() para você">@novas.Novas()</a>
                         }
                     </td>
                     <td><selo valor="@chamado.Prioridade" /></td>

@@ -141,6 +141,18 @@ public static class Rotulos
     public static string Mensagens(this int quantidade)
         => quantidade == 1 ? "1 mensagem" : $"{quantidade} mensagens";
 
+    /// <summary>Mensagens não lidas: "1 mensagem nova", "3 mensagens novas".</summary>
+    public static string MensagensNovas(this int quantidade)
+        => quantidade == 1 ? "1 mensagem nova" : $"{quantidade} mensagens novas";
+
+    /// <summary>Mensagens não lidas: "1 nova", "3 novas".</summary>
+    public static string Novas(this int quantidade)
+        => quantidade == 1 ? "1 nova" : $"{quantidade} novas";
+
+    /// <summary>Mensagens não lidas: o aviso do cabeçalho, "Mensagem nova em 1 chamado", "Mensagens novas em 2 chamados".</summary>
+    public static string AvisoDeNaoLidas(this int chamados)
+        => chamados == 1 ? "Mensagem nova em 1 chamado" : $"Mensagens novas em {chamados} chamados";
+
     /// <summary>Comentários: data e hora de uma mensagem da conversa, "26/11/2026 às 14:32".</summary>
     public static string DataHoraMensagem(this DateTimeOffset momento)
         => momento.ToLocalTime().ToString("dd/MM/yyyy 'às' HH:mm", PtBr);

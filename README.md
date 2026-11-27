@@ -61,7 +61,7 @@ dotnet ef migrations add NomeDaMudanca --project src/Chamados.Infra --startup-pr
 dotnet ef database update --project src/Chamados.Infra --startup-project src/Chamados.Web
 ```
 
-O projeto traz sete migrations: `Inicial` (tabelas `Chamados` e `HistoricoChamados`), `IndicePrioridade` (um índice criado depois, para mostrar o banco evoluindo sem perder dados), `Identidade` (tabelas de usuários do Módulo 8), `AutoriaDosChamados` (quem abriu e quem fez cada mudança), `ComentariosDosChamados` (tabela `ComentariosChamados`), `EdicoesDosChamados` (tabela `EdicoesChamados`) e `ResponsavelAtendente` (o Id do atendente responsável). Um banco antigo recebe as que faltam no próximo início, sem perder dados.
+O projeto traz oito migrations: `Inicial` (tabelas `Chamados` e `HistoricoChamados`), `IndicePrioridade` (um índice criado depois, para mostrar o banco evoluindo sem perder dados), `Identidade` (tabelas de usuários do Módulo 8), `AutoriaDosChamados` (quem abriu e quem fez cada mudança), `ComentariosDosChamados` (tabela `ComentariosChamados`), `EdicoesDosChamados` (tabela `EdicoesChamados`), `ResponsavelAtendente` (o Id do atendente responsável) e `LeiturasDasConversas` (tabela `LeiturasConversas`, até quando cada pessoa leu cada conversa). Um banco antigo recebe as que faltam no próximo início, sem perder dados.
 
 Em Development, o log mostra cada comando SQL (categoria `Microsoft.EntityFrameworkCore.Database.Command`), com os valores dos parâmetros ocultos.
 
@@ -70,9 +70,9 @@ Em Development, o log mostra cada comando SQL (categoria `Microsoft.EntityFramew
 | Rota | Página | O que faz |
 | --- | --- | --- |
 | `/` | `Pages/Index` | Painel com totais por status (`ObterEstatisticasAsync`) |
-| `/Chamados?status=&prioridadeMinima=&texto=&ordem=&pagina=` | `Pages/Chamados/Index` | Lista com filtros, ordenação e paginação (`ListarPaginaAsync`) |
+| `/Chamados?status=&prioridadeMinima=&texto=&ordem=&comNaoLidas=&pagina=` | `Pages/Chamados/Index` | Lista com filtros, ordenação e paginação (`ListarPaginaAsync`) |
 | `/Chamados/Novo` | `Pages/Chamados/Novo` | Formulário de abertura (`AbrirAsync`), validação no cliente e no servidor, Post/Redirect/Get |
-| `/Chamados/Detalhes/{id}` | `Pages/Chamados/Detalhes` | Detalhe, histórico, conversa e handlers Iniciar, Resolver, Cancelar e Comentar |
+| `/Chamados/Detalhes/{id}` | `Pages/Chamados/Detalhes` | Detalhe, histórico, conversa (abrir marca como lida) e handlers Iniciar, Resolver, Cancelar e Comentar |
 | `/Chamados/Editar/{id}` | `Pages/Chamados/Editar` | Edição com concorrência otimista (`EditarAsync`) |
 | `/Usuarios`, `/Usuarios/Novo`, `/Usuarios/Editar/{id}` | `Pages/Usuarios/*` | Gestão de usuários, só para a coordenação (política `GerenciarUsuarios`) |
 | `/Perfil` | `Pages/Perfil` | Meu perfil: trocar o próprio nome e a própria senha |
@@ -96,12 +96,13 @@ Componentes acrescentados no Módulo 6: `Formularios/FormularioChamado` (EditFor
 
 | Rota | Função |
 | --- | --- |
-| `GET /api/chamados?status=&prioridadeMinima=&texto=&ordem=&somenteVencidos=&meus=&atribuidosAMim=` | Lista com filtros e ordenação (`Prioridade`, `MaisRecentes`, `MaisAntigos`, `Titulo`); `somenteVencidos=true` traz só os em andamento com o prazo vencido; `meus=true` só os que o usuário abriu (quem não é atendente nem da coordenação sempre recebe só os seus); `atribuidosAMim=true` só os que estão com quem pede |
+| `GET /api/chamados?status=&prioridadeMinima=&texto=&ordem=&somenteVencidos=&meus=&atribuidosAMim=&comNaoLidas=` | Lista com filtros e ordenação (`Prioridade`, `MaisRecentes`, `MaisAntigos`, `Titulo`); `somenteVencidos=true` traz só os em andamento com o prazo vencido; `meus=true` só os que o usuário abriu (quem não é atendente nem da coordenação sempre recebe só os seus); `atribuidosAMim=true` só os que estão com quem pede; `comNaoLidas=true` só os com mensagem que quem pede ainda não leu (cada chamado traz `comentariosNaoLidos`) |
 | `GET /api/chamados/estatisticas` | Totais e tempo médio de resolução |
 | `GET /api/chamados/prazos` | Vencidos, perto de vencer, percentual resolvido no prazo e a tabela de prazos (política `VerIndicadores`) |
 | `GET /api/chamados/{id}` | Um chamado com o histórico (com quem fez cada mudança), as edições, o prazo, quem abriu e a conversa (DTO `DetalheChamadoResposta`, inclui `versao`); id inexistente ou de outra pessoa → 404 |
-| `GET /api/chamados/{id}/comentarios` | As mensagens da conversa, da mais antiga para a mais nova, cada uma com `texto`, `em` (data e hora) e `autor` |
+| `GET /api/chamados/{id}/comentarios` | As mensagens da conversa, da mais antiga para a mais nova, cada uma com `texto`, `em` (data e hora), `autor` e `nova` (se quem pede ainda não a leu) |
 | `POST /api/chamados/{id}/comentarios` | Escreve uma mensagem (corpo: `{"texto": "..."}`) → 201; vazia ou com mais de 2000 caracteres → 400 |
+| `POST /api/chamados/{id}/comentarios/lidos` | Marca a conversa como lida até a mensagem mais recente → 204 (ler pela API não marca nada) |
 | `POST /api/chamados` | Abre chamado (corpo: `{"titulo": "...", "prioridade": "Alta"}`); corpo inválido → 400 com erros por campo |
 | `PUT /api/chamados/{id}` | Edita (corpo com `versaoEsperada`; versão desatualizada → 409, chamado encerrado → 409) |
 | `POST /api/chamados/{id}/atendimento` | Inicia atendimento. Corpo `{}`: quem atende é quem chama; `{"responsavelId": "..."}`: o atendente indicado (Id de `GET /api/atendentes`); quem não é atendente ativo → 400 |
@@ -212,6 +213,20 @@ Feito na branch `comentarios`. Cada chamado tem uma conversa entre quem pediu e 
 - **Log**: evento 2007 a cada mensagem, só com o Id do chamado e o do usuário (o texto não vai para o log).
 - **Semente**: num banco novo, o chamado do ar-condicionado da sala 204 (da carla) já tem três mensagens, e o da impressora (do bruno), uma resposta da ana.
 
+### Mensagens não lidas
+
+Feito na branch `mensagens-nao-lidas`. Antes, a lista e a fila mostravam "3 mensagens", mas ninguém sabia se tinha chegado resposta nova sem abrir o chamado. Agora cada pessoa vê o que ainda não leu (tabela `LeiturasConversas`, migration `LeiturasDasConversas`).
+
+- **Quem recebe o aviso**: quem acompanha a conversa, ou seja, quem abriu o chamado, o atendente responsável e quem já escreveu nela. As próprias mensagens nunca contam. Sem essa regra, atendentes e coordenação, que veem todos os chamados, teriam "não lidas" em todas as conversas do sistema.
+- **Ler é abrir a conversa**: abrir o detalhe do chamado marca a conversa como lida até a última mensagem mostrada; uma mensagem que chegue depois continua nova. Escrever também conta: quem responde leu o que veio antes.
+- **Cada pessoa tem a sua marcação**: a Ana ler não muda nada para o Davi nem para o Bruno. E a marcação só avança: uma aba antiga não desfaz a leitura feita em outra.
+- **Cabeçalho**: "Mensagens novas em 2 chamados", ao lado do nome, leva à lista filtrada; sem nenhuma, o aviso não aparece. Vale nas Razor Pages e nas páginas Blazor.
+- **Lista e fila**: o selo "2 novas" ao lado de "3 mensagens", com link direto para a primeira mensagem nova (`#novas`). Na lista, o filtro "Com mensagens novas" (`?comNaoLidas=true`). A contagem é feita no banco, na mesma consulta da lista.
+- **Detalhe**: "2 mensagens novas desde a sua última visita" acima da conversa, e cada mensagem nova com a marca "nova". Na visita seguinte, já não são novas.
+- **API**: a lista traz `comentariosNaoLidos` (de quem pede) e aceita `?comNaoLidas=true`; o detalhe e `GET .../comentarios` marcam cada mensagem com `nova`. Ler pela API não marca nada: o cliente chama `POST /api/chamados/{id}/comentarios/lidos` (204) quando mostrar as mensagens. Chamado de outra pessoa → 404, como no resto da conversa. Nos resumos devolvidos depois de uma ação (abrir, editar, mudar o status) e na busca por responsável, `comentariosNaoLidos` vem `null`: eles não são feitos para ninguém em especial.
+- **Banco antigo**: a migration marca como lido, para cada pessoa que já escreveu numa conversa, tudo até a última mensagem dela; o resto conta como não lido para quem acompanha. Num banco novo, a semente já sai assim: a Ana tem uma mensagem nova da Carla (ar-condicionado da sala 204), o Bruno tem uma da Ana (impressora) e o Davi, que atende o ar-condicionado, tem as três.
+- **Log**: se o banco recusar a marcação ou a contagem, a página abre do mesmo jeito, sem o aviso, e o motivo vai para o log (eventos 2008 e 2009).
+
 ### Histórico das edições
 
 Feito na branch `historico-edicoes`. Antes, editar título, prioridade ou descrição não deixava rastro, e mudar a prioridade muda o prazo. Agora cada edição fica registrada (tabela `EdicoesChamados`, migration `EdicoesDosChamados`).
@@ -267,7 +282,7 @@ Feito na branch `gestao-usuarios`. Antes, os únicos usuários eram os três de 
 
 ## Testar
 
-No Visual Studio: **Teste > Gerenciador de Testes > Executar Todos** (`Ctrl+R, A`). Pela CLI: `dotnet test`. São 195 testes: 102 do domínio (com a política de prazos e um relógio controlado), 18 de integração com o banco e 75 da aplicação web (integração com `WebApplicationFactory`, inclusive em ambiente Production com o banco falhando, com prazos de milissegundos, com os três usuários vendo cada um o que pode e conversando nos chamados, com a coordenação cadastrando, desativando e mudando o acesso de outras pessoas, componentes com `HtmlRenderer` e unidade das políticas de autorização). O GitHub roda os mesmos testes a cada push (`.github/workflows/ci.yml`).
+No Visual Studio: **Teste > Gerenciador de Testes > Executar Todos** (`Ctrl+R, A`). Pela CLI: `dotnet test`. São 218 testes: 113 do domínio (com a política de prazos e um relógio controlado), 24 de integração com o banco (inclusive uma migration aplicada sobre dados antigos e duas gravações da mesma leitura ao mesmo tempo) e 81 da aplicação web (integração com `WebApplicationFactory`, inclusive em ambiente Production com o banco falhando, com prazos de milissegundos, com os três usuários vendo cada um o que pode, conversando nos chamados e lendo as mensagens novas, com a coordenação cadastrando, desativando e mudando o acesso de outras pessoas, componentes com `HtmlRenderer` e unidade das políticas de autorização). O GitHub roda os mesmos testes a cada push (`.github/workflows/ci.yml`).
 
 ## Estrutura
 
@@ -350,4 +365,10 @@ No Visual Studio: **Teste > Gerenciador de Testes > Executar Todos** (`Ctrl+R, A
 - **Sem cadastro aberto nem "esqueci a senha" por e-mail** (gestão de usuários): quem cria contas é a coordenação, e o sistema não tem servidor de e-mail. Quem esquece a senha pede à coordenação, que redefine. Se um dia houver e-mail, o Identity já tem o token de redefinição (`AddDefaultTokenProviders`).
 - **Responsável é sempre uma pessoa** (responsável atendente): é o que permite "Meus atendimentos" e a carga por atendente. Equipes ("Redes", "Hidráulica") não são mais responsáveis; se o sistema precisar delas, elas cabem melhor como categoria do chamado.
 - **Id do usuário só onde a API precisa dele** (responsável atendente): a regra continua sendo mostrar nomes. A exceção é `GET /api/atendentes`, só para quem atende, porque é pelo Id que a API recebe a escolha do responsável (nomes podem se repetir e mudar).
+- **Quem acompanha a conversa** (mensagens não lidas): quem abriu, quem atende e quem escreveu. Atendentes e coordenação veem todos os chamados; se toda conversa contasse, o aviso viraria ruído e seria preciso abrir chamados de outras pessoas só para zerar o contador. Quem quer acompanhar um chamado de outra pessoa escreve nele.
+- **A leitura fica fora do chamado** (mensagens não lidas): ela é de cada usuário, não do chamado, e ler não é alterar (não muda a versão nem entra no histórico). Por isso é uma tabela própria, sem navegação a partir do `Chamado`, e a classe `Chamado` não mudou. A regra do que conta como não lido está no domínio (`MensagensNaoLidas`), e o repositório do banco a repete em SQL, como já faz com os filtros; um teste compara as duas.
+- **Guardar "até quando", não cada mensagem lida** (mensagens não lidas): uma linha por pessoa e conversa, com a hora da última mensagem vista. Marcar uma por uma criaria uma linha por mensagem e por leitor sem ganho, porque a conversa é lida em ordem.
+- **Abrir o detalhe marca como lida, mesmo sendo um GET** (mensagens não lidas): é o que a pessoa espera (como num e-mail), funciona sem JavaScript e repetir não muda nada. Na API é diferente: lá um GET não muda nada no servidor, e o cliente marca com um POST, porque pode buscar a conversa sem mostrá-la.
+- **A leitura só avança, com a condição no próprio UPDATE** (mensagens não lidas): `UPDATE ... WHERE LidoAte < @ate` impede que uma aba antiga desfaça a leitura de outra, mesmo gravando ao mesmo tempo. Se duas requisições tentarem criar a primeira leitura juntas, a segunda bate na chave primária e avança a da primeira; um teste simula isso com um interceptador de comandos do EF.
+- **`null`, e não zero, quando não há leitor** (mensagens não lidas): o resumo devolvido depois de uma ação não é feito para ninguém; zero diria "nada novo", o que poderia ser falso.
 - **Reatribuir é uma edição, não uma transição** (responsável atendente): o status não muda, então a troca fica no histórico das edições, com o nome de antes e o de depois, e aumenta a versão do chamado, como uma edição.

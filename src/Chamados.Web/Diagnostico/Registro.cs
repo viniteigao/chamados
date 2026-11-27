@@ -84,4 +84,12 @@ public static partial class Registro
     // Comentários: uma mensagem entrou na conversa. Só os Ids: o texto da mensagem não vai para o log.
     [LoggerMessage(EventId = 2007, Level = LogLevel.Information, Message = "Comentário no chamado {ChamadoId} (usuário {UsuarioId})")]
     public static partial void ComentarioAdicionado(ILogger logger, Guid chamadoId, string usuarioId);
+
+    // Mensagens não lidas: marcar a leitura e contar as não lidas são informação de apoio. Numa falha,
+    // a página abre do mesmo jeito (a conversa aparece; o aviso volta na próxima visita) e o motivo vem para cá.
+    [LoggerMessage(EventId = 2008, Level = LogLevel.Warning, Message = "Não foi possível marcar a conversa do chamado {ChamadoId} como lida")]
+    public static partial void FalhaAoMarcarLeitura(ILogger logger, Exception excecao, Guid chamadoId);
+
+    [LoggerMessage(EventId = 2009, Level = LogLevel.Warning, Message = "Não foi possível contar as mensagens não lidas")]
+    public static partial void FalhaAoContarNaoLidas(ILogger logger, Exception excecao);
 }

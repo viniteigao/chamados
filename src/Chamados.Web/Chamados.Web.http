@@ -178,6 +178,14 @@ Authorization: Bearer {{token.response.body.$.accessToken}}
   "texto": ""
 }
 
+### Mensagens não lidas: só os chamados com mensagem que você ainda não leu ("comentariosNaoLidos" em cada um)
+GET {{base}}/api/chamados?comNaoLidas=true
+Authorization: Bearer {{token.response.body.$.accessToken}}
+
+### Mensagens não lidas: marca a conversa como lida até a mensagem mais recente (204). Ler pela API (GET) não marca
+POST {{base}}/api/chamados/{{id}}/comentarios/lidos
+Authorization: Bearer {{token.response.body.$.accessToken}}
+
 ### Id inexistente: o filtro responde 404 (Problem Details)
 POST {{base}}/api/chamados/00000000-0000-0000-0000-000000000000/cancelamento
 Content-Type: application/json

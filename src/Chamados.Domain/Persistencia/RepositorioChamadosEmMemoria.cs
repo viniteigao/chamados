@@ -17,6 +17,9 @@ public sealed class RepositorioChamadosEmMemoria(TimeProvider relogio, TimeSpan 
 
     private readonly ConcurrentDictionary<Guid, Chamado> _chamados = new();
 
+    // Mensagens não lidas: até quando cada usuário leu cada conversa, fora dos chamados (como no banco).
+    private readonly ConcurrentDictionary<(Guid ChamadoId, string UsuarioId), DateTimeOffset> _leituras = new();
+
     public Task<Chamado?> ObterAsync(Guid id, CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
@@ -65,7 +68,12 @@ public sealed class RepositorioChamadosEmMemoria(TimeProvider relogio, TimeSpan 
             consulta = consulta.Take(quantidade);
         }
 
-        return consulta.Select(ResumoChamado.De).ToList();
+        // Mensagens não lidas: com leitor, cada resumo traz quantas mensagens ele ainda não leu.
+        return consulta
+            .Select(c => filtro.LeitorId is { } leitor
+                ? ResumoChamado.De(c) with { ComentariosNaoLidos = NaoLidas(c, leitor).Count }
+                : ResumoChamado.De(c))
+            .ToList();
     }
 
     public async Task<EstatisticasChamados> ObterEstatisticasAsync(string? abertoPorId = null,
@@ -125,6 +133,31 @@ public sealed class RepositorioChamadosEmMemoria(TimeProvider relogio, TimeSpan 
             .ToList();
     }
 
+    public Task<DateTimeOffset?> ObterLeituraAsync(Guid chamadoId, string usuarioId, CancellationToken cancellationToken = default)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        return Task.FromResult(_leituras.TryGetValue((chamadoId, usuarioId), out var ate) ? ate : (DateTimeOffset?)null);
+    }
+
+    public Task MarcarLeituraAsync(Guid chamadoId, string usuarioId, DateTimeOffset ate, CancellationToken cancellationToken = default)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(usuarioId);
+        cancellationToken.ThrowIfCancellationRequested();
+
+        // Como no banco, a leitura de um chamado que não existe é recusada.
+        if (!_chamados.ContainsKey(chamadoId))
+        {
+            throw new ChamadoNaoEncontradoException(chamadoId);
+        }
+
+        // A leitura só avança: entre o gravado e o novo, fica o mais recente.
+        _leituras.AddOrUpdate((chamadoId, usuarioId), ate, (_, atual) => ate > atual ? ate : atual);
+        return Task.CompletedTask;
+    }
+
+    private IReadOnlyList<Comentario> NaoLidas(Chamado chamado, string leitorId)
+        => chamado.NaoLidasPor(leitorId, _leituras.TryGetValue((chamado.Id, leitorId), out var ate) ? ate : null);
+
     private IEnumerable<Chamado> Filtrar(FiltroChamados filtro) => _chamados.Values
         .Where(c => filtro.Status is null || c.Status == filtro.Status)
         .Where(c => filtro.PrioridadeMinima is null || c.Prioridade >= filtro.PrioridadeMinima)
@@ -137,7 +170,9 @@ public sealed class RepositorioChamadosEmMemoria(TimeProvider relogio, TimeSpan 
         // Meus chamados: só os que esse usuário abriu (chamados sem dono nunca entram).
         .Where(c => filtro.AbertoPorId is null || c.FoiAbertoPor(filtro.AbertoPorId))
         // Responsável atendente: só os que estão com esse atendente.
-        .Where(c => filtro.ResponsavelId is null || c.FoiAtribuidoA(filtro.ResponsavelId));
+        .Where(c => filtro.ResponsavelId is null || c.FoiAtribuidoA(filtro.ResponsavelId))
+        // Mensagens não lidas: só os que têm mensagem que o leitor ainda não leu (sem leitor, nenhum).
+        .Where(c => !filtro.SomenteComNaoLidas || (filtro.LeitorId is { } leitor && NaoLidas(c, leitor).Count > 0));
 
     private static IEnumerable<Chamado> Ordenar(IEnumerable<Chamado> chamados, OrdemChamados ordem) => ordem switch
     {

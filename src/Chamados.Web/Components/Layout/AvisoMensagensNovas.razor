@@ -1,0 +1,37 @@
+@* Mensagens não lidas: o aviso do cabeçalho das páginas Blazor, igual ao das Razor Pages
+   (ViewComponents/MensagensNovasViewComponent.cs). Componente estático, como o layout: conta ao carregar
+   a página; a fila interativa não muda o que foi lido (ler é abrir a conversa, no detalhe). *@
+@using Chamados.Web.Diagnostico
+@inject ChamadoServico Servico
+@inject ILogger<AvisoMensagensNovas> Logger
+
+@if (chamados > 0)
+{
+    <a class="aviso-mensagens" href="/Chamados?comNaoLidas=true"
+       title="Chamados com mensagens que você ainda não leu">@chamados.AvisoDeNaoLidas()</a>
+}
+
+@code {
+    private int chamados;
+
+    [CascadingParameter]
+    private Task<AuthenticationState>? Autenticacao { get; set; }
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (Autenticacao is null || (await Autenticacao).User is not { } usuario || usuario.IdDoUsuario() is not { } usuarioId)
+        {
+            return;
+        }
+
+        try
+        {
+            chamados = await Servico.ContarComNaoLidasAsync(usuarioId, usuario.RestricaoDeDono());
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            // Informação de apoio: numa falha, o cabeçalho sai sem o aviso e o motivo vai para o log.
+            Registro.FalhaAoContarNaoLidas(Logger, ex);
+        }
+    }
+}

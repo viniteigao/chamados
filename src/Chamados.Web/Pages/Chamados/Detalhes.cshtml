@@ -169,7 +169,9 @@ else
 }
 
 @* Comentários: a conversa entre quem pediu e quem atende. Cada mensagem mostra autor, data e hora;
-   as do usuário conectado ficam à direita. O texto passa pela codificação do @, como a descrição. *@
+   as do usuário conectado ficam à direita. O texto passa pela codificação do @, como a descrição.
+   Mensagens não lidas: as que o usuário ainda não tinha lido ganham a marca "nova", e a primeira delas,
+   a âncora #novas (o selo "N novas" da lista e da fila leva direto para ela). *@
 <section id="conversa" class="conversa" aria-labelledby="titulo-conversa">
     <h2 id="titulo-conversa">Conversa</h2>
     @if (chamado.Comentarios.Count == 0)
@@ -178,16 +180,26 @@ else
     }
     else
     {
+        @if (Model.Novas.Count > 0)
+        {
+            <p class="aviso-novas"><a href="#novas">@Model.Novas.Count.MensagensNovas() desde a sua última visita</a></p>
+        }
         <ol class="mensagens">
             @foreach (var mensagem in chamado.Comentarios)
             {
                 var minha = mensagem.AutorId == Model.UsuarioId;
-                <li class="mensagem@(minha ? " minha" : "")">
+                var nova = Model.EhNova(mensagem);
+                @* id="@null": o Razor não escreve o atributo. Só a primeira mensagem nova leva a âncora. *@
+                <li class="mensagem@(minha ? " minha" : "")@(nova ? " nova" : "")" id="@(nova && mensagem == Model.Novas[0] ? "novas" : null)">
                     <p class="mensagem-cabecalho">
                         <strong>@(minha ? "Você" : mensagem.AutorNome)</strong>
                         @if (chamado.FoiAbertoPor(mensagem.AutorId))
                         {
                             <span class="papel">solicitante</span>
+                        }
+                        @if (nova)
+                        {
+                            <span class="marca-nova">nova</span>
                         }
                         <time datetime="@mensagem.Em.Iso()">@mensagem.Em.DataHoraMensagem()</time>
                     </p>

@@ -99,4 +99,21 @@ public sealed class ComponentesTests
         Assert.Contains($"href=\"/Chamados/Detalhes/{chamado.Id}#conversa\">3 mensagens</a>", html, StringComparison.Ordinal);
         Assert.DoesNotContain("contador-mensagens", semConversa, StringComparison.Ordinal);
     }
+
+    [Fact]
+    public async Task Cartao_com_mensagens_novas_mostra_o_selo_com_link_para_a_primeira_delas()
+    {
+        var chamado = Resumo("Wi-Fi instável", StatusChamado.EmAtendimento) with { TotalComentarios = 3, ComentariosNaoLidos = 2 };
+
+        var html = await RenderizarAsync<CartaoChamado>(new() { [nameof(CartaoChamado.Chamado)] = chamado });
+        var lidas = await RenderizarAsync<CartaoChamado>(new()
+        {
+            [nameof(CartaoChamado.Chamado)] = chamado with { ComentariosNaoLidos = 0 },
+        });
+
+        Assert.Contains($"href=\"/Chamados/Detalhes/{chamado.Id}#novas\"", html, StringComparison.Ordinal);
+        Assert.Contains("title=\"2 mensagens novas para você\">2 novas</a>", System.Net.WebUtility.HtmlDecode(html),
+            StringComparison.Ordinal);
+        Assert.DoesNotContain("selo-novas", lidas, StringComparison.Ordinal);
+    }
 }

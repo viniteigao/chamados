@@ -10,6 +10,7 @@ namespace Chamados.Web.Api;
 /// o Id do usuário é interno e não sai na API.
 /// Comentários: a conversa, da mensagem mais antiga para a mais nova, cada uma com autor, data e hora.
 /// Histórico das edições: cada edição de título, prioridade ou descrição, com quando e por quem.
+/// Mensagens não lidas: cada mensagem diz se é nova para quem pediu o detalhe.
 /// </summary>
 public sealed record DetalheChamadoResposta(
     Guid Id,
@@ -28,13 +29,14 @@ public sealed record DetalheChamadoResposta(
     IReadOnlyList<ComentarioResposta> Comentarios,
     IReadOnlyList<RegistroEdicaoResposta> Edicoes)
 {
-    public static DetalheChamadoResposta De(Chamado chamado, PrazoDoChamado? prazo) => new(
+    public static DetalheChamadoResposta De(Chamado chamado, PrazoDoChamado? prazo, string? leitorId = null,
+        DateTimeOffset? lidoAte = null) => new(
         chamado.Id, chamado.Titulo, chamado.Descricao, chamado.Status, chamado.Prioridade,
         chamado.Responsavel, chamado.Solucao, chamado.CriadoEm, chamado.EncerradoEm, chamado.Versao,
         [.. chamado.Historico.Select(r => new RegistroHistoricoResposta(r.De, r.Para, r.Em, r.Observacao, r.PorNome))],
         prazo is null ? null : new PrazoResposta(prazo.Vencimento, prazo.Situacao),
         chamado.AbertoPorNome,
-        ComentarioResposta.Da(chamado),
+        ComentarioResposta.Da(chamado, leitorId, lidoAte),
         [.. chamado.Edicoes.Select(e => new RegistroEdicaoResposta(e.Em, e.TituloAnterior, e.TituloNovo,
             e.PrioridadeAnterior, e.PrioridadeNova, e.DescricaoAlterada, e.PorNome, e.ResponsavelAnterior, e.ResponsavelNovo))]);
 }
@@ -59,19 +61,25 @@ public sealed record CargaResposta(string? Atendente, int EmAtendimento, int Ven
 public sealed record RegistroHistoricoResposta(StatusChamado De, StatusChamado Para, DateTimeOffset Em, string? Observacao,
     string? Por);
 
-/// <summary>Comentários: uma mensagem da conversa. "Em" é a data e a hora, com fuso (ISO 8601).</summary>
-public sealed record ComentarioResposta(string Texto, DateTimeOffset Em, string Autor)
+/// <summary>
+/// Comentários: uma mensagem da conversa. "Em" é a data e a hora, com fuso (ISO 8601).
+/// Mensagens não lidas: <paramref name="Nova"/> diz se quem pediu ainda não tinha lido a mensagem
+/// (a regra de MensagensNaoLidas; ler pela API não marca nada: para isso há POST .../comentarios/lidos).
+/// </summary>
+public sealed record ComentarioResposta(string Texto, DateTimeOffset Em, string Autor, bool Nova = false)
 {
-    public static ComentarioResposta De(Comentario comentario)
+    public static ComentarioResposta De(Comentario comentario, bool nova = false)
     {
         ArgumentNullException.ThrowIfNull(comentario);
-        return new(comentario.Texto, comentario.Em, comentario.AutorNome);
+        return new(comentario.Texto, comentario.Em, comentario.AutorNome, nova);
     }
 
-    public static IReadOnlyList<ComentarioResposta> Da(Chamado chamado)
+    /// <summary>A conversa do chamado; com <paramref name="leitorId"/>, cada mensagem diz se é nova para ele.</summary>
+    public static IReadOnlyList<ComentarioResposta> Da(Chamado chamado, string? leitorId = null, DateTimeOffset? lidoAte = null)
     {
         ArgumentNullException.ThrowIfNull(chamado);
-        return [.. chamado.Comentarios.Select(De)];
+        var novas = leitorId is null ? [] : chamado.NaoLidasPor(leitorId, lidoAte);
+        return [.. chamado.Comentarios.Select(m => De(m, novas.Contains(m)))];
     }
 }
 

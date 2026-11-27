@@ -10,6 +10,8 @@ namespace Chamados.Web.Pages.Chamados;
 /// a URL descreve a consulta inteira e pode ser compartilhada.
 /// Meus chamados: quem não vê todos os chamados vê sempre só os que abriu; quem vê todos
 /// pode pedir só os seus com ?meus=true.
+/// Mensagens não lidas: cada linha traz quantas mensagens o usuário ainda não leu, e ?comNaoLidas=true
+/// deixa só os chamados que têm alguma.
 /// </summary>
 public sealed class IndexModel(ChamadoServico servico) : PageModel
 {
@@ -43,6 +45,10 @@ public sealed class IndexModel(ChamadoServico servico) : PageModel
     [BindProperty(SupportsGet = true)]
     public bool AtribuidosAMim { get; set; }
 
+    /// <summary>Mensagens não lidas: só os chamados com mensagem que o usuário ainda não leu (?comNaoLidas=true).</summary>
+    [BindProperty(SupportsGet = true)]
+    public bool ComNaoLidas { get; set; }
+
     /// <summary>Responsável atendente: o filtro "Atribuídos a mim" é para quem atende.</summary>
     public bool PodeFiltrarAtribuidos { get; private set; }
 
@@ -69,6 +75,7 @@ public sealed class IndexModel(ChamadoServico servico) : PageModel
             SomenteVencidos = false;
             Meus = false;
             AtribuidosAMim = false;
+            ComNaoLidas = false;
         }
 
         var dono = User.DonoParaListar(Meus);
@@ -78,7 +85,9 @@ public sealed class IndexModel(ChamadoServico servico) : PageModel
         PodeFiltrarAtribuidos = User.IsInRole(Politicas.PapelAtendente);
         var responsavel = AtribuidosAMim ? User.IdDoUsuario() ?? "-" : null;
 
-        var filtro = new FiltroChamados(Status, PrioridadeMinima, Texto, Ordem, SomenteVencidos, dono, responsavel);
+        // Mensagens não lidas: o leitor é sempre quem pede; o filtro, só quando marcado.
+        var filtro = new FiltroChamados(Status, PrioridadeMinima, Texto, Ordem, SomenteVencidos, dono, responsavel,
+            User.IdDoUsuario(), ComNaoLidas);
         Resultado = await servico.ListarPaginaAsync(filtro, NumeroPagina, TamanhoPagina, cancellationToken);
     }
 
@@ -95,6 +104,7 @@ public sealed class IndexModel(ChamadoServico servico) : PageModel
         somenteVencidos = SomenteVencidos ? true : (bool?)null,
         meus = Meus ? true : (bool?)null,
         atribuidosAMim = AtribuidosAMim ? true : (bool?)null,
+        comNaoLidas = ComNaoLidas ? true : (bool?)null,
         pagina = pagina == 1 ? (int?)null : pagina
     };
 }

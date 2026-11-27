@@ -217,7 +217,8 @@
         falha = null;
         try
         {
-            Chamados = [.. await Servico.ListarAsync(new FiltroChamados(Texto: texto), esta.Token)];
+            // Mensagens não lidas: cada cartão traz quantas mensagens quem está conectado ainda não leu.
+            Chamados = [.. await Servico.ListarAsync(new FiltroChamados(Texto: texto, LeitorId: meuId), esta.Token)];
 
             // Responsável atendente: quais dos em atendimento estão comigo (filtro no banco, pelo Id).
             meusAtendimentos = soOsMeus && meuId is not null

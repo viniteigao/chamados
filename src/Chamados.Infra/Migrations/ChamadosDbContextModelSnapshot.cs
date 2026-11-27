@@ -83,6 +83,23 @@ namespace Chamados.Infra.Migrations
                     b.ToTable("Chamados", (string)null);
                 });
 
+            modelBuilder.Entity("Chamados.Infra.LeituraConversa", b =>
+                {
+                    b.Property<Guid>("ChamadoId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("UsuarioId")
+                        .HasMaxLength(450)
+                        .HasColumnType("TEXT");
+
+                    b.Property<long>("LidoAte")
+                        .HasColumnType("INTEGER");
+
+                    b.HasKey("ChamadoId", "UsuarioId");
+
+                    b.ToTable("LeiturasConversas", (string)null);
+                });
+
             modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityRole", b =>
                 {
                     b.Property<string>("Id")
@@ -420,6 +437,15 @@ namespace Chamados.Infra.Migrations
                     b.Navigation("Edicoes");
 
                     b.Navigation("Historico");
+                });
+
+            modelBuilder.Entity("Chamados.Infra.LeituraConversa", b =>
+                {
+                    b.HasOne("Chamados.Domain.Chamado", null)
+                        .WithMany()
+                        .HasForeignKey("ChamadoId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
                 });
 
             modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityRoleClaim<string>", b =>

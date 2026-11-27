@@ -206,6 +206,16 @@ button.neutro:hover { background: #ece8df; }
 .cartao-fila .contador-mensagens { margin-left: 0; }
 @media (max-width: 560px) { .mensagem { max-width: 92%; } }
 
+/* ---------- Mensagens não lidas (melhorias) ---------- */
+/* No cabeçalho escuro, um aviso claro; na lista, na fila e na conversa, o roxo da marca. */
+.aviso-mensagens { padding: .15rem .65rem; border-radius: 999px; background: #ffd9a8; color: var(--tinta) !important; font-size: .8rem; font-weight: 600; text-decoration: none; white-space: nowrap; }
+.aviso-mensagens:hover { background: #ffc77d; }
+.selo-novas { margin-left: .4rem; padding: 0 .5rem; border-radius: 999px; background: var(--roxo); color: #fff !important; font-size: .75rem; font-weight: 700; text-decoration: none; white-space: nowrap; }
+.selo-novas:hover { background: var(--roxo-escuro); }
+.aviso-novas { margin: 0 0 .75rem; font-size: .9rem; font-weight: 600; }
+.mensagem.nova { border-color: var(--roxo); box-shadow: inset 3px 0 0 var(--roxo); }
+.marca-nova { padding: 0 .45rem; border-radius: 999px; background: var(--roxo); color: #fff; font-size: .75rem; font-weight: 700; }
+
 /* ---------- Gestão de usuários (melhorias) ---------- */
 .topo .sessao a.perfil { color: #fff; }
 label.marcar-opcao, .campo label.marcar-opcao { display: flex; align-items: center; gap: .5rem; font-weight: 400; }

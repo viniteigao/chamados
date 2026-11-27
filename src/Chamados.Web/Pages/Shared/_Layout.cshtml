@@ -58,6 +58,12 @@
                 <a class="botao" asp-page="/Chamados/Novo">Novo chamado</a>
             </nav>
             <form method="post" asp-page="/Conta/Sair" class="sessao">
+                @* Mensagens não lidas: o aviso é da pessoa, então fica ao lado do nome. Também consulta o banco:
+                   a página de erro sai sem ele, como sem o contador. *@
+                @if (!semResumo)
+                {
+                    <vc:mensagens-novas />
+                }
                 @* Nome de exibição; o e-mail de login aparece ao passar o mouse. O nome leva a "Meu perfil". *@
                 <a class="perfil" href="/Perfil" title="@User.Identity!.Name">@User.NomeParaExibir()</a>
                 <button type="submit" class="link">Sair</button>

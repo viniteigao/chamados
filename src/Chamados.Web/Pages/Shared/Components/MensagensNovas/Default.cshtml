@@ -1,0 +1,5 @@
+@model int
+
+@* Mensagens não lidas: o número é de chamados (os da lista filtrada), não de mensagens. *@
+<a class="aviso-mensagens" asp-page="/Chamados/Index" asp-route-comNaoLidas="true"
+   title="Chamados com mensagens que você ainda não leu">@Model.AvisoDeNaoLidas()</a>

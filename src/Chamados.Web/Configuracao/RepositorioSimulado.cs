@@ -59,6 +59,14 @@ public sealed class RepositorioSimulado(IChamadoRepositorio interno, TimeProvide
         CancellationToken cancellationToken = default)
         => interno.ContarPorResponsavelAsync(filtro, cancellationToken);
 
+    // Mensagens não lidas: a leitura de uma conversa é de um chamado só, como ObterAsync: só repassa.
+    public Task<DateTimeOffset?> ObterLeituraAsync(Guid chamadoId, string usuarioId, CancellationToken cancellationToken = default)
+        => interno.ObterLeituraAsync(chamadoId, usuarioId, cancellationToken);
+
+    public Task MarcarLeituraAsync(Guid chamadoId, string usuarioId, DateTimeOffset ate,
+        CancellationToken cancellationToken = default)
+        => interno.MarcarLeituraAsync(chamadoId, usuarioId, ate, cancellationToken);
+
     private Task AtrasarAsync(CancellationToken cancellationToken)
         => opcoes.LatenciaMs > 0
             ? Task.Delay(TimeSpan.FromMilliseconds(opcoes.LatenciaMs), relogio, cancellationToken)

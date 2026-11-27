@@ -11,11 +11,16 @@ public sealed record FiltroChamados(
     OrdemChamados Ordem = OrdemChamados.Prioridade,
     bool SomenteVencidos = false,
     string? AbertoPorId = null,
-    string? ResponsavelId = null)
+    string? ResponsavelId = null,
+    string? LeitorId = null,
+    bool SomenteComNaoLidas = false)
 {
     // Meus chamados: AbertoPorId restringe aos chamados que esse usuário abriu. Quem preenche é a
     // camada Web, a partir do login (Seguranca/Visibilidade.cs); o domínio só aplica o critério.
     // Responsável atendente: ResponsavelId restringe aos chamados com esse atendente ("Meus atendimentos").
+    // Mensagens não lidas: LeitorId não restringe nada; diz para quem contar as mensagens não lidas de
+    // cada resumo (a regra está em MensagensNaoLidas). SomenteComNaoLidas restringe aos chamados com
+    // alguma mensagem que esse leitor ainda não leu; sem leitor, nenhum chamado tem mensagem não lida.
 
     public static FiltroChamados Todos { get; } = new();
 

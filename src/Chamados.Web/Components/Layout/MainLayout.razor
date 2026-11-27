@@ -38,6 +38,8 @@
         <form method="post" action="/Conta/Sair" class="sessao">
             @* O mesmo token antifalsificação que as Razor Pages conferem. *@
             <AntiforgeryToken />
+            @* Mensagens não lidas: o mesmo aviso do cabeçalho das Razor Pages, ao lado do nome. *@
+            <AvisoMensagensNovas />
             @* Nome de exibição; o e-mail de login aparece ao passar o mouse. O nome leva a "Meu perfil". *@
             <a class="perfil" href="/Perfil" title="@context.User.Identity?.Name">@context.User.NomeParaExibir()</a>
             <button type="submit" class="link">Sair</button>

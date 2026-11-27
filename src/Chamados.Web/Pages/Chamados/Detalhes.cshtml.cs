@@ -16,6 +16,8 @@ namespace Chamados.Web.Pages.Chamados;
 /// Razor Pages não aceitam [Authorize] por handler, então a regra é conferida no código
 /// (autorização imperativa), com a mesma política usada no resto do sistema.
 /// Comentários: quem pode ver o chamado pode escrever na conversa (handler Comentar).
+/// Mensagens não lidas: abrir o detalhe é ler a conversa. A página destaca o que era novo para o
+/// usuário e marca a conversa como lida até a última mensagem mostrada.
 /// </summary>
 public sealed class DetalhesModel(ChamadoServico servico, IAuthorizationService autorizacao,
     Atendentes atendentes, ILogger<DetalhesModel> logger) : PageModel
@@ -39,6 +41,15 @@ public sealed class DetalhesModel(ChamadoServico servico, IAuthorizationService 
 
     /// <summary>Comentários: o texto que voltou com erro, para não se perder ao mostrar a mensagem de erro.</summary>
     public string? TextoDigitado { get; private set; }
+
+    /// <summary>
+    /// Mensagens não lidas: as mensagens que o usuário ainda não tinha lido ao abrir a página, da mais
+    /// antiga para a mais nova. Na próxima visita, já não são novas.
+    /// </summary>
+    public IReadOnlyList<Comentario> Novas { get; private set; } = [];
+
+    /// <summary>Mensagens não lidas: a mensagem era nova para o usuário nesta visita?</summary>
+    public bool EhNova(Comentario mensagem) => Novas.Contains(mensagem);
 
     /// <summary>
     /// Histórico das edições: mudanças de status (<see cref="RegistroHistorico"/>) e edições
@@ -76,7 +87,28 @@ public sealed class DetalhesModel(ChamadoServico servico, IAuthorizationService 
             OpcoesDeResponsavel = await atendentes.ListarAsync(cancellationToken);
         }
 
+        if (UsuarioId is not null)
+        {
+            await LerConversaAsync(chamado, UsuarioId, cancellationToken);
+        }
+
         return Page();
+    }
+
+    // Mensagens não lidas: primeiro descobre o que era novo (pela leitura anterior), depois grava a leitura
+    // nova, até a última mensagem do chamado como ele foi carregado: o que chegar depois continua novo.
+    // É informação de apoio: se o banco recusar, a conversa aparece do mesmo jeito e o motivo vai para o log.
+    private async Task LerConversaAsync(Chamado chamado, string usuarioId, CancellationToken cancellationToken)
+    {
+        try
+        {
+            Novas = chamado.NaoLidasPor(usuarioId, await servico.ObterLeituraAsync(chamado.Id, usuarioId, cancellationToken));
+            await servico.MarcarComoLidaAsync(chamado, usuarioId, cancellationToken);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            Registro.FalhaAoMarcarLeitura(logger, ex, chamado.Id);
+        }
     }
 
     // Comentários: não exige a política Atender. Basta poder ver o chamado: o dono conversa com

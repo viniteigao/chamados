@@ -48,4 +48,17 @@ public interface IChamadoRepositorio
 
     /// <summary>Prazos: prioridade, abertura e resolução de cada chamado resolvido.</summary>
     Task<IReadOnlyList<ResolucaoChamado>> ListarResolucoesAsync(CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Mensagens não lidas: até quando esse usuário leu a conversa do chamado (a hora da última
+    /// mensagem que ele viu); null se ele nunca a leu.
+    /// </summary>
+    Task<DateTimeOffset?> ObterLeituraAsync(Guid chamadoId, string usuarioId, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Mensagens não lidas: grava que esse usuário leu a conversa até <paramref name="ate"/>.
+    /// A leitura só avança: um instante anterior ao já gravado não muda nada (duas abas abertas
+    /// em momentos diferentes não desfazem a leitura uma da outra).
+    /// </summary>
+    Task MarcarLeituraAsync(Guid chamadoId, string usuarioId, DateTimeOffset ate, CancellationToken cancellationToken = default);
 }

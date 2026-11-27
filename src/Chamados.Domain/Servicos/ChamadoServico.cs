@@ -104,6 +104,8 @@ public sealed class ChamadoServico(
     /// <summary>
     /// Comentários: acrescenta uma mensagem à conversa do chamado, com a hora do relógio.
     /// Quem pode comentar (o dono do chamado, atendentes e coordenação) é decisão da camada Web.
+    /// Mensagens não lidas: quem responde leu a conversa até a própria mensagem; o que veio antes dela
+    /// deixa de contar como não lido para quem escreveu.
     /// </summary>
     public async Task<Comentario> ComentarAsync(Guid id, string texto, Autor por, CancellationToken cancellationToken = default)
     {
@@ -111,7 +113,43 @@ public sealed class ChamadoServico(
 
         Comentario? novo = null;
         await repositorio.AlterarAsync(id, chamado => novo = chamado.Comentar(texto, relogio.GetUtcNow(), por), cancellationToken);
-        return novo!;
+        await repositorio.MarcarLeituraAsync(id, por.Id, novo!.Em, cancellationToken);
+        return novo;
+    }
+
+    /// <summary>Mensagens não lidas: até quando o usuário leu a conversa do chamado; null se nunca leu.</summary>
+    public Task<DateTimeOffset?> ObterLeituraAsync(Guid id, string usuarioId, CancellationToken cancellationToken = default)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(usuarioId);
+        return repositorio.ObterLeituraAsync(id, usuarioId, cancellationToken);
+    }
+
+    /// <summary>
+    /// Mensagens não lidas: marca a conversa como lida até a mensagem mais recente do chamado como ele
+    /// foi carregado (e mostrado). Uma mensagem que chegou depois disso continua não lida. Sem mensagens,
+    /// não há o que marcar. Quem pode ler (quem pode ver o chamado) é decisão da camada Web.
+    /// </summary>
+    public async Task MarcarComoLidaAsync(Chamado chamado, string usuarioId, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(chamado);
+        ArgumentException.ThrowIfNullOrWhiteSpace(usuarioId);
+
+        if (chamado.Comentarios is [.., var ultima])
+        {
+            await repositorio.MarcarLeituraAsync(chamado.Id, usuarioId, ultima.Em, cancellationToken);
+        }
+    }
+
+    /// <summary>
+    /// Mensagens não lidas: em quantos chamados o usuário tem mensagem que ainda não leu (contagem no banco).
+    /// Meus chamados: com <paramref name="abertoPorId"/>, só entre os que esse usuário abriu.
+    /// </summary>
+    public Task<int> ContarComNaoLidasAsync(string usuarioId, string? abertoPorId = null,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(usuarioId);
+        return repositorio.ContarAsync(
+            new FiltroChamados(AbertoPorId: abertoPorId, LeitorId: usuarioId, SomenteComNaoLidas: true), cancellationToken);
     }
 
     /// <summary>

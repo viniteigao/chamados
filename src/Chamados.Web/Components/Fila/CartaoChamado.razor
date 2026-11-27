@@ -20,10 +20,17 @@
         }
     </p>
 
-    @* Comentários: quantas mensagens a conversa tem, com link direto para ela. *@
+    @* Comentários: quantas mensagens a conversa tem, com link direto para ela.
+       Mensagens não lidas: e quantas você ainda não leu, com link para a primeira delas. *@
     @if (Chamado.TotalComentarios > 0)
     {
-        <p class="apoio"><a class="contador-mensagens" href="/Chamados/Detalhes/@Chamado.Id#conversa">@Chamado.TotalComentarios.Mensagens()</a></p>
+        <p class="apoio">
+            <a class="contador-mensagens" href="/Chamados/Detalhes/@Chamado.Id#conversa">@Chamado.TotalComentarios.Mensagens()</a>
+            @if (Chamado.ComentariosNaoLidos is int novas and > 0)
+            {
+                <a class="selo-novas" href="/Chamados/Detalhes/@Chamado.Id#novas" title="@novas.MensagensNovas() para você">@novas.Novas()</a>
+            }
+        </p>
     }
 
     @* Prazos: a página calcula o prazo (política + relógio) e o cartão só mostra. *@
