@@ -393,7 +393,8 @@ public class RepositorioChamadosEfTests
 
         Assert.Equal("id-davi", lido!.ResponsavelId);
         Assert.Equal("Ana", Assert.Single(lido.Edicoes).ResponsavelAnterior);
-        Assert.Equal([comAna2.Id, comDavi.Id], doDavi.Select(c => c.Id).Order());
+        // Os Ids são Guids aleatórios: os dois lados vão ordenados, senão a comparação falha ao acaso.
+        Assert.Equal(new[] { comAna2.Id, comDavi.Id }.Order(), doDavi.Select(c => c.Id).Order());
         Assert.Contains(new ContagemPorResponsavel("id-ana", "Ana", 1), contagem);
         Assert.Contains(new ContagemPorResponsavel("id-davi", "Davi", 2), contagem);
         Assert.Contains(new ContagemPorResponsavel(null, "Manutenção", 1), contagem);
