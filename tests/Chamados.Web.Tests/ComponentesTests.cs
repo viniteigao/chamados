@@ -55,4 +55,33 @@ public sealed class ComponentesTests
         Assert.Contains("&lt;img src=x onerror=alert(1)&gt;", html, StringComparison.Ordinal);
         Assert.DoesNotContain("<img", html, StringComparison.Ordinal);
     }
+
+    // --- Prazos ---
+
+    [Fact]
+    public async Task Cartao_vencido_ganha_destaque_e_diz_ha_quanto_tempo_venceu()
+    {
+        var prazo = new PrazoDoChamado(DateTimeOffset.UtcNow.AddHours(-2), SituacaoPrazo.Vencido, TimeSpan.FromHours(-2));
+
+        var html = await RenderizarAsync<CartaoChamado>(new()
+        {
+            [nameof(CartaoChamado.Chamado)] = Resumo("Porta não tranca", StatusChamado.Aberto),
+            [nameof(CartaoChamado.Prazo)] = prazo,
+        });
+        // O renderizador codifica acentos (á vira &#xE1;): decodifica para conferir o texto lido.
+        var texto = System.Net.WebUtility.HtmlDecode(html);
+
+        Assert.Contains("cartao-fila cartao-vencido", html, StringComparison.Ordinal);
+        Assert.Contains("selo-vencido", html, StringComparison.Ordinal);
+        Assert.Contains("venceu há 2 h", texto, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task Cartao_sem_prazo_nao_mostra_a_linha_de_prazo()
+    {
+        var html = await RenderizarAsync<CartaoChamado>(new() { [nameof(CartaoChamado.Chamado)] = Resumo("Projetor", StatusChamado.Aberto) });
+
+        Assert.DoesNotContain("class=\"prazo\"", html, StringComparison.Ordinal);
+        Assert.Contains("class=\"cartao-fila\"", html, StringComparison.Ordinal);
+    }
 }

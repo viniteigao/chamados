@@ -63,7 +63,8 @@ else
                 <Coluna Titulo="Abertos" Quantidade="Abertos.Count" TextoVazio="Nenhum chamado aguardando.">
                     @foreach (var chamado in Abertos)
                     {
-                        <CartaoChamado @key="chamado.Id" Chamado="chamado" ResponsavelPadrao="@responsavelPadrao"
+                        <CartaoChamado @key="chamado.Id" Chamado="chamado" Prazo="Servico.PrazoDe(chamado)"
+                                       ResponsavelPadrao="@responsavelPadrao"
                                        Desabilitado="executando" AoConfirmar="ExecutarAsync" AoEditar="AbrirEdicao" />
                     }
                 </Coluna>
@@ -71,7 +72,8 @@ else
                 <Coluna Titulo="Em atendimento" Quantidade="EmAtendimento.Count" TextoVazio="Nenhum chamado em atendimento.">
                     @foreach (var chamado in EmAtendimento)
                     {
-                        <CartaoChamado @key="chamado.Id" Chamado="chamado" ResponsavelPadrao="@responsavelPadrao"
+                        <CartaoChamado @key="chamado.Id" Chamado="chamado" Prazo="Servico.PrazoDe(chamado)"
+                                       ResponsavelPadrao="@responsavelPadrao"
                                        Desabilitado="executando" AoConfirmar="ExecutarAsync" AoEditar="AbrirEdicao" />
                     }
                 </Coluna>
@@ -101,6 +103,7 @@ else
     private CancellationTokenSource? cancelamento;
     private IJSObjectReference? moduloPreferencias;
     private ErrorBoundary? limiteDaFila;
+    private Timer? relogioDosPrazos;
 
     /// <summary>
     /// A fila. [PersistentState] guarda o valor carregado na pré-renderização dentro do HTML
@@ -133,6 +136,11 @@ else
         {
             return;
         }
+
+        // Prazos: "vence em 12 min" envelhece com a tela aberta. A cada minuto o componente se
+        // redesenha; o prazo é recalculado com o relógio, sem consultar o banco de novo.
+        relogioDosPrazos = new Timer(_ => _ = InvokeAsync(StateHasChanged), null,
+            TimeSpan.FromMinutes(1), TimeSpan.FromMinutes(1));
 
         try
         {
@@ -269,9 +277,13 @@ else
 
     public async ValueTask DisposeAsync()
     {
-        // A aba fechou ou o usuário navegou: interrompe a busca em andamento.
+        // A aba fechou ou o usuário navegou: interrompe a busca em andamento e o relógio dos prazos.
         cancelamento?.Cancel();
         cancelamento?.Dispose();
+        if (relogioDosPrazos is not null)
+        {
+            await relogioDosPrazos.DisposeAsync();
+        }
 
         if (moduloPreferencias is not null)
         {

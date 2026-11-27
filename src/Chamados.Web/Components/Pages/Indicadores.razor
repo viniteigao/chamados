@@ -9,15 +9,15 @@
 
 <h1>Indicadores</h1>
 <p class="apoio">
-    Lidos pela API (<code>GET /api/chamados/estatisticas</code>), e não direto do serviço:
-    é assim que o aplicativo MAUI do Módulo 10 vai consultar os mesmos números.
+    Lidos pela API (<code>GET /api/chamados/estatisticas</code> e <code>GET /api/chamados/prazos</code>),
+    e não direto do serviço: é assim que o aplicativo MAUI do Módulo 10 vai consultar os mesmos números.
 </p>
 
 @if (falha is not null)
 {
     <p class="erros aviso-erro" role="alert">@falha</p>
 }
-else if (estatisticas is null)
+else if (estatisticas is null || prazos is null)
 {
     @* Com [StreamRendering], o servidor envia esta parte logo e o resto quando a API responder. *@
     <p class="vazio" aria-busy="true">Consultando a API…</p>
@@ -59,17 +59,53 @@ else
             </tbody>
         </table>
     </div>
+
+    @* Prazos: vencidos e perto de vencer contados agora; cumprimento, sobre todos os resolvidos. *@
+    <h2>Prazos</h2>
+    <section class="indicadores">
+        <article class="cartao-acao">
+            <h3>Vencidos agora</h3>
+            <p class="numero">@prazos.Vencidos</p>
+            <p class="apoio"><a href="/Chamados?somenteVencidos=true">ver na lista</a></p>
+        </article>
+        <article class="cartao-acao">
+            <h3>Vencem logo</h3>
+            <p class="numero">@prazos.PertoDeVencer</p>
+            <p class="apoio">com menos de um quarto do prazo pela frente</p>
+        </article>
+        <article class="cartao-acao">
+            <h3>Resolvidos no prazo</h3>
+            <p class="numero">@(prazos.PercentualNoPrazo is { } percentual ? $"{percentual:0.#}%" : "—")</p>
+            <p class="apoio">@prazos.ResolvidosNoPrazo de @(prazos.ResolvidosNoPrazo + prazos.ResolvidosForaDoPrazo) resolvidos</p>
+        </article>
+    </section>
+    <table class="tabela tabela-prazos">
+        <caption>Prazo de atendimento por prioridade (horas corridas, desde a abertura)</caption>
+        <thead><tr><th scope="col">Prioridade</th><th scope="col">Prazo</th></tr></thead>
+        <tbody>
+            @foreach (var (prioridade, prazo) in prazos.Prazos.OrderByDescending(p => p.Key))
+            {
+                <tr><td><Selo Valor="prioridade" /></td><td>@prazo.Aproximada()</td></tr>
+            }
+        </tbody>
+    </table>
 }
 
 @code {
     private EstatisticasChamados? estatisticas;
+    private IndicadoresDePrazo? prazos;
     private string? falha;
 
     protected override async Task OnInitializedAsync()
     {
         try
         {
-            estatisticas = await Api.ObterEstatisticasAsync();
+            // As duas chamadas à API em paralelo: a página espera pela mais lenta, não pela soma.
+            var buscaEstatisticas = Api.ObterEstatisticasAsync();
+            var buscaPrazos = Api.ObterIndicadoresDePrazoAsync();
+            await Task.WhenAll(buscaEstatisticas, buscaPrazos);
+            estatisticas = await buscaEstatisticas;
+            prazos = await buscaPrazos;
         }
         catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException or System.Text.Json.JsonException)
         {

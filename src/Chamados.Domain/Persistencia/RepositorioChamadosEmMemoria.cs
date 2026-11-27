@@ -100,12 +100,24 @@ public sealed class RepositorioChamadosEmMemoria(TimeProvider relogio, TimeSpan 
             .ToList();
     }
 
+    public async Task<IReadOnlyList<ResolucaoChamado>> ListarResolucoesAsync(CancellationToken cancellationToken = default)
+    {
+        await SimularLatenciaAsync(cancellationToken);
+        return _chamados.Values
+            .Where(c => c.Status == StatusChamado.Resolvido)
+            .Select(c => new ResolucaoChamado(c.Prioridade, c.CriadoEm, c.EncerradoEm!.Value))
+            .ToList();
+    }
+
     private IEnumerable<Chamado> Filtrar(FiltroChamados filtro) => _chamados.Values
         .Where(c => filtro.Status is null || c.Status == filtro.Status)
         .Where(c => filtro.PrioridadeMinima is null || c.Prioridade >= filtro.PrioridadeMinima)
         .Where(c => string.IsNullOrWhiteSpace(filtro.Texto)
                     || c.Titulo.Contains(filtro.Texto, StringComparison.OrdinalIgnoreCase)
-                    || (c.Descricao?.Contains(filtro.Texto, StringComparison.OrdinalIgnoreCase) ?? false));
+                    || (c.Descricao?.Contains(filtro.Texto, StringComparison.OrdinalIgnoreCase) ?? false))
+        // Prazos: só em andamento e abertos antes do corte da própria prioridade (mesma regra do banco).
+        .Where(c => filtro.AbertosAntesDe is not { } cortes
+                    || (!c.EstaEncerrado && c.CriadoEm < cortes[c.Prioridade]));
 
     private static IEnumerable<Chamado> Ordenar(IEnumerable<Chamado> chamados, OrdemChamados ordem) => ordem switch
     {

@@ -13,6 +13,7 @@ public sealed class MetricasChamados
 
     private readonly Counter<long> _abertos;
     private readonly Counter<long> _transicoes;
+    private readonly Counter<long> _resolvidos;
 
     public MetricasChamados(IMeterFactory fabrica)
     {
@@ -24,6 +25,8 @@ public sealed class MetricasChamados
             "chamados.abertos", unit: "{chamado}", description: "Chamados abertos, por prioridade");
         _transicoes = medidor.CreateCounter<long>(
             "chamados.transicoes", unit: "{transicao}", description: "Mudanças de status, por status de destino");
+        _resolvidos = medidor.CreateCounter<long>(
+            "chamados.resolvidos", unit: "{chamado}", description: "Chamados resolvidos, separando os que cumpriram o prazo");
     }
 
     // Etiquetas (tags) com poucos valores possíveis: prioridade e status. Nunca Id, título ou nome
@@ -33,4 +36,9 @@ public sealed class MetricasChamados
 
     public void StatusMudou(StatusChamado para)
         => _transicoes.Add(1, new KeyValuePair<string, object?>("status", para.ToString()));
+
+    // Prazos: dois valores possíveis na etiqueta, verdadeiro ou falso. Divididos um pelo outro no
+    // painel do coletor, dão o percentual de resolvidos no prazo ao longo do tempo.
+    public void ChamadoResolvido(bool noPrazo)
+        => _resolvidos.Add(1, new KeyValuePair<string, object?>("no_prazo", noPrazo));
 }

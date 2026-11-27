@@ -93,9 +93,10 @@ Componentes acrescentados no Módulo 6: `Formularios/FormularioChamado` (EditFor
 
 | Rota | Função |
 | --- | --- |
-| `GET /api/chamados?status=&prioridadeMinima=&texto=&ordem=` | Lista com filtros e ordenação (`Prioridade`, `MaisRecentes`, `MaisAntigos`, `Titulo`) |
+| `GET /api/chamados?status=&prioridadeMinima=&texto=&ordem=&somenteVencidos=` | Lista com filtros e ordenação (`Prioridade`, `MaisRecentes`, `MaisAntigos`, `Titulo`); `somenteVencidos=true` traz só os em andamento com o prazo vencido |
 | `GET /api/chamados/estatisticas` | Totais e tempo médio de resolução |
-| `GET /api/chamados/{id}` | Um chamado com o histórico (DTO `DetalheChamadoResposta`, inclui `versao`); id inexistente → 404 |
+| `GET /api/chamados/prazos` | Vencidos, perto de vencer, percentual resolvido no prazo e a tabela de prazos (política `VerIndicadores`) |
+| `GET /api/chamados/{id}` | Um chamado com o histórico e o prazo (DTO `DetalheChamadoResposta`, inclui `versao`); id inexistente → 404 |
 | `POST /api/chamados` | Abre chamado (corpo: `{"titulo": "...", "prioridade": "Alta"}`); corpo inválido → 400 com erros por campo |
 | `PUT /api/chamados/{id}` | Edita (corpo com `versaoEsperada`; versão desatualizada → 409, chamado encerrado → 409) |
 | `POST /api/chamados/{id}/atendimento` | Inicia atendimento (corpo: `{"responsavel": "..."}`) |
@@ -124,6 +125,8 @@ No Visual Studio, o perfil **https-falha** (em `launchSettings.json`) já liga `
 
 `LimiteDeLogin:TentativasPorMinuto` (1 a 1000, padrão 10) é quantas tentativas de login cada endereço IP pode fazer por minuto, somando o formulário e o endpoint de token.
 
+`Prazos:Critica`, `Prazos:Alta`, `Prazos:Media` e `Prazos:Baixa` são os prazos de atendimento, no formato de `TimeSpan` (`"04:00:00"` = 4 horas, `"3.00:00:00"` = 3 dias). Padrão: 4 horas, 1 dia, 3 dias e 7 dias. Cada prazo precisa ser maior que zero, e uma prioridade mais alta não pode ter prazo maior que uma mais baixa; senão, a aplicação não inicia e diz qual prioridade está errada.
+
 Datas e números saem em pt-BR também no servidor de hospedagem (`UseRequestLocalization("pt-BR")`).
 
 ### Segurança e observabilidade (Módulo 8)
@@ -132,7 +135,7 @@ Datas e números saem em pt-BR também no servidor de hospedagem (`UseRequestLoc
 - **Autorização**: política de fallback exige login em tudo; exceções explícitas com `[AllowAnonymous]` (login e páginas de erro). Políticas em `Seguranca/Politicas.cs`.
 - **Cabeçalhos**: `Content-Security-Policy`, `X-Content-Type-Options`, `X-Frame-Options` e `Referrer-Policy` em todas as respostas (`Seguranca/CabecalhosSeguranca.cs`).
 - **Logs estruturados**: eventos com Id e campos nomeados em `Diagnostico/Registro.cs`. O perfil **https-json** mostra o log em JSON, com `TraceId` em cada linha; o mesmo `traceId` volta nas respostas de erro (Problem Details).
-- **Métricas**: medidor `Chamados` com `chamados.abertos` (por prioridade) e `chamados.transicoes` (por status). Para ver ao vivo: `dotnet tool install --global dotnet-counters` e `dotnet-counters monitor --name Chamados.Web --counters Chamados,Microsoft.AspNetCore.Hosting`.
+- **Métricas**: medidor `Chamados` com `chamados.abertos` (por prioridade), `chamados.transicoes` (por status) e, desde os prazos, `chamados.resolvidos` (dentro ou fora do prazo). Para ver ao vivo: `dotnet tool install --global dotnet-counters` e `dotnet-counters monitor --name Chamados.Web --counters Chamados,Microsoft.AspNetCore.Hosting`.
 - **Análise estática**: `Directory.Build.props` liga `AnalysisLevel=latest-recommended` em todos os projetos e transforma em erro os avisos de injeção de SQL (`EF1002`, `EF1003`) e de comando SQL montado com texto (`CA2100`).
 - **Dependências**: a restauração audita os pacotes, inclusive os transitivos (`NuGetAuditMode=all`). Conferência manual: `dotnet package list --vulnerable --include-transitive` e `dotnet package list --outdated`. O `.github/dependabot.yml` pede atualizações semanais.
 
@@ -149,13 +152,35 @@ Feitas na branch `melhorias`, a partir da análise do projeto ao fim do Módulo 
 - **Integração contínua** (`.github/workflows/ci.yml`): cada push e pull request compila com aviso tratado como erro e roda todos os testes no GitHub. O Dependabot não propõe mais a versão 11 do EF Core e do ASP.NET Core (exigiria o .NET 11) e passa a atualizar as actions do CI.
 - **`.gitattributes`**: fins de linha normalizados (LF no repositório, o padrão de cada sistema no checkout).
 
+### Prazos de atendimento (SLA)
+
+Feitos na branch `prazos`. Cada prioridade tem um prazo, contado em horas corridas desde a abertura: Crítica 4 horas, Alta 1 dia, Média 3 dias, Baixa 7 dias (configuráveis em `Prazos`).
+
+| Situação | Quando |
+| --- | --- |
+| No prazo | em andamento, com um quarto do prazo ou mais pela frente |
+| Vence logo | em andamento, com menos de um quarto do prazo pela frente (Crítica: menos de 1 hora) |
+| Vencido | em andamento, depois do vencimento |
+| Cumprido | resolvido até o vencimento |
+| Fora do prazo | resolvido depois do vencimento |
+
+Chamado cancelado não tem prazo. Onde aparece:
+
+- **Fila** (`/atendimento`): selo e frase em cada cartão ("vence em 18 h 05 min", "venceu há 1 h 32 min"), com borda vermelha nos vencidos e laranja nos que vencem logo. A tela se atualiza sozinha a cada minuto, sem consultar o banco.
+- **Detalhe**: linha "Prazo" com o vencimento e a situação; nos resolvidos, a folga ou o atraso.
+- **Lista** (`/Chamados`): coluna "Prazo" e o filtro "Só vencidos" (`?somenteVencidos=true`), aplicado no banco.
+- **Painel** (`/`): quantos estão vencidos, com o atalho para a lista filtrada.
+- **Indicadores** (`/indicadores`): vencidos agora, vencem logo, percentual resolvido no prazo e a tabela de prazos, lidos de `GET /api/chamados/prazos`.
+- **API**: o detalhe traz `prazo: { vencimento, situacao }`; a lista aceita `somenteVencidos`.
+- **Métrica**: `chamados.resolvidos`, com a etiqueta `no_prazo` (verdadeiro ou falso).
+
 ### Bibliotecas do lado do cliente
 
 `wwwroot/lib` traz jQuery 3.7.1, jQuery Validation 1.21.0 e jQuery Validation Unobtrusive 4.0.0 (licenças MIT e Apache 2.0, arquivos de licença incluídos), usados só pela validação no cliente. O `libman.json` registra a origem; no Visual Studio, botão direito em `libman.json` › **Restaurar Bibliotecas do Lado do Cliente** baixa de novo.
 
 ## Testar
 
-No Visual Studio: **Teste > Gerenciador de Testes > Executar Todos** (`Ctrl+R, A`). Pela CLI: `dotnet test`. São 82 testes: 47 do domínio, 9 de integração com o banco e 26 da aplicação web (integração com `WebApplicationFactory`, inclusive em ambiente Production com o banco falhando, componentes com `HtmlRenderer` e unidade das políticas de autorização). O GitHub roda os mesmos testes a cada push (`.github/workflows/ci.yml`).
+No Visual Studio: **Teste > Gerenciador de Testes > Executar Todos** (`Ctrl+R, A`). Pela CLI: `dotnet test`. São 113 testes: 69 do domínio (com a política de prazos e um relógio controlado), 11 de integração com o banco e 33 da aplicação web (integração com `WebApplicationFactory`, inclusive em ambiente Production com o banco falhando e com prazos de milissegundos, componentes com `HtmlRenderer` e unidade das políticas de autorização). O GitHub roda os mesmos testes a cada push (`.github/workflows/ci.yml`).
 
 ## Estrutura
 
@@ -212,3 +237,7 @@ No Visual Studio: **Teste > Gerenciador de Testes > Executar Todos** (`Ctrl+R, A
 - **Limite por origem soma-se ao bloqueio por conta** (melhorias): o bloqueio do Identity impede adivinhar a senha de uma conta; o limite de 10 tentativas por minuto por IP impede testar senhas em volume e bloquear contas em série. Ainda é possível bloquear uma conta específica com 5 tentativas; fechar isso pediria um segundo fator ou CAPTCHA. Atrás de um proxy reverso, o limite precisa de `UseForwardedHeaders`, senão todos chegam com o IP do proxy.
 - **Toda entrada de texto tem tamanho máximo no domínio** (melhorias): o banco declara os tamanhos, mas o SQLite não os confere. As mesmas constantes do `Chamado` alimentam o domínio, o mapeamento do EF, os atributos da API e o `maxlength` das telas.
 - **CI como porta de entrada** (melhorias): o que não compila sem aviso ou não passa nos testes não entra, inclusive as atualizações do Dependabot. Um pacote com vulnerabilidade conhecida também quebra o CI de propósito.
+- **Prazo calculado, não gravado** (prazos): vencimento = abertura + prazo da prioridade atual. Sem coluna nova nem migration, e mudar a prioridade de um chamado muda o prazo dele na hora. O custo: mudar a política em `Prazos` reavalia também o histórico de cumprimento. Se um dia o prazo precisar ficar "congelado" na abertura, aí vira coluna.
+- **A regra de prazos é do domínio** (prazos): `PoliticaDePrazos` decide a situação com um "agora" recebido por parâmetro, sem relógio nem banco, e valida a configuração (prazos positivos, Crítica ≤ Alta ≤ Média ≤ Baixa). A configuração inválida impede a aplicação de iniciar com a mensagem dela.
+- **"Só vencidos" filtrado no banco** (prazos): o serviço traduz o pedido em um corte de data por prioridade (agora − prazo), e o repositório compara datas no `WHERE`, com os cortes como parâmetros. As comparações são estritas nos dois lados, para a tela e a contagem nunca discordarem na fronteira. O cumprimento dos resolvidos é calculado em C#, porque o SQLite não soma datas.
+- **Horas corridas** (prazos): o prazo conta noites e fins de semana. Horário comercial e feriados pediriam um calendário; ficou de fora por ora.

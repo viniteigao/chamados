@@ -36,6 +36,15 @@ Authorization: Bearer {{token.response.body.$.accessToken}}
 GET {{base}}/api/chamados/estatisticas
 Authorization: Bearer {{token.response.body.$.accessToken}}
 
+### Prazos: só os chamados em andamento com o prazo vencido
+GET {{base}}/api/chamados?somenteVencidos=true
+Authorization: Bearer {{token.response.body.$.accessToken}}
+
+### Prazos: indicadores de prazo. Também só da coordenação: com o token da ana, 403.
+# Para ver a resposta, troque o e-mail do token (primeira requisição) por carla@chamados.local.
+GET {{base}}/api/chamados/prazos
+Authorization: Bearer {{token.response.body.$.accessToken}}
+
 ### Módulo 8: chamados de um responsável
 GET {{base}}/api/chamados/por-responsavel?nome=Redes
 Authorization: Bearer {{token.response.body.$.accessToken}}

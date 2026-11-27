@@ -22,16 +22,22 @@ public static class EndpointsChamados
             .WithTags("Chamados");   // agrupa os endpoints no documento OpenAPI
 
         api.MapGet("/", (StatusChamado? status, Prioridade? prioridadeMinima, string? texto, OrdemChamados? ordem,
-                ChamadoServico servico, CancellationToken cancellationToken)
+                bool? somenteVencidos, ChamadoServico servico, CancellationToken cancellationToken)
             => servico.ListarAsync(
-                new FiltroChamados(status, prioridadeMinima, texto, ordem ?? OrdemChamados.Prioridade),
+                new FiltroChamados(status, prioridadeMinima, texto, ordem ?? OrdemChamados.Prioridade, somenteVencidos ?? false),
                 cancellationToken))
-            .WithSummary("Lista chamados, com filtros opcionais por status, prioridade mínima e texto");
+            .WithSummary("Lista chamados, com filtros opcionais por status, prioridade mínima, texto e prazo vencido");
 
         api.MapGet("/estatisticas", (ChamadoServico servico, CancellationToken cancellationToken)
             => servico.ObterEstatisticasAsync(cancellationToken))
             .RequireAuthorization(Politicas.VerIndicadores)
             .WithSummary("Totais por status e prioridade e tempo médio de resolução");
+
+        // Prazos: indicadores de prazo, para a coordenação (mesma política das estatísticas).
+        api.MapGet("/prazos", (ChamadoServico servico, CancellationToken cancellationToken)
+            => servico.ObterIndicadoresDePrazoAsync(cancellationToken))
+            .RequireAuthorization(Politicas.VerIndicadores)
+            .WithSummary("Vencidos, perto de vencer, percentual resolvido no prazo e a tabela de prazos");
 
         // Módulo 8: busca por responsável. No laboratório, esta rota começa vulnerável a injeção de SQL.
         api.MapGet("/por-responsavel", (string nome, ChamadoServico servico, CancellationToken cancellationToken)
@@ -43,7 +49,7 @@ public static class EndpointsChamados
         api.MapGet("/{id:guid}", async Task<Results<Ok<DetalheChamadoResposta>, NotFound>> (Guid id,
                 ChamadoServico servico, CancellationToken cancellationToken)
             => await servico.ObterAsync(id, cancellationToken) is { } chamado
-                ? TypedResults.Ok(DetalheChamadoResposta.De(chamado))
+                ? TypedResults.Ok(DetalheChamadoResposta.De(chamado, servico.PrazoDe(chamado)))
                 : TypedResults.NotFound())
             .WithSummary("Detalhe de um chamado, com o histórico de status");
 

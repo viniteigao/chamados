@@ -27,6 +27,9 @@ public sealed class DetalhesModel(ChamadoServico servico, IAuthorizationService 
     /// <summary>A página mostra os formulários de transição só quando isto é verdadeiro.</summary>
     public bool PodeAtender { get; private set; }
 
+    /// <summary>Prazos: o prazo do chamado agora; null para cancelados.</summary>
+    public PrazoDoChamado? Prazo { get; private set; }
+
     public async Task<IActionResult> OnGetAsync(Guid id, CancellationToken cancellationToken)
     {
         if (await servico.ObterAsync(id, cancellationToken) is not { } chamado)
@@ -35,6 +38,7 @@ public sealed class DetalhesModel(ChamadoServico servico, IAuthorizationService 
         }
 
         Chamado = chamado;
+        Prazo = servico.PrazoDe(chamado);
         PodeAtender = (await autorizacao.AuthorizeAsync(User, Politicas.Atender)).Succeeded;
         return Page();
     }

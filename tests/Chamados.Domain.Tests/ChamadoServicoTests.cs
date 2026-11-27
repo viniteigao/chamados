@@ -250,4 +250,79 @@ public class ChamadoServicoTests
 
         Assert.Equal("Chamado 03", lista[0].Titulo);
     }
+
+    // --- Prazos ---
+
+    [Fact]
+    public async Task ListarAsync_SomenteVencidos_TrazSoOsEmAndamentoComPrazoVencido()
+    {
+        var vencido = await _servico.AbrirAsync(new NovoChamado("Porta não tranca", Prioridade.Critica));
+        var encerrado = await _servico.AbrirAsync(new NovoChamado("Lâmpada queimada", Prioridade.Critica));
+        await _servico.AbrirAsync(new NovoChamado("Cadeira quebrada", Prioridade.Baixa));
+        await _servico.IniciarAtendimentoAsync(encerrado.Id, "Elétrica");
+        _relogio.Avancar(TimeSpan.FromHours(5));                    // as Críticas venceram; a Baixa tem dias
+        await _servico.ResolverAsync(encerrado.Id, "Trocada");     // fora do prazo, mas encerrado: não entra
+        await _servico.AbrirAsync(new NovoChamado("Vazamento", Prioridade.Critica));   // aberto agora
+
+        var vencidos = await _servico.ListarAsync(new FiltroChamados(SomenteVencidos: true));
+
+        Assert.Equal(new[] { vencido.Id }, vencidos.Select(c => c.Id));
+    }
+
+    [Fact]
+    public async Task ObterIndicadoresDePrazoAsync_ContaCadaSituacao()
+    {
+        // Linha do tempo (Crítica = 4 h), avaliada 5 h depois do início:
+        var vencido = await _servico.AbrirAsync(new NovoChamado("Aberto há 5 h", Prioridade.Critica));
+        var cumprido = await _servico.AbrirAsync(new NovoChamado("Resolvido em 1 h", Prioridade.Critica));
+        var atrasado = await _servico.AbrirAsync(new NovoChamado("Resolvido em 5 h", Prioridade.Critica));
+        await _servico.IniciarAtendimentoAsync(cumprido.Id, "Elétrica");
+        await _servico.IniciarAtendimentoAsync(atrasado.Id, "Hidráulica");
+        _relogio.Avancar(TimeSpan.FromHours(1));
+        await _servico.ResolverAsync(cumprido.Id, "Feito");
+        _relogio.Avancar(TimeSpan.FromMinutes(30));
+        await _servico.AbrirAsync(new NovoChamado("Aberto há 3 h 30 min", Prioridade.Critica));   // faltam 30 min
+        _relogio.Avancar(TimeSpan.FromMinutes(210));
+        await _servico.ResolverAsync(atrasado.Id, "Feito");
+        await _servico.AbrirAsync(new NovoChamado("Aberto agora", Prioridade.Baixa));
+
+        var indicadores = await _servico.ObterIndicadoresDePrazoAsync();
+
+        Assert.Equal(1, indicadores.Vencidos);
+        Assert.Equal(1, indicadores.PertoDeVencer);
+        Assert.Equal(1, indicadores.ResolvidosNoPrazo);
+        Assert.Equal(1, indicadores.ResolvidosForaDoPrazo);
+        Assert.Equal(50.0, indicadores.PercentualNoPrazo);
+        Assert.Equal(TimeSpan.FromHours(4), indicadores.Prazos[Prioridade.Critica]);
+        Assert.Equal(SituacaoPrazo.Vencido, _servico.PrazoDe(vencido)!.Situacao);
+    }
+
+    [Fact]
+    public async Task ObterIndicadoresDePrazoAsync_SemResolvidos_NaoInventaPercentual()
+    {
+        await _servico.AbrirAsync(new NovoChamado("Tomada solta"));
+
+        var indicadores = await _servico.ObterIndicadoresDePrazoAsync();
+
+        Assert.Null(indicadores.PercentualNoPrazo);
+    }
+
+    [Fact]
+    public async Task PrazoDe_UsaAPoliticaRecebidaPorInjecao()
+    {
+        var politica = new PoliticaDePrazos(new Dictionary<Prioridade, TimeSpan>
+        {
+            [Prioridade.Critica] = TimeSpan.FromHours(1),
+            [Prioridade.Alta] = TimeSpan.FromHours(2),
+            [Prioridade.Media] = TimeSpan.FromHours(3),
+            [Prioridade.Baixa] = TimeSpan.FromHours(4),
+        });
+        var servico = new ChamadoServico(new RepositorioChamadosEmMemoria(_relogio), _relogio, prazos: politica);
+        var chamado = await servico.AbrirAsync(new NovoChamado("Porta não tranca", Prioridade.Critica));
+
+        _relogio.Avancar(TimeSpan.FromMinutes(90));
+
+        Assert.Equal(SituacaoPrazo.Vencido, servico.PrazoDe(chamado)!.Situacao);
+        Assert.Equal(SituacaoPrazo.NoPrazo, _servico.PrazoDe(chamado)!.Situacao);   // a padrão dá 4 h
+    }
 }

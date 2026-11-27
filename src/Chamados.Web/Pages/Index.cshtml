@@ -17,6 +17,20 @@
     }
 </section>
 
+@* Prazos: o que já passou do prazo aparece primeiro, com o atalho para a lista filtrada. *@
+@if (Model.Vencidos > 0)
+{
+    <p class="erros aviso-erro" role="status">
+        <a asp-page="/Chamados/Index" asp-route-somenteVencidos="true">
+            @Model.Vencidos @(Model.Vencidos == 1 ? "chamado está" : "chamados estão") com o prazo vencido
+        </a>
+    </p>
+}
+else
+{
+    <p class="apoio">Nenhum chamado com o prazo vencido.</p>
+}
+
 <p class="apoio">
     Tempo médio de resolução:
     @(Model.Estatisticas.TempoMedioResolucao?.Duracao() ?? "sem chamados resolvidos")

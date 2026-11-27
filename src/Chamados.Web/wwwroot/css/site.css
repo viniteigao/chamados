@@ -172,3 +172,17 @@ button.neutro:hover { background: #ece8df; }
 .entrada form { display: grid; gap: .5rem; }
 .texto-livre { white-space: pre-line; overflow-wrap: anywhere; }
 @media (max-width: 560px) { .sessao { width: 100%; justify-content: flex-end; } }
+
+/* ---------- Prazos (melhorias) ---------- */
+.selo-noprazo { background: #e7f6ee; color: var(--ok); }
+.selo-pertodevencer { background: #fff1db; color: var(--laranja); }
+.selo-vencido { background: #fdecea; color: var(--erro); }
+.selo-cumprido { background: #e7f6ee; color: var(--ok); }
+.selo-descumprido { background: #fdecea; color: var(--erro); }
+.prazo { display: flex; flex-wrap: wrap; align-items: center; gap: .4rem; font-size: .85rem; }
+.cartao-fila.cartao-vencido { border-left: 4px solid var(--erro); }
+.cartao-fila.cartao-alerta { border-left: 4px solid var(--laranja); }
+.filtros .marcar { display: flex; align-items: center; gap: .4rem; font-weight: 600; }
+.filtros .marcar input { width: auto; }
+.tabela-prazos td:last-child { text-align: right; }
+.cartao-acao h3 { margin: 0; font-size: 1.05rem; }

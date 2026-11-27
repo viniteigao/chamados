@@ -5,6 +5,7 @@ namespace Chamados.Web.Api;
 /// <summary>
 /// DTO de resposta do detalhe. A API nunca devolve a entidade Chamado: o contrato JSON fica
 /// estável mesmo que a entidade mude, e só sai o que o cliente precisa ver.
+/// Prazos: o detalhe traz o prazo avaliado no momento da resposta (null para cancelados).
 /// </summary>
 public sealed record DetalheChamadoResposta(
     Guid Id,
@@ -17,12 +18,17 @@ public sealed record DetalheChamadoResposta(
     DateTimeOffset CriadoEm,
     DateTimeOffset? EncerradoEm,
     int Versao,
-    IReadOnlyList<RegistroHistoricoResposta> Historico)
+    IReadOnlyList<RegistroHistoricoResposta> Historico,
+    PrazoResposta? Prazo)
 {
-    public static DetalheChamadoResposta De(Chamado chamado) => new(
+    public static DetalheChamadoResposta De(Chamado chamado, PrazoDoChamado? prazo) => new(
         chamado.Id, chamado.Titulo, chamado.Descricao, chamado.Status, chamado.Prioridade,
         chamado.Responsavel, chamado.Solucao, chamado.CriadoEm, chamado.EncerradoEm, chamado.Versao,
-        [.. chamado.Historico.Select(r => new RegistroHistoricoResposta(r.De, r.Para, r.Em, r.Observacao))]);
+        [.. chamado.Historico.Select(r => new RegistroHistoricoResposta(r.De, r.Para, r.Em, r.Observacao))],
+        prazo is null ? null : new PrazoResposta(prazo.Vencimento, prazo.Situacao));
 }
 
 public sealed record RegistroHistoricoResposta(StatusChamado De, StatusChamado Para, DateTimeOffset Em, string? Observacao);
+
+/// <summary>Prazos: quando vence e a situação ("NoPrazo", "PertoDeVencer", "Vencido", "Cumprido", "Descumprido").</summary>
+public sealed record PrazoResposta(DateTimeOffset Vencimento, SituacaoPrazo Situacao);

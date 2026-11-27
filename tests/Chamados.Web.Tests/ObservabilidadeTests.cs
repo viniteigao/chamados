@@ -55,4 +55,34 @@ public sealed class ObservabilidadeTests(FabricaChamados fabrica) : IClassFixtur
         Assert.Contains(eventos, r => r.EventoId == 1001);   // Login aceito
         Assert.DoesNotContain(eventos, r => r.Mensagem.Contains(Acesso.Coordenadora, StringComparison.Ordinal));
     }
+
+    [Fact]
+    public async Task Resolver_dentro_do_prazo_conta_na_metrica_com_a_etiqueta_no_prazo()
+    {
+        // Prazos: chamados.resolvidos{no_prazo=true|false}. Resolvido logo após abrir: dentro do prazo.
+        var atendente = await fabrica.ClienteComTokenAsync(Acesso.Atendente);
+        var fabricaDeMedidores = fabrica.Services.GetRequiredService<IMeterFactory>();
+        var etiquetas = new System.Collections.Concurrent.ConcurrentQueue<object?>();
+
+        using var ouvinte = new MeterListener();
+        ouvinte.InstrumentPublished = (instrumento, l) =>
+        {
+            if (instrumento.Meter.Scope == fabricaDeMedidores && instrumento.Name == "chamados.resolvidos")
+            {
+                l.EnableMeasurementEvents(instrumento);
+            }
+        };
+        ouvinte.SetMeasurementEventCallback<long>((_, _, tags, _) => etiquetas.Enqueue(tags[0].Value));
+        ouvinte.Start();
+
+        var resposta = await atendente.PostAsJsonAsync(new Uri("/api/chamados", UriKind.Relative),
+            new { titulo = "Disjuntor desarmando", prioridade = "Critica" });
+        var criado = await resposta.Content.ReadFromJsonAsync<ResumoChamado>(Json.Opcoes);
+        (await atendente.PostAsJsonAsync(new Uri($"/api/chamados/{criado!.Id}/atendimento", UriKind.Relative),
+            new { responsavel = "Elétrica" })).EnsureSuccessStatusCode();
+        (await atendente.PostAsJsonAsync(new Uri($"/api/chamados/{criado.Id}/resolucao", UriKind.Relative),
+            new { solucao = "Disjuntor trocado" })).EnsureSuccessStatusCode();
+
+        Assert.Equal(true, Assert.Single(etiquetas));
+    }
 }

@@ -36,6 +36,13 @@ public sealed class RepositorioSimulado(IChamadoRepositorio interno, TimeProvide
     public Task<IReadOnlyList<ResumoChamado>> ListarPorResponsavelAsync(string responsavel, CancellationToken cancellationToken = default)
         => interno.ListarPorResponsavelAsync(responsavel, cancellationToken);
 
+    // Prazos: parte dos indicadores, com a mesma latência das outras consultas.
+    public async Task<IReadOnlyList<ResolucaoChamado>> ListarResolucoesAsync(CancellationToken cancellationToken = default)
+    {
+        await AtrasarAsync(cancellationToken);
+        return await interno.ListarResolucoesAsync(cancellationToken);
+    }
+
     // Leituras e gravações de um chamado só repassam ao repositório real.
     public Task<Chamado?> ObterAsync(Guid id, CancellationToken cancellationToken = default)
         => interno.ObterAsync(id, cancellationToken);

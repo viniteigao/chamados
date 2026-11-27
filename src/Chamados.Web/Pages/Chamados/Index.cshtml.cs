@@ -28,7 +28,14 @@ public sealed class IndexModel(ChamadoServico servico) : PageModel
     [BindProperty(Name = "pagina", SupportsGet = true)]
     public int NumeroPagina { get; set; } = 1;
 
+    /// <summary>Prazos: só chamados em andamento com o prazo vencido (?somenteVencidos=true).</summary>
+    [BindProperty(SupportsGet = true)]
+    public bool SomenteVencidos { get; set; }
+
     public Pagina<ResumoChamado> Resultado { get; private set; } = null!;
+
+    /// <summary>Prazos: o prazo de cada linha agora, calculado pelo serviço; null para cancelados.</summary>
+    public PrazoDoChamado? PrazoDe(ResumoChamado chamado) => servico.PrazoDe(chamado);
 
     public async Task OnGetAsync(CancellationToken cancellationToken)
     {
@@ -39,9 +46,10 @@ public sealed class IndexModel(ChamadoServico servico) : PageModel
             PrioridadeMinima = null;
             Ordem = OrdemChamados.Prioridade;
             NumeroPagina = 1;
+            SomenteVencidos = false;
         }
 
-        var filtro = new FiltroChamados(Status, PrioridadeMinima, Texto, Ordem);
+        var filtro = new FiltroChamados(Status, PrioridadeMinima, Texto, Ordem, SomenteVencidos);
         Resultado = await servico.ListarPaginaAsync(filtro, NumeroPagina, TamanhoPagina, cancellationToken);
     }
 
@@ -55,6 +63,7 @@ public sealed class IndexModel(ChamadoServico servico) : PageModel
         prioridadeMinima = PrioridadeMinima,
         texto = string.IsNullOrWhiteSpace(Texto) ? null : Texto,
         ordem = Ordem == OrdemChamados.Prioridade ? (OrdemChamados?)null : Ordem,
+        somenteVencidos = SomenteVencidos ? true : (bool?)null,
         pagina = pagina == 1 ? (int?)null : pagina
     };
 }

@@ -4,9 +4,17 @@ namespace Chamados.Domain;
 /// Casos de uso dos chamados. Depende de abstrações recebidas por injeção:
 /// o repositório (onde guardar), o relógio (que horas são) e, desde o Módulo 8,
 /// as métricas (opcionais: os testes do domínio passam sem elas).
+/// Prazos: a política de prazos também é opcional; sem ela, vale <see cref="PoliticaDePrazos.Padrao"/>.
 /// </summary>
-public sealed class ChamadoServico(IChamadoRepositorio repositorio, TimeProvider relogio, MetricasChamados? metricas = null)
+public sealed class ChamadoServico(
+    IChamadoRepositorio repositorio,
+    TimeProvider relogio,
+    MetricasChamados? metricas = null,
+    PoliticaDePrazos? prazos = null)
 {
+    /// <summary>A política de prazos em vigor.</summary>
+    public PoliticaDePrazos Prazos { get; } = prazos ?? PoliticaDePrazos.Padrao;
+
     public async Task<Chamado> AbrirAsync(NovoChamado comando, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(comando);
@@ -43,8 +51,14 @@ public sealed class ChamadoServico(IChamadoRepositorio repositorio, TimeProvider
     public Task<Chamado> IniciarAtendimentoAsync(Guid id, string responsavel, CancellationToken cancellationToken = default)
         => TransicionarAsync(id, chamado => chamado.IniciarAtendimento(responsavel, relogio.GetUtcNow()), cancellationToken);
 
-    public Task<Chamado> ResolverAsync(Guid id, string solucao, CancellationToken cancellationToken = default)
-        => TransicionarAsync(id, chamado => chamado.Resolver(solucao, relogio.GetUtcNow()), cancellationToken);
+    public async Task<Chamado> ResolverAsync(Guid id, string solucao, CancellationToken cancellationToken = default)
+    {
+        var chamado = await TransicionarAsync(id, c => c.Resolver(solucao, relogio.GetUtcNow()), cancellationToken);
+
+        // Prazos: a métrica conta cada resolução, separando as que cumpriram o prazo.
+        metricas?.ChamadoResolvido(PrazoDe(chamado)?.Situacao == SituacaoPrazo.Cumprido);
+        return chamado;
+    }
 
     public Task<Chamado> CancelarAsync(Guid id, string motivo, CancellationToken cancellationToken = default)
         => TransicionarAsync(id, chamado => chamado.Cancelar(motivo, relogio.GetUtcNow()), cancellationToken);
@@ -61,7 +75,7 @@ public sealed class ChamadoServico(IChamadoRepositorio repositorio, TimeProvider
         CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(filtro);
-        return repositorio.ListarAsync(filtro, cancellationToken: cancellationToken);
+        return repositorio.ListarAsync(TraduzirPrazos(filtro), cancellationToken: cancellationToken);
     }
 
     /// <summary>
@@ -78,6 +92,8 @@ public sealed class ChamadoServico(IChamadoRepositorio repositorio, TimeProvider
         ArgumentNullException.ThrowIfNull(filtro);
         ArgumentOutOfRangeException.ThrowIfLessThan(tamanhoPagina, 1);
 
+        // O mesmo instante para contar e para listar: as duas consultas veem os mesmos vencidos.
+        filtro = TraduzirPrazos(filtro);
         var total = await repositorio.ContarAsync(filtro, cancellationToken);
         var totalPaginas = Math.Max(1, (total + tamanhoPagina - 1) / tamanhoPagina);
         numero = Math.Clamp(numero, 1, totalPaginas);
@@ -90,6 +106,43 @@ public sealed class ChamadoServico(IChamadoRepositorio repositorio, TimeProvider
 
     public Task<EstatisticasChamados> ObterEstatisticasAsync(CancellationToken cancellationToken = default)
         => repositorio.ObterEstatisticasAsync(cancellationToken);
+
+    /// <summary>Prazo de um chamado agora; null para cancelados.</summary>
+    public PrazoDoChamado? PrazoDe(Chamado chamado) => Prazos.Avaliar(chamado, relogio.GetUtcNow());
+
+    /// <summary>Prazo de um chamado da lista agora; null para cancelados.</summary>
+    public PrazoDoChamado? PrazoDe(ResumoChamado chamado) => Prazos.Avaliar(chamado, relogio.GetUtcNow());
+
+    /// <summary>Quantos chamados em andamento estão com o prazo vencido agora (contagem no banco).</summary>
+    public Task<int> ContarVencidosAsync(CancellationToken cancellationToken = default)
+        => repositorio.ContarAsync(TraduzirPrazos(new FiltroChamados(SomenteVencidos: true)), cancellationToken);
+
+    /// <summary>
+    /// Indicadores de prazo. Vencidos e perto de vencer são contados no banco; o cumprimento dos
+    /// resolvidos é calculado aqui, porque o SQLite não subtrai datas.
+    /// </summary>
+    public async Task<IndicadoresDePrazo> ObterIndicadoresDePrazoAsync(CancellationToken cancellationToken = default)
+    {
+        var agora = relogio.GetUtcNow();
+        var vencidos = await repositorio.ContarAsync(
+            new FiltroChamados { AbertosAntesDe = Prazos.AberturasVencidas(agora) }, cancellationToken);
+        var emAlerta = await repositorio.ContarAsync(
+            new FiltroChamados { AbertosAntesDe = Prazos.AberturasEmAlerta(agora) }, cancellationToken);
+
+        var resolucoes = await repositorio.ListarResolucoesAsync(cancellationToken);
+        var noPrazo = resolucoes.Count(r =>
+            Prazos.Avaliar(StatusChamado.Resolvido, r.Prioridade, r.CriadoEm, r.ResolvidoEm, agora)?.Situacao
+                == SituacaoPrazo.Cumprido);
+
+        // Em alerta inclui os vencidos: "perto de vencer" é só a diferença.
+        return new IndicadoresDePrazo(vencidos, emAlerta - vencidos, noPrazo, resolucoes.Count - noPrazo, Prazos.Prazos);
+    }
+
+    // "Só vencidos" vira, para o repositório, um instante de corte por prioridade, calculado agora.
+    private FiltroChamados TraduzirPrazos(FiltroChamados filtro)
+        => filtro.SomenteVencidos && filtro.AbertosAntesDe is null
+            ? filtro with { AbertosAntesDe = Prazos.AberturasVencidas(relogio.GetUtcNow()) }
+            : filtro;
 
     // Carregar, alterar e gravar numa só unidade de trabalho é tarefa do repositório:
     // com banco de dados, é ali que o EF Core rastreia o objeto e confere a versão.

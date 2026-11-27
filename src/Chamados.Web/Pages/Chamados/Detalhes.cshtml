@@ -24,6 +24,12 @@
     <dd class="texto-livre">@(chamado.Descricao ?? "—")</dd>
     <dt>Aberto em</dt>
     <dd>@chamado.CriadoEm.DataHora()</dd>
+    @* Prazos: vencimento = abertura + prazo da prioridade atual. Cancelado não tem prazo. *@
+    @if (Model.Prazo is { } prazo)
+    {
+        <dt>Prazo</dt>
+        <dd class="prazo"><selo valor="@prazo.Situacao" /> @prazo.Vencimento.DataHora() · @prazo.Descricao()</dd>
+    }
     <dt>Responsável</dt>
     <dd>@(chamado.Responsavel ?? "—")</dd>
     @if (chamado.Solucao is not null)

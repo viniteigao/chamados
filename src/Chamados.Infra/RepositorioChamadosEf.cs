@@ -89,7 +89,7 @@ public sealed class RepositorioChamadosEf(IDbContextFactory<ChamadosDbContext> f
 
         // Projeção: o SELECT traz só as colunas do resumo, sem o histórico.
         return await consulta
-            .Select(c => new ResumoChamado(c.Id, c.Titulo, c.Status, c.Prioridade, c.Responsavel, c.CriadoEm, c.Versao))
+            .Select(c => new ResumoChamado(c.Id, c.Titulo, c.Status, c.Prioridade, c.Responsavel, c.CriadoEm, c.Versao, c.EncerradoEm))
             .ToListAsync(cancellationToken);
     }
 
@@ -138,7 +138,20 @@ public sealed class RepositorioChamadosEf(IDbContextFactory<ChamadosDbContext> f
             .FromSql($"SELECT * FROM \"Chamados\" WHERE \"Responsavel\" = {responsavel}")
             .AsNoTracking()
             .OrderByDescending(c => c.Prioridade).ThenBy(c => c.CriadoEm)
-            .Select(c => new ResumoChamado(c.Id, c.Titulo, c.Status, c.Prioridade, c.Responsavel, c.CriadoEm, c.Versao))
+            .Select(c => new ResumoChamado(c.Id, c.Titulo, c.Status, c.Prioridade, c.Responsavel, c.CriadoEm, c.Versao, c.EncerradoEm))
+            .ToListAsync(cancellationToken);
+    }
+
+    public async Task<IReadOnlyList<ResolucaoChamado>> ListarResolucoesAsync(CancellationToken cancellationToken = default)
+    {
+        await using var db = await fabrica.CreateDbContextAsync(cancellationToken);
+
+        // Prazos: três colunas dos resolvidos. Comparar a resolução com o vencimento exige somar o
+        // prazo à abertura, e o SQLite não faz conta com datas: a comparação acontece no serviço.
+        return await db.Chamados
+            .AsNoTracking()
+            .Where(c => c.Status == StatusChamado.Resolvido)
+            .Select(c => new ResolucaoChamado(c.Prioridade, c.CriadoEm, c.EncerradoEm!.Value))
             .ToListAsync(cancellationToken);
     }
 
@@ -162,6 +175,24 @@ public sealed class RepositorioChamadosEf(IDbContextFactory<ChamadosDbContext> f
             var padrao = "%" + EscaparLike(filtro.Texto.Trim()) + "%";
             chamados = chamados.Where(c => EF.Functions.Like(c.Titulo, padrao, "\\")
                 || (c.Descricao != null && EF.Functions.Like(c.Descricao, padrao, "\\")));
+        }
+
+        if (filtro.AbertosAntesDe is { } cortes)
+        {
+            // Prazos: "vencido" vira comparação de datas no WHERE, com um corte por prioridade
+            // (cada corte = agora − prazo da prioridade, calculado pelo serviço). Os quatro cortes
+            // vão como parâmetros; a data gravada como número (Módulo 7) ordena e compara direito.
+            // Uma prioridade nova no enum exige uma linha nova aqui (a política já exige o prazo dela).
+            var baixa = cortes[Prioridade.Baixa];
+            var media = cortes[Prioridade.Media];
+            var alta = cortes[Prioridade.Alta];
+            var critica = cortes[Prioridade.Critica];
+            chamados = chamados.Where(c =>
+                (c.Status == StatusChamado.Aberto || c.Status == StatusChamado.EmAtendimento)
+                && ((c.Prioridade == Prioridade.Baixa && c.CriadoEm < baixa)
+                    || (c.Prioridade == Prioridade.Media && c.CriadoEm < media)
+                    || (c.Prioridade == Prioridade.Alta && c.CriadoEm < alta)
+                    || (c.Prioridade == Prioridade.Critica && c.CriadoEm < critica)));
         }
 
         return chamados;

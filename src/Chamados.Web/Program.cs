@@ -48,6 +48,14 @@ builder.Services.AddScoped<ChamadoServico>();
 // Métricas de negócio (Módulo 8): medidor "Chamados", lido por dotnet-counters ou OpenTelemetry.
 builder.Services.AddSingleton<MetricasChamados>();
 
+// Prazos: política de prazos por prioridade, da seção "Prazos" (Configuracao/PrazosOptions.cs),
+// conferida pela regra do domínio na inicialização. O ChamadoServico a recebe por injeção.
+builder.Services.AddOptions<PrazosOptions>()
+    .BindConfiguration(PrazosOptions.Secao)
+    .ValidateOnStart();
+builder.Services.AddSingleton<IValidateOptions<PrazosOptions>, ValidacaoDePrazos>();
+builder.Services.AddSingleton(sp => sp.GetRequiredService<IOptions<PrazosOptions>>().Value.ParaPolitica());
+
 // ============ Segurança (Módulo 8) ============
 
 // ASP.NET Core Identity: usuários, senhas (só o hash), papéis e claims, guardados pelo EF Core

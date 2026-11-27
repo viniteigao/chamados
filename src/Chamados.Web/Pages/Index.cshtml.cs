@@ -8,8 +8,12 @@ public sealed class IndexModel(ChamadoServico servico) : PageModel
 {
     public EstatisticasChamados Estatisticas { get; private set; } = null!;
 
+    /// <summary>Prazos: chamados em andamento com o prazo vencido agora.</summary>
+    public int Vencidos { get; private set; }
+
     public async Task OnGetAsync(CancellationToken cancellationToken)
     {
         Estatisticas = await servico.ObterEstatisticasAsync(cancellationToken);
+        Vencidos = await servico.ContarVencidosAsync(cancellationToken);
     }
 }

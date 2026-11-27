@@ -28,6 +28,12 @@
         Texto
         <input asp-for="Texto" type="search" placeholder="título ou descrição" />
     </label>
+    @* Prazos: checkbox comum, e não asp-for, que acrescentaria um campo oculto "false" à URL.
+       checked="@bool" do Razor: com false, o atributo nem é escrito. *@
+    <label class="marcar">
+        <input type="checkbox" name="somenteVencidos" value="true" checked="@Model.SomenteVencidos" />
+        Só vencidos
+    </label>
     @* Sem campo "pagina": filtrar de novo sempre volta para a página 1. *@
     <button type="submit">Filtrar</button>
     <a asp-page="./Index">Limpar</a>
@@ -46,15 +52,27 @@ else
 
     <table class="tabela">
         <thead>
-            <tr><th>Título</th><th>Prioridade</th><th>Status</th><th>Responsável</th><th>Aberto em</th></tr>
+            <tr><th>Título</th><th>Prioridade</th><th>Status</th><th>Prazo</th><th>Responsável</th><th>Aberto em</th></tr>
         </thead>
         <tbody>
             @foreach (var chamado in pagina.Itens)
             {
+                var prazo = Model.PrazoDe(chamado);
                 <tr>
                     <td><a asp-page="./Detalhes" asp-route-id="@chamado.Id">@chamado.Titulo</a></td>
                     <td><selo valor="@chamado.Prioridade" /></td>
                     <td><selo valor="@chamado.Status" /></td>
+                    @* Prazos: o selo e, ao passar o mouse, a frase e o vencimento. Cancelado: sem prazo. *@
+                    <td>
+                        @if (prazo is not null)
+                        {
+                            <span title="@prazo.Descricao() (vencimento @prazo.Vencimento.DataHora())"><selo valor="@prazo.Situacao" /></span>
+                        }
+                        else
+                        {
+                            <text>—</text>
+                        }
+                    </td>
                     <td>@(chamado.Responsavel ?? "—")</td>
                     <td>@chamado.CriadoEm.DataHora()</td>
                 </tr>

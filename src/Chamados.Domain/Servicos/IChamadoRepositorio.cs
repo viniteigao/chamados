@@ -30,4 +30,7 @@ public interface IChamadoRepositorio
 
     /// <summary>Resumos dos chamados de um responsável (comparação exata), por prioridade.</summary>
     Task<IReadOnlyList<ResumoChamado>> ListarPorResponsavelAsync(string responsavel, CancellationToken cancellationToken = default);
+
+    /// <summary>Prazos: prioridade, abertura e resolução de cada chamado resolvido.</summary>
+    Task<IReadOnlyList<ResolucaoChamado>> ListarResolucoesAsync(CancellationToken cancellationToken = default);
 }

@@ -150,6 +150,64 @@ public class RepositorioChamadosEfTests
         Assert.Equal(TimeSpan.FromHours(2), estatisticas.TempoMedioResolucao);
     }
 
+    // --- Prazos ---
+
+    [Fact]
+    public async Task Listar_so_vencidos_compara_datas_no_banco_com_um_corte_por_prioridade()
+    {
+        await using var banco = await BancoEmMemoria.CriarAsync();
+        var repositorio = new RepositorioChamadosEf(banco);
+        var politica = PoliticaDePrazos.Padrao;
+        var agora = Abertura.AddDays(10);
+
+        // Em cada prioridade: um aberto 1 minuto antes de vencer e um que venceu há 1 minuto.
+        foreach (var prioridade in Enum.GetValues<Prioridade>())
+        {
+            var prazo = politica.PrazoDe(prioridade);
+            await repositorio.AdicionarAsync(new Chamado($"{prioridade} vencido", prioridade,
+                criadoEm: agora - prazo - TimeSpan.FromMinutes(1)));
+            await repositorio.AdicionarAsync(new Chamado($"{prioridade} no prazo", prioridade,
+                criadoEm: agora - prazo + TimeSpan.FromMinutes(1)));
+        }
+
+        // Aberto há 10 dias, mas resolvido: encerrado não está "vencido".
+        var resolvido = new Chamado("Baixa resolvido", Prioridade.Baixa, criadoEm: Abertura);
+        resolvido.IniciarAtendimento("Elétrica", Abertura.AddHours(1));
+        resolvido.Resolver("Feito", Abertura.AddHours(2));
+        await repositorio.AdicionarAsync(resolvido);
+
+        var filtro = new FiltroChamados { AbertosAntesDe = politica.AberturasVencidas(agora) };
+        var vencidos = await repositorio.ListarAsync(filtro);
+        var total = await repositorio.ContarAsync(filtro);
+
+        Assert.Equal(4, total);
+        Assert.Equal(4, vencidos.Count);
+        Assert.All(vencidos, c => Assert.EndsWith(" vencido", c.Titulo, StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public async Task Listar_resolucoes_traz_so_os_resolvidos_e_a_lista_leva_a_data_de_encerramento()
+    {
+        await using var banco = await BancoEmMemoria.CriarAsync();
+        var repositorio = new RepositorioChamadosEf(banco);
+        var resolvido = new Chamado("Projetor sem imagem", Prioridade.Alta, criadoEm: Abertura);
+        resolvido.IniciarAtendimento("Ana", Abertura.AddHours(1));
+        resolvido.Resolver("Cabo trocado", Abertura.AddHours(2));
+        var cancelado = new Chamado("Duplicado", criadoEm: Abertura);
+        cancelado.Cancelar("Aberto em duplicidade", Abertura.AddHours(1));
+        await repositorio.AdicionarAsync(resolvido);
+        await repositorio.AdicionarAsync(cancelado);
+        await repositorio.AdicionarAsync(new Chamado("Ainda aberto", criadoEm: Abertura));
+
+        var resolucao = Assert.Single(await repositorio.ListarResolucoesAsync());
+        var resumo = Assert.Single(await repositorio.ListarAsync(FiltroChamados.Todos with { Status = StatusChamado.Resolvido }));
+
+        Assert.Equal(Prioridade.Alta, resolucao.Prioridade);
+        Assert.Equal(Abertura, resolucao.CriadoEm);
+        Assert.Equal(Abertura.AddHours(2), resolucao.ResolvidoEm);
+        Assert.Equal(Abertura.AddHours(2), resumo.EncerradoEm);
+    }
+
     [Fact]
     public async Task Migrations_estao_em_dia_com_o_modelo()
     {
