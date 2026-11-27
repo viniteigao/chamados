@@ -15,6 +15,7 @@ namespace Chamados.Web.Pages.Chamados;
 /// Módulo 8: qualquer usuário conectado vê o chamado; só atendentes mudam o status.
 /// Razor Pages não aceitam [Authorize] por handler, então a regra é conferida no código
 /// (autorização imperativa), com a mesma política usada no resto do sistema.
+/// Comentários: quem pode ver o chamado pode escrever na conversa (handler Comentar).
 /// </summary>
 public sealed class DetalhesModel(ChamadoServico servico, IAuthorizationService autorizacao,
     ILogger<DetalhesModel> logger) : PageModel
@@ -29,6 +30,12 @@ public sealed class DetalhesModel(ChamadoServico servico, IAuthorizationService 
 
     /// <summary>Prazos: o prazo do chamado agora; null para cancelados.</summary>
     public PrazoDoChamado? Prazo { get; private set; }
+
+    /// <summary>Comentários: Id do usuário conectado, para a conversa alinhar à direita as mensagens dele.</summary>
+    public string? UsuarioId { get; private set; }
+
+    /// <summary>Comentários: o texto que voltou com erro, para não se perder ao mostrar a mensagem de erro.</summary>
+    public string? TextoDigitado { get; private set; }
 
     public async Task<IActionResult> OnGetAsync(Guid id, CancellationToken cancellationToken)
     {
@@ -48,7 +55,56 @@ public sealed class DetalhesModel(ChamadoServico servico, IAuthorizationService 
         Chamado = chamado;
         Prazo = servico.PrazoDe(chamado);
         PodeAtender = (await autorizacao.AuthorizeAsync(User, Politicas.Atender)).Succeeded;
+        UsuarioId = User.IdDoUsuario();
         return Page();
+    }
+
+    // Comentários: não exige a política Atender. Basta poder ver o chamado: o dono conversa com
+    // quem atende. A conferência é a mesma do GET, feita de novo aqui, porque o POST pode ser montado à mão.
+    public async Task<IActionResult> OnPostComentarAsync(Guid id,
+        [Required(ErrorMessage = "Escreva a mensagem antes de enviar."),
+         StringLength(Chamado.TamanhoMaximoComentario, ErrorMessage = LongoDemais)] string texto,
+        CancellationToken cancellationToken)
+    {
+        if (await servico.ObterAsync(id, cancellationToken) is not { } chamado)
+        {
+            return NotFound();
+        }
+
+        if (!User.PodeVer(chamado))
+        {
+            Registro.ChamadoDeOutroUsuario(logger, id, User.IdDoUsuario() ?? "desconhecido");
+            return NotFound();
+        }
+
+        if (User.ComoAutor() is not { } autor)
+        {
+            return Challenge();
+        }
+
+        if (ModelState.IsValid)
+        {
+            try
+            {
+                await servico.ComentarAsync(id, texto, autor, cancellationToken);
+                Registro.ComentarioAdicionado(logger, id, autor.Id);
+
+                // Post/Redirect/Get, voltando direto para a conversa (âncora #conversa).
+                return RedirectToPage(pageName: null, pageHandler: null, routeValues: new { id }, fragment: "conversa");
+            }
+            catch (ChamadoNaoEncontradoException)
+            {
+                return NotFound();
+            }
+            catch (ArgumentException ex)
+            {
+                ModelState.AddModelError(nameof(texto), ex.ParaUsuario());
+            }
+        }
+
+        var pagina = await OnGetAsync(id, cancellationToken);
+        TextoDigitado = texto;
+        return pagina;
     }
 
     // Aqui o model binding preenche parâmetros do método, não uma [BindProperty]:

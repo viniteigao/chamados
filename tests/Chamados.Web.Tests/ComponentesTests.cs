@@ -84,4 +84,19 @@ public sealed class ComponentesTests
         Assert.DoesNotContain("class=\"prazo\"", html, StringComparison.Ordinal);
         Assert.Contains("class=\"cartao-fila\"", html, StringComparison.Ordinal);
     }
+
+    [Fact]
+    public async Task Cartao_com_conversa_mostra_quantas_mensagens_com_link_para_ela()
+    {
+        var chamado = Resumo("Wi-Fi instável", StatusChamado.EmAtendimento) with { TotalComentarios = 3 };
+
+        var html = await RenderizarAsync<CartaoChamado>(new() { [nameof(CartaoChamado.Chamado)] = chamado });
+        var semConversa = await RenderizarAsync<CartaoChamado>(new()
+        {
+            [nameof(CartaoChamado.Chamado)] = Resumo("Projetor", StatusChamado.Aberto),
+        });
+
+        Assert.Contains($"href=\"/Chamados/Detalhes/{chamado.Id}#conversa\">3 mensagens</a>", html, StringComparison.Ordinal);
+        Assert.DoesNotContain("contador-mensagens", semConversa, StringComparison.Ordinal);
+    }
 }

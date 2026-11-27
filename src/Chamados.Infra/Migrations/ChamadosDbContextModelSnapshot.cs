@@ -271,6 +271,43 @@ namespace Chamados.Infra.Migrations
 
             modelBuilder.Entity("Chamados.Domain.Chamado", b =>
                 {
+                    b.OwnsMany("Chamados.Domain.Comentario", "Comentarios", b1 =>
+                        {
+                            b1.Property<int>("Id")
+                                .ValueGeneratedOnAdd()
+                                .HasColumnType("INTEGER");
+
+                            b1.Property<string>("AutorId")
+                                .IsRequired()
+                                .HasMaxLength(450)
+                                .HasColumnType("TEXT");
+
+                            b1.Property<string>("AutorNome")
+                                .IsRequired()
+                                .HasMaxLength(256)
+                                .HasColumnType("TEXT");
+
+                            b1.Property<Guid>("ChamadoId")
+                                .HasColumnType("TEXT");
+
+                            b1.Property<long>("Em")
+                                .HasColumnType("INTEGER");
+
+                            b1.Property<string>("Texto")
+                                .IsRequired()
+                                .HasMaxLength(2000)
+                                .HasColumnType("TEXT");
+
+                            b1.HasKey("Id");
+
+                            b1.HasIndex("ChamadoId");
+
+                            b1.ToTable("ComentariosChamados", (string)null);
+
+                            b1.WithOwner()
+                                .HasForeignKey("ChamadoId");
+                        });
+
                     b.OwnsMany("Chamados.Domain.RegistroHistorico", "Historico", b1 =>
                         {
                             b1.Property<int>("Id")
@@ -314,6 +351,8 @@ namespace Chamados.Infra.Migrations
                             b1.WithOwner()
                                 .HasForeignKey("ChamadoId");
                         });
+
+                    b.Navigation("Comentarios");
 
                     b.Navigation("Historico");
                 });

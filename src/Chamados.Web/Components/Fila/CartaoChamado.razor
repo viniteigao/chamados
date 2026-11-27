@@ -19,6 +19,12 @@
         }
     </p>
 
+    @* Comentários: quantas mensagens a conversa tem, com link direto para ela. *@
+    @if (Chamado.TotalComentarios > 0)
+    {
+        <p class="apoio"><a class="contador-mensagens" href="/Chamados/Detalhes/@Chamado.Id#conversa">@Chamado.TotalComentarios.Mensagens()</a></p>
+    }
+
     @* Prazos: a página calcula o prazo (política + relógio) e o cartão só mostra. *@
     @if (Prazo is not null)
     {

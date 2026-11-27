@@ -17,7 +17,11 @@ public sealed class Chamado
     public const int TamanhoMaximoResponsavel = 120;
     public const int TamanhoMaximoJustificativa = TamanhoMaximoDescricao;   // solução e motivo
 
+    // Comentários: tamanho máximo de uma mensagem da conversa.
+    public const int TamanhoMaximoComentario = 2000;
+
     private readonly List<RegistroHistorico> _historico = [];
+    private readonly List<Comentario> _comentarios = [];
 
     public Chamado(
         string titulo,
@@ -82,6 +86,9 @@ public sealed class Chamado
     // AsReadOnly impede que quem recebe a lista faça cast para List<T> e a altere.
     public IReadOnlyList<RegistroHistorico> Historico => _historico.AsReadOnly();
 
+    /// <summary>Comentários: a conversa do chamado, na ordem em que foi escrita.</summary>
+    public IReadOnlyList<Comentario> Comentarios => _comentarios.AsReadOnly();
+
     public bool EstaEncerrado => Status is StatusChamado.Resolvido or StatusChamado.Cancelado;
 
     // DateTimeOffset? - DateTimeOffset resulta em TimeSpan? (nulo enquanto aberto).
@@ -104,6 +111,23 @@ public sealed class Chamado
         Descricao = novaDescricao;
         Prioridade = novaPrioridade;
         Versao++;
+    }
+
+    /// <summary>
+    /// Comentários: acrescenta uma mensagem à conversa, em qualquer status (depois de resolvido,
+    /// "voltou a dar problema" também é conversa). Toda mensagem tem autor.
+    /// Não muda a versão: comentar não é editar, e quem estiver editando o chamado ao mesmo
+    /// tempo não deve receber um conflito por causa de uma mensagem.
+    /// </summary>
+    public Comentario Comentar(string texto, DateTimeOffset em, Autor por)
+    {
+        ArgumentNullException.ThrowIfNull(por);
+        var mensagem = ValidarTextoObrigatorio(texto, TamanhoMaximoComentario, "O comentário", nameof(texto));
+        ArgumentOutOfRangeException.ThrowIfLessThan(em, CriadoEm);
+
+        var comentario = new Comentario(mensagem, em, por.Id, por.Nome);
+        _comentarios.Add(comentario);
+        return comentario;
     }
 
     // Meus chamados: cada transição aceita quem a fez (por), que vai para o histórico.

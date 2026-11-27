@@ -109,3 +109,40 @@ else
         }
     </ol>
 }
+
+@* Comentários: a conversa entre quem pediu e quem atende. Cada mensagem mostra autor, data e hora;
+   as do usuário conectado ficam à direita. O texto passa pela codificação do @, como a descrição. *@
+<section id="conversa" class="conversa" aria-labelledby="titulo-conversa">
+    <h2 id="titulo-conversa">Conversa</h2>
+    @if (chamado.Comentarios.Count == 0)
+    {
+        <p class="vazio">Nenhuma mensagem ainda.</p>
+    }
+    else
+    {
+        <ol class="mensagens">
+            @foreach (var mensagem in chamado.Comentarios)
+            {
+                var minha = mensagem.AutorId == Model.UsuarioId;
+                <li class="mensagem@(minha ? " minha" : "")">
+                    <p class="mensagem-cabecalho">
+                        <strong>@(minha ? "Você" : mensagem.AutorNome)</strong>
+                        @if (chamado.FoiAbertoPor(mensagem.AutorId))
+                        {
+                            <span class="papel">solicitante</span>
+                        }
+                        <time datetime="@mensagem.Em.Iso()">@mensagem.Em.DataHoraMensagem()</time>
+                    </p>
+                    <p class="texto-livre">@mensagem.Texto</p>
+                </li>
+            }
+        </ol>
+    }
+
+    <form method="post" asp-page-handler="Comentar" asp-route-id="@chamado.Id" class="nova-mensagem">
+        <label for="texto">Nova mensagem</label>
+        <textarea id="texto" name="texto" rows="3" maxlength="@Chamado.TamanhoMaximoComentario">@Model.TextoDigitado</textarea>
+        @Html.ValidationMessage("texto", new { @class = "erro" })
+        <button type="submit">Enviar</button>
+    </form>
+</section>

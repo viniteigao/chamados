@@ -317,4 +317,91 @@ public class ChamadoTests
     {
         Assert.ThrowsAny<ArgumentException>(() => new Autor(id, nome));
     }
+
+    // --- Comentários ---
+
+    [Fact]
+    public void Comentar_GuardaTextoAutorDataEHora_NaOrdemEmQueChegam()
+    {
+        var chamado = new Chamado("Tomada solta", criadoEm: Abertura, abertoPor: Bruno);
+
+        chamado.Comentar("  Faísca ao ligar o carregador  ", Abertura.AddMinutes(5), Bruno);
+        var resposta = chamado.Comentar("Vou desligar o disjuntor.", Abertura.AddMinutes(7), Ana);
+
+        Assert.Equal(2, chamado.Comentarios.Count);
+        Assert.Equal("Faísca ao ligar o carregador", chamado.Comentarios[0].Texto);   // sem os espaços das pontas
+        Assert.Equal(Abertura.AddMinutes(5), chamado.Comentarios[0].Em);
+        Assert.Equal(Bruno, chamado.Comentarios[0].Autor);
+        Assert.Same(resposta, chamado.Comentarios[1]);
+        Assert.Equal(Ana, resposta.Autor);
+    }
+
+    [Fact]
+    public void Comentar_NaoMudaAVersaoNemOHistorico()
+    {
+        // Comentar não é editar: quem está editando o chamado ao mesmo tempo não recebe conflito.
+        var chamado = new Chamado("Tomada solta", criadoEm: Abertura);
+
+        chamado.Comentar("Alguma novidade?", Abertura.AddMinutes(5), Bruno);
+
+        Assert.Equal(1, chamado.Versao);
+        Assert.Empty(chamado.Historico);
+    }
+
+    [Fact]
+    public void Comentar_DepoisDeResolvido_EhPermitido()
+    {
+        var chamado = new Chamado("Tomada solta", criadoEm: Abertura);
+        chamado.IniciarAtendimento("Elétrica", Abertura.AddMinutes(10));
+        chamado.Resolver("Tomada fixada", Abertura.AddHours(1));
+
+        chamado.Comentar("Voltou a soltar hoje.", Abertura.AddDays(1), Bruno);
+
+        Assert.Single(chamado.Comentarios);
+        Assert.Equal(StatusChamado.Resolvido, chamado.Status);   // conversar não reabre o chamado
+    }
+
+    [Theory]
+    [InlineData("")]
+    [InlineData("   ")]
+    public void Comentar_SemTexto_EhRecusado(string texto)
+    {
+        var chamado = new Chamado("Tomada solta", criadoEm: Abertura);
+
+        Assert.ThrowsAny<ArgumentException>(() => chamado.Comentar(texto, Abertura.AddMinutes(1), Bruno));
+        Assert.Empty(chamado.Comentarios);
+    }
+
+    [Fact]
+    public void Comentar_LongoDemais_EhRecusadoComMensagemEmPortugues()
+    {
+        var chamado = new Chamado("Tomada solta", criadoEm: Abertura);
+        var longo = new string('a', Chamado.TamanhoMaximoComentario + 1);
+
+        var erro = Assert.Throws<ArgumentException>(() => chamado.Comentar(longo, Abertura.AddMinutes(1), Bruno));
+
+        Assert.StartsWith($"O comentário deve ter no máximo {Chamado.TamanhoMaximoComentario} caracteres.", erro.Message,
+            StringComparison.Ordinal);
+        Assert.Empty(chamado.Comentarios);
+    }
+
+    [Fact]
+    public void Comentar_NoLimiteExato_EhAceito()
+    {
+        var chamado = new Chamado("Tomada solta", criadoEm: Abertura);
+
+        chamado.Comentar(new string('a', Chamado.TamanhoMaximoComentario), Abertura.AddMinutes(1), Bruno);
+
+        Assert.Single(chamado.Comentarios);
+    }
+
+    [Fact]
+    public void Comentar_AntesDaAbertura_OuSemAutor_EhRecusado()
+    {
+        var chamado = new Chamado("Tomada solta", criadoEm: Abertura);
+
+        Assert.Throws<ArgumentOutOfRangeException>(() => chamado.Comentar("Oi", Abertura.AddSeconds(-1), Bruno));
+        Assert.Throws<ArgumentNullException>(() => chamado.Comentar("Oi", Abertura, null!));
+        Assert.Empty(chamado.Comentarios);
+    }
 }

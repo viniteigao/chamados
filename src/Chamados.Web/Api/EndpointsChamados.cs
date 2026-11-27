@@ -59,21 +59,45 @@ public static class EndpointsChamados
         api.MapGet("/{id:guid}", async Task<Results<Ok<DetalheChamadoResposta>, NotFound>> (Guid id,
                 ClaimsPrincipal usuario, ChamadoServico servico, ILoggerFactory registros, CancellationToken cancellationToken) =>
             {
-                if (await servico.ObterAsync(id, cancellationToken) is not { } chamado)
-                {
-                    return TypedResults.NotFound();
-                }
-
-                if (!usuario.PodeVer(chamado))
-                {
-                    Registro.ChamadoDeOutroUsuario(registros.CreateLogger(typeof(EndpointsChamados).FullName!),
-                        id, usuario.IdDoUsuario() ?? "desconhecido");
-                    return TypedResults.NotFound();
-                }
-
-                return TypedResults.Ok(DetalheChamadoResposta.De(chamado, servico.PrazoDe(chamado)));
+                var chamado = await ObterVisivelAsync(id, usuario, servico, registros, cancellationToken);
+                return chamado is null
+                    ? TypedResults.NotFound()
+                    : TypedResults.Ok(DetalheChamadoResposta.De(chamado, servico.PrazoDe(chamado)));
             })
-            .WithSummary("Detalhe de um chamado, com o histórico de status");
+            .WithSummary("Detalhe de um chamado, com o histórico de status e a conversa");
+
+        // Comentários: a conversa do chamado. Quem pode ver o chamado pode ler e escrever nela
+        // (o dono, atendentes e coordenação); para os demais, 404, como no detalhe.
+        api.MapGet("/{id:guid}/comentarios", async Task<Results<Ok<IReadOnlyList<ComentarioResposta>>, NotFound>> (Guid id,
+                ClaimsPrincipal usuario, ChamadoServico servico, ILoggerFactory registros, CancellationToken cancellationToken) =>
+            {
+                var chamado = await ObterVisivelAsync(id, usuario, servico, registros, cancellationToken);
+                return chamado is null ? TypedResults.NotFound() : TypedResults.Ok(ComentarioResposta.Da(chamado));
+            })
+            .WithSummary("Mensagens da conversa de um chamado, da mais antiga para a mais nova");
+
+        // A data e a hora da mensagem vêm do relógio do servidor, nunca do corpo da requisição.
+        api.MapPost("/{id:guid}/comentarios", async Task<Results<Created<ComentarioResposta>, NotFound, UnauthorizedHttpResult>> (
+                Guid id, ComentarioRequest requisicao, ClaimsPrincipal usuario, ChamadoServico servico,
+                ILoggerFactory registros, CancellationToken cancellationToken) =>
+            {
+                if (usuario.ComoAutor() is not { } autor)
+                {
+                    return TypedResults.Unauthorized();
+                }
+
+                if (await ObterVisivelAsync(id, usuario, servico, registros, cancellationToken) is null)
+                {
+                    return TypedResults.NotFound();
+                }
+
+                var comentario = await servico.ComentarAsync(id, requisicao.Texto, autor, cancellationToken);
+                var logger = Registros(registros);
+                Registro.ComentarioAdicionado(logger, id, autor.Id);
+                return TypedResults.Created($"/api/chamados/{id}/comentarios", ComentarioResposta.De(comentario));
+            })
+            .WithSummary("Escreve uma mensagem na conversa do chamado")
+            .ProducesValidationProblem();
 
         // O corpo usa o mesmo ChamadoInput das telas: as Data Annotations são conferidas
         // pela validação de Minimal APIs (AddValidation) antes do código rodar; inválido = 400.
@@ -117,6 +141,27 @@ public static class EndpointsChamados
 
         return api;
     }
+
+    private static ILogger Registros(ILoggerFactory registros) => registros.CreateLogger(typeof(EndpointsChamados).FullName!);
+
+    // O chamado, se existir e o usuário puder vê-lo; senão null (e, se existir, a tentativa vai para o log).
+    private static async Task<Chamado?> ObterVisivelAsync(Guid id, ClaimsPrincipal usuario, ChamadoServico servico,
+        ILoggerFactory registros, CancellationToken cancellationToken)
+    {
+        if (await servico.ObterAsync(id, cancellationToken) is not { } chamado)
+        {
+            return null;
+        }
+
+        if (!usuario.PodeVer(chamado))
+        {
+            var logger = Registros(registros);
+            Registro.ChamadoDeOutroUsuario(logger, id, usuario.IdDoUsuario() ?? "desconhecido");
+            return null;
+        }
+
+        return chamado;
+    }
 }
 
 // Melhorias: os corpos das transições passam pela validação automática (AddValidation), como o
@@ -131,6 +176,12 @@ public sealed record ResolverRequest(
     [Required(ErrorMessage = "Informe a solução.")]
     [StringLength(Chamado.TamanhoMaximoJustificativa, ErrorMessage = "A solução deve ter no máximo {1} caracteres.")]
     string Solucao);
+
+// Comentários: a mensagem, com o mesmo limite do domínio.
+public sealed record ComentarioRequest(
+    [Required(ErrorMessage = "Escreva a mensagem.")]
+    [StringLength(Chamado.TamanhoMaximoComentario, ErrorMessage = "A mensagem deve ter no máximo {1} caracteres.")]
+    string Texto);
 
 public sealed record CancelarRequest(
     [Required(ErrorMessage = "Informe o motivo.")]

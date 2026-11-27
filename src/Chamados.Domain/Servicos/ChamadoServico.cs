@@ -69,6 +69,19 @@ public sealed class ChamadoServico(
         => TransicionarAsync(id, chamado => chamado.Cancelar(motivo, relogio.GetUtcNow(), por), cancellationToken);
 
     /// <summary>
+    /// Comentários: acrescenta uma mensagem à conversa do chamado, com a hora do relógio.
+    /// Quem pode comentar (o dono do chamado, atendentes e coordenação) é decisão da camada Web.
+    /// </summary>
+    public async Task<Comentario> ComentarAsync(Guid id, string texto, Autor por, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(por);
+
+        Comentario? novo = null;
+        await repositorio.AlterarAsync(id, chamado => novo = chamado.Comentar(texto, relogio.GetUtcNow(), por), cancellationToken);
+        return novo!;
+    }
+
+    /// <summary>
     /// Chamados atribuídos a um responsável (Módulo 8), do mais urgente ao menos.
     /// Meus chamados: com <paramref name="abertoPorId"/>, só entre os que esse usuário abriu.
     /// </summary>

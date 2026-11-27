@@ -79,5 +79,20 @@ public sealed class ChamadoConfiguracao : IEntityTypeConfiguration<Chamado>
 
         // O EF escreve na lista privada _historico; a propriedade pública é só leitura.
         builder.Navigation(c => c.Historico).UsePropertyAccessMode(PropertyAccessMode.Field);
+
+        // Comentários: a conversa também é parte do chamado, com o mesmo desenho do histórico.
+        builder.OwnsMany(c => c.Comentarios, comentario =>
+        {
+            comentario.ToTable("ComentariosChamados");
+            comentario.WithOwner().HasForeignKey("ChamadoId");
+            comentario.Property<int>("Id");
+            comentario.HasKey("Id");
+            comentario.Property(m => m.Texto).HasMaxLength(Chamado.TamanhoMaximoComentario);
+            comentario.Property(m => m.AutorId).HasMaxLength(Autor.TamanhoMaximoId);
+            comentario.Property(m => m.AutorNome).HasMaxLength(Autor.TamanhoMaximoNome);
+            comentario.Ignore(m => m.Autor);
+        });
+
+        builder.Navigation(c => c.Comentarios).UsePropertyAccessMode(PropertyAccessMode.Field);
     }
 }

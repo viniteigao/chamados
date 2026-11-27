@@ -387,4 +387,28 @@ public class ChamadoServicoTests
         Assert.Equal(new[] { doBruno.Id }, doBrunoComRedes.Select(c => c.Id));
         Assert.Equal(2, todosComRedes.Count);
     }
+
+    // --- Comentários ---
+
+    [Fact]
+    public async Task ComentarAsync_UsaAHoraDoRelogio_EApareceNoChamadoENaContagemDaLista()
+    {
+        var chamado = await _servico.AbrirAsync(new NovoChamado("Tomada solta", AbertoPor: Bruno));
+        _relogio.Avancar(TimeSpan.FromMinutes(42));
+
+        var comentario = await _servico.ComentarAsync(chamado.Id, "Faísca ao ligar", Bruno);
+        var lido = await _servico.ObterAsync(chamado.Id);
+        var resumo = Assert.Single(await _servico.ListarAsync(FiltroChamados.Todos));
+
+        Assert.Equal(Inicio.AddMinutes(42), comentario.Em);
+        Assert.Equal(Bruno, comentario.Autor);
+        Assert.Same(comentario, Assert.Single(lido!.Comentarios));
+        Assert.Equal(1, resumo.TotalComentarios);
+    }
+
+    [Fact]
+    public async Task ComentarAsync_ChamadoInexistente_LancaNaoEncontrado()
+    {
+        await Assert.ThrowsAsync<ChamadoNaoEncontradoException>(() => _servico.ComentarAsync(Guid.NewGuid(), "Oi", Bruno));
+    }
 }

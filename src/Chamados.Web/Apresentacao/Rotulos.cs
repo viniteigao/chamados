@@ -127,4 +127,19 @@ public static class Rotulos
     /// <summary>Data no fuso do servidor, formato brasileiro.</summary>
     // Cultura explícita (CA1305): o resultado não depende da configuração da máquina.
     public static string DataHora(this DateTimeOffset momento) => momento.ToLocalTime().ToString("dd/MM/yyyy HH:mm", PtBr);
+
+    /// <summary>Comentários: "1 mensagem", "3 mensagens".</summary>
+    public static string Mensagens(this int quantidade)
+        => quantidade == 1 ? "1 mensagem" : $"{quantidade} mensagens";
+
+    /// <summary>Comentários: data e hora de uma mensagem da conversa, "26/11/2026 às 14:32".</summary>
+    public static string DataHoraMensagem(this DateTimeOffset momento)
+        => momento.ToLocalTime().ToString("dd/MM/yyyy 'às' HH:mm", PtBr);
+
+    /// <summary>
+    /// O mesmo instante em ISO 8601 (2026-11-26T14:32:05-03:00), para o atributo datetime de &lt;time&gt;:
+    /// leitores de tela e scripts entendem a data sem depender do formato brasileiro.
+    /// </summary>
+    public static string Iso(this DateTimeOffset momento)
+        => momento.ToLocalTime().ToString("yyyy-MM-dd'T'HH:mm:sszzz", CultureInfo.InvariantCulture);
 }

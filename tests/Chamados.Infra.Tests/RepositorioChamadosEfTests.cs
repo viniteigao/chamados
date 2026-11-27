@@ -256,6 +256,71 @@ public class RepositorioChamadosEfTests
         Assert.Equal(doBruno.Id, Assert.Single(porResponsavel).Id);
     }
 
+    // --- Comentários ---
+
+    [Fact]
+    public async Task Comentarios_sao_gravados_e_lidos_do_banco_com_autor_data_e_hora_e_na_ordem()
+    {
+        await using var banco = await BancoEmMemoria.CriarAsync();
+        var repositorio = new RepositorioChamadosEf(banco);
+        var chamado = new Chamado("Cadeira quebrada", criadoEm: Abertura, abertoPor: Bruno);
+        chamado.IniciarAtendimento("Manutenção", Abertura.AddMinutes(5), Ana);
+        await repositorio.AdicionarAsync(chamado);
+
+        await repositorio.AlterarAsync(chamado.Id, c => c.Comentar("O encosto soltou.", Abertura.AddMinutes(10), Bruno));
+        await repositorio.AlterarAsync(chamado.Id, c => c.Comentar("Troco amanhã cedo.", Abertura.AddMinutes(12), Ana));
+        await repositorio.AlterarAsync(chamado.Id, c => c.Comentar("Obrigado!", Abertura.AddMinutes(13), Bruno));
+        var lido = await repositorio.ObterAsync(chamado.Id);
+
+        Assert.Equal(["O encosto soltou.", "Troco amanhã cedo.", "Obrigado!"], lido!.Comentarios.Select(m => m.Texto));
+        Assert.Equal(Abertura.AddMinutes(12), lido.Comentarios[1].Em);
+        Assert.Equal(Ana, lido.Comentarios[1].Autor);
+        Assert.Single(lido.Historico);   // as duas coleções vêm completas, sem repetir linhas
+        Assert.Equal(2, lido.Versao);    // só o início do atendimento mudou a versão
+    }
+
+    [Fact]
+    public async Task Lista_e_busca_por_responsavel_trazem_a_quantidade_de_comentarios()
+    {
+        await using var banco = await BancoEmMemoria.CriarAsync();
+        var repositorio = new RepositorioChamadosEf(banco);
+        var comConversa = new Chamado("Wi-Fi instável", criadoEm: Abertura, abertoPor: Carla);
+        comConversa.IniciarAtendimento("Redes", Abertura.AddMinutes(1), Ana);
+        comConversa.Comentar("Cai a cada 15 minutos.", Abertura.AddMinutes(2), Carla);
+        comConversa.Comentar("Trocamos o roteador.", Abertura.AddMinutes(3), Ana);
+        await repositorio.AdicionarAsync(comConversa);
+        await repositorio.AdicionarAsync(new Chamado("Sem conversa", criadoEm: Abertura));
+
+        var lista = await repositorio.ListarAsync(FiltroChamados.Todos);
+        var porResponsavel = await repositorio.ListarPorResponsavelAsync("Redes");
+
+        Assert.Equal(2, lista.Single(r => r.Id == comConversa.Id).TotalComentarios);
+        Assert.Equal(0, lista.Single(r => r.Id != comConversa.Id).TotalComentarios);
+        Assert.Equal(2, Assert.Single(porResponsavel).TotalComentarios);
+    }
+
+    [Fact]
+    public async Task Comentario_durante_uma_edicao_nao_causa_conflito_de_versao()
+    {
+        await using var banco = await BancoEmMemoria.CriarAsync();
+        var repositorio = new RepositorioChamadosEf(banco);
+        var chamado = new Chamado("Wi-Fi instável", criadoEm: Abertura, abertoPor: Carla);
+        await repositorio.AdicionarAsync(chamado);
+
+        // Enquanto a atendente inicia o atendimento (já leu a versão 1), a carla manda uma mensagem.
+        // Ao contrário de duas transições, as duas gravações ficam.
+        await repositorio.AlterarAsync(chamado.Id, c =>
+        {
+            repositorio.AlterarAsync(chamado.Id, outro => outro.Comentar("Alguma previsão?", Abertura.AddMinutes(5), Carla))
+                .GetAwaiter().GetResult();
+            c.IniciarAtendimento("Redes", Abertura.AddMinutes(6), Ana);
+        });
+        var lido = await repositorio.ObterAsync(chamado.Id);
+
+        Assert.Equal(StatusChamado.EmAtendimento, lido!.Status);
+        Assert.Equal("Alguma previsão?", Assert.Single(lido.Comentarios).Texto);
+    }
+
     [Fact]
     public async Task Migrations_estao_em_dia_com_o_modelo()
     {

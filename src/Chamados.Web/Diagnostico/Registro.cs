@@ -55,4 +55,8 @@ public static partial class Registro
 
     [LoggerMessage(EventId = 2006, Level = LogLevel.Error, Message = "Falha ao carregar a fila")]
     public static partial void FalhaAoCarregarFila(ILogger logger, Exception excecao);
+
+    // Comentários: uma mensagem entrou na conversa. Só os Ids: o texto da mensagem não vai para o log.
+    [LoggerMessage(EventId = 2007, Level = LogLevel.Information, Message = "Comentário no chamado {ChamadoId} (usuário {UsuarioId})")]
+    public static partial void ComentarioAdicionado(ILogger logger, Guid chamadoId, string usuarioId);
 }

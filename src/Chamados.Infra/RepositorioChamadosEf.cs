@@ -16,7 +16,11 @@ public sealed class RepositorioChamadosEf(IDbContextFactory<ChamadosDbContext> f
 
         // Só leitura: AsNoTracking dispensa o EF de guardar uma cópia para detectar mudanças.
         // O histórico vem junto sem Include: entidade "owned" é carregada sempre com o dono.
-        return await db.Chamados.AsNoTracking().FirstOrDefaultAsync(c => c.Id == id, cancellationToken);
+        // Comentários: com duas coleções, AsSingleQuery declara a escolha de um JOIN só. Ele repete cada
+        // registro do histórico a cada mensagem, mas o histórico tem no máximo dois registros, e o SQL
+        // sai com ORDER BY na chave das mensagens: elas chegam na ordem em que foram gravadas.
+        // Com AsSplitQuery (uma consulta por tabela), essa ordem não ficaria garantida.
+        return await db.Chamados.AsNoTracking().AsSingleQuery().FirstOrDefaultAsync(c => c.Id == id, cancellationToken);
     }
 
     public async Task AdicionarAsync(Chamado chamado, CancellationToken cancellationToken = default)
@@ -34,7 +38,7 @@ public sealed class RepositorioChamadosEf(IDbContextFactory<ChamadosDbContext> f
         await using var db = await fabrica.CreateDbContextAsync(cancellationToken);
 
         // Com rastreamento: o EF guarda os valores lidos e, no SaveChanges, grava só o que mudou.
-        var chamado = await db.Chamados.FirstOrDefaultAsync(c => c.Id == id, cancellationToken)
+        var chamado = await db.Chamados.AsSingleQuery().FirstOrDefaultAsync(c => c.Id == id, cancellationToken)
             ?? throw new ChamadoNaoEncontradoException(id);
 
         var versaoLida = chamado.Versao;
@@ -43,7 +47,8 @@ public sealed class RepositorioChamadosEf(IDbContextFactory<ChamadosDbContext> f
         try
         {
             // UPDATE ... WHERE Id = @id AND Versao = @versaoLida, e o INSERT do novo registro de histórico,
-            // na mesma transação: ou tudo grava, ou nada.
+            // na mesma transação: ou tudo grava, ou nada. Um comentário não muda a versão: grava só o
+            // INSERT da mensagem, sem conferir versão, e não briga com quem está editando.
             await db.SaveChangesAsync(cancellationToken);
         }
         catch (DbUpdateConcurrencyException)
@@ -87,9 +92,9 @@ public sealed class RepositorioChamadosEf(IDbContextFactory<ChamadosDbContext> f
             consulta = consulta.Take(quantidade);   // LIMIT/OFFSET no SQL
         }
 
-        // Projeção: o SELECT traz só as colunas do resumo, sem o histórico.
+        // Projeção: o SELECT traz só as colunas do resumo, sem o histórico nem a conversa.
         return await consulta
-            .Select(c => new ResumoChamado(c.Id, c.Titulo, c.Status, c.Prioridade, c.Responsavel, c.CriadoEm, c.Versao, c.EncerradoEm, c.AbertoPorNome))
+            .Select(ParaResumo)
             .ToListAsync(cancellationToken);
     }
 
@@ -154,7 +159,7 @@ public sealed class RepositorioChamadosEf(IDbContextFactory<ChamadosDbContext> f
 
         return await consulta
             .OrderByDescending(c => c.Prioridade).ThenBy(c => c.CriadoEm)
-            .Select(c => new ResumoChamado(c.Id, c.Titulo, c.Status, c.Prioridade, c.Responsavel, c.CriadoEm, c.Versao, c.EncerradoEm, c.AbertoPorNome))
+            .Select(ParaResumo)
             .ToListAsync(cancellationToken);
     }
 
@@ -227,6 +232,12 @@ public sealed class RepositorioChamadosEf(IDbContextFactory<ChamadosDbContext> f
         OrdemChamados.Titulo => chamados.OrderBy(c => c.Titulo),
         _ => chamados.OrderByDescending(c => c.Prioridade).ThenBy(c => c.CriadoEm)
     };
+
+    // A mesma projeção para as listas. Comentários: a quantidade de mensagens vira um
+    // SELECT COUNT(*) correlacionado; as mensagens em si não saem do banco.
+    private static readonly System.Linq.Expressions.Expression<Func<Chamado, ResumoChamado>> ParaResumo =
+        c => new ResumoChamado(c.Id, c.Titulo, c.Status, c.Prioridade, c.Responsavel, c.CriadoEm, c.Versao,
+            c.EncerradoEm, c.AbertoPorNome, c.Comentarios.Count);
 
     private static string EscaparLike(string texto)
         => texto.Replace("\\", "\\\\").Replace("%", "\\%").Replace("_", "\\_");

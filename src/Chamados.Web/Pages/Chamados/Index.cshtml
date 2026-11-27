@@ -71,7 +71,14 @@ else
             {
                 var prazo = Model.PrazoDe(chamado);
                 <tr>
-                    <td><a asp-page="./Detalhes" asp-route-id="@chamado.Id">@chamado.Titulo</a></td>
+                    <td>
+                        <a asp-page="./Detalhes" asp-route-id="@chamado.Id">@chamado.Titulo</a>
+                        @* Comentários: quantas mensagens a conversa tem, com link direto para ela. *@
+                        @if (chamado.TotalComentarios > 0)
+                        {
+                            <a class="contador-mensagens" asp-page="./Detalhes" asp-route-id="@chamado.Id" asp-fragment="conversa">@chamado.TotalComentarios.Mensagens()</a>
+                        }
+                    </td>
                     <td><selo valor="@chamado.Prioridade" /></td>
                     <td><selo valor="@chamado.Status" /></td>
                     @* Prazos: o selo e, ao passar o mouse, a frase e o vencimento. Cancelado: sem prazo. *@

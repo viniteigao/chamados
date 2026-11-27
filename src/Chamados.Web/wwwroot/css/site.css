@@ -186,3 +186,18 @@ button.neutro:hover { background: #ece8df; }
 .filtros .marcar input { width: auto; }
 .tabela-prazos td:last-child { text-align: right; }
 .cartao-acao h3 { margin: 0; font-size: 1.05rem; }
+
+/* ---------- Comentários (melhorias) ---------- */
+.conversa { margin-top: 2rem; }
+.mensagens { list-style: none; margin: 0 0 1rem; padding: 0; display: grid; gap: .75rem; }
+.mensagem { max-width: min(80%, 560px); justify-self: start; padding: .6rem .9rem; background: var(--papel); border: 1px solid var(--linha); border-radius: 12px 12px 12px 4px; }
+.mensagem.minha { justify-self: end; background: #efeaff; border-color: #d6ccff; border-radius: 12px 12px 4px 12px; }
+.mensagem p { margin: 0; }
+.mensagem-cabecalho { display: flex; flex-wrap: wrap; align-items: baseline; gap: .25rem .5rem; margin-bottom: .3rem !important; font-size: .85rem; }
+.mensagem-cabecalho time { color: var(--apoio); font-variant-numeric: tabular-nums; }
+.mensagem .papel { padding: 0 .45rem; border-radius: 999px; background: #e8e3ff; color: var(--roxo-escuro); font-size: .75rem; }
+.nova-mensagem { display: grid; gap: .5rem; max-width: 640px; padding: 1rem; background: var(--papel); border: 1px solid var(--linha); border-radius: 10px; }
+.nova-mensagem button { justify-self: end; }
+.contador-mensagens { margin-left: .4rem; font-size: .8rem; white-space: nowrap; }
+.cartao-fila .contador-mensagens { margin-left: 0; }
+@media (max-width: 560px) { .mensagem { max-width: 92%; } }

@@ -136,6 +136,28 @@ Authorization: Bearer {{token.response.body.$.accessToken}}
   "motivo": "Aberto em duplicidade"
 }
 
+### Comentários: a conversa de um chamado (quem pode ver o chamado pode ler e escrever)
+GET {{base}}/api/chamados/{{id}}/comentarios
+Authorization: Bearer {{token.response.body.$.accessToken}}
+
+### Comentários: escreve uma mensagem. Autor e data/hora vêm do token e do relógio do servidor
+POST {{base}}/api/chamados/{{id}}/comentarios
+Content-Type: application/json
+Authorization: Bearer {{token.response.body.$.accessToken}}
+
+{
+  "texto": "O técnico chega em 10 minutos."
+}
+
+### Comentários: mensagem vazia responde 400 com o erro no campo "Texto"
+POST {{base}}/api/chamados/{{id}}/comentarios
+Content-Type: application/json
+Authorization: Bearer {{token.response.body.$.accessToken}}
+
+{
+  "texto": ""
+}
+
 ### Id inexistente: o filtro responde 404 (Problem Details)
 POST {{base}}/api/chamados/00000000-0000-0000-0000-000000000000/cancelamento
 Content-Type: application/json

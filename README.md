@@ -60,7 +60,7 @@ dotnet ef migrations add NomeDaMudanca --project src/Chamados.Infra --startup-pr
 dotnet ef database update --project src/Chamados.Infra --startup-project src/Chamados.Web
 ```
 
-O projeto traz duas migrations: `Inicial` (tabelas `Chamados` e `HistoricoChamados`) e `IndicePrioridade` (um índice criado depois, para mostrar o banco evoluindo sem perder dados). Um banco criado só com a primeira recebe a segunda no próximo início.
+O projeto traz cinco migrations: `Inicial` (tabelas `Chamados` e `HistoricoChamados`), `IndicePrioridade` (um índice criado depois, para mostrar o banco evoluindo sem perder dados), `Identidade` (tabelas de usuários do Módulo 8), `AutoriaDosChamados` (quem abriu e quem fez cada mudança) e `ComentariosDosChamados` (tabela `ComentariosChamados`). Um banco antigo recebe as que faltam no próximo início, sem perder dados.
 
 Em Development, o log mostra cada comando SQL (categoria `Microsoft.EntityFrameworkCore.Database.Command`), com os valores dos parâmetros ocultos.
 
@@ -71,7 +71,7 @@ Em Development, o log mostra cada comando SQL (categoria `Microsoft.EntityFramew
 | `/` | `Pages/Index` | Painel com totais por status (`ObterEstatisticasAsync`) |
 | `/Chamados?status=&prioridadeMinima=&texto=&ordem=&pagina=` | `Pages/Chamados/Index` | Lista com filtros, ordenação e paginação (`ListarPaginaAsync`) |
 | `/Chamados/Novo` | `Pages/Chamados/Novo` | Formulário de abertura (`AbrirAsync`), validação no cliente e no servidor, Post/Redirect/Get |
-| `/Chamados/Detalhes/{id}` | `Pages/Chamados/Detalhes` | Detalhe, histórico e handlers Iniciar, Resolver e Cancelar |
+| `/Chamados/Detalhes/{id}` | `Pages/Chamados/Detalhes` | Detalhe, histórico, conversa e handlers Iniciar, Resolver, Cancelar e Comentar |
 | `/Chamados/Editar/{id}` | `Pages/Chamados/Editar` | Edição com concorrência otimista (`EditarAsync`) |
 | `/Erro`, `/Erro/{código}` | `Pages/Erro` | Erros sem detalhes internos; 404 e 400 amigáveis fora de `/api` |
 
@@ -96,7 +96,9 @@ Componentes acrescentados no Módulo 6: `Formularios/FormularioChamado` (EditFor
 | `GET /api/chamados?status=&prioridadeMinima=&texto=&ordem=&somenteVencidos=&meus=` | Lista com filtros e ordenação (`Prioridade`, `MaisRecentes`, `MaisAntigos`, `Titulo`); `somenteVencidos=true` traz só os em andamento com o prazo vencido; `meus=true` só os que o usuário abriu (quem não é atendente nem da coordenação sempre recebe só os seus) |
 | `GET /api/chamados/estatisticas` | Totais e tempo médio de resolução |
 | `GET /api/chamados/prazos` | Vencidos, perto de vencer, percentual resolvido no prazo e a tabela de prazos (política `VerIndicadores`) |
-| `GET /api/chamados/{id}` | Um chamado com o histórico (com quem fez cada mudança), o prazo e quem abriu (DTO `DetalheChamadoResposta`, inclui `versao`); id inexistente ou de outra pessoa → 404 |
+| `GET /api/chamados/{id}` | Um chamado com o histórico (com quem fez cada mudança), o prazo, quem abriu e a conversa (DTO `DetalheChamadoResposta`, inclui `versao`); id inexistente ou de outra pessoa → 404 |
+| `GET /api/chamados/{id}/comentarios` | As mensagens da conversa, da mais antiga para a mais nova, cada uma com `texto`, `em` (data e hora) e `autor` |
+| `POST /api/chamados/{id}/comentarios` | Escreve uma mensagem (corpo: `{"texto": "..."}`) → 201; vazia ou com mais de 2000 caracteres → 400 |
 | `POST /api/chamados` | Abre chamado (corpo: `{"titulo": "...", "prioridade": "Alta"}`); corpo inválido → 400 com erros por campo |
 | `PUT /api/chamados/{id}` | Edita (corpo com `versaoEsperada`; versão desatualizada → 409, chamado encerrado → 409) |
 | `POST /api/chamados/{id}/atendimento` | Inicia atendimento (corpo: `{"responsavel": "..."}`) |
@@ -190,13 +192,25 @@ Feito na branch `meus-chamados`. Cada chamado guarda quem o abriu, e o históric
 - **API**: a lista e a busca por responsável respeitam a mesma regra; o detalhe traz `abertoPor` e, em cada registro do histórico, `por` (só nomes; o Id do usuário não sai na API).
 - **Chamados antigos**: os criados antes deste recurso ficam sem dono e aparecem só para atendentes e coordenação. Num banco novo, a semente já cria os exemplos com dono (5 do bruno, 3 da carla e 4 da ana).
 
+### Comentários (conversa do chamado)
+
+Feito na branch `comentarios`. Cada chamado tem uma conversa entre quem pediu e quem atende (tabela `ComentariosChamados`, migration `ComentariosDosChamados`).
+
+- **Quem participa**: quem pode ver o chamado pode ler e escrever na conversa: o dono, atendentes e coordenação. Para os demais, 404, como no detalhe (evento 1009 no log). Não é preciso ser atendente para comentar.
+- **Data e hora**: cada mensagem mostra o autor e quando foi escrita, no formato "26/11/2026 às 14:32", dentro de um `<time datetime="2026-11-26T14:32:05-03:00">` (o mesmo instante em ISO 8601, para leitores de tela e scripts). A hora vem do relógio do servidor, nunca do formulário ou do corpo da requisição.
+- **Detalhe** (`/Chamados/Detalhes/{id}`): seção "Conversa" no fim da página, em balões. As mensagens do usuário conectado aparecem à direita, como "Você"; as do dono do chamado levam a marca "solicitante". Depois de enviar, a página volta direto para a conversa (`#conversa`).
+- **Lista e fila**: um chamado com conversa mostra "3 mensagens", com link para ela. A contagem é feita no banco (`COUNT` correlacionado); as mensagens não saem do banco na listagem.
+- **API**: `GET` e `POST /api/chamados/{id}/comentarios`; o detalhe traz `comentarios`, e a lista, `totalComentarios`. Só o nome do autor sai na API.
+- **Log**: evento 2007 a cada mensagem, só com o Id do chamado e o do usuário (o texto não vai para o log).
+- **Semente**: num banco novo, o chamado do ar-condicionado da sala 204 (da carla) já tem três mensagens, e o da impressora (do bruno), uma resposta da ana.
+
 ### Bibliotecas do lado do cliente
 
 `wwwroot/lib` traz jQuery 3.7.1, jQuery Validation 1.21.0 e jQuery Validation Unobtrusive 4.0.0 (licenças MIT e Apache 2.0, arquivos de licença incluídos), usados só pela validação no cliente. O `libman.json` registra a origem; no Visual Studio, botão direito em `libman.json` › **Restaurar Bibliotecas do Lado do Cliente** baixa de novo.
 
 ## Testar
 
-No Visual Studio: **Teste > Gerenciador de Testes > Executar Todos** (`Ctrl+R, A`). Pela CLI: `dotnet test`. São 131 testes: 78 do domínio (com a política de prazos e um relógio controlado), 13 de integração com o banco e 40 da aplicação web (integração com `WebApplicationFactory`, inclusive em ambiente Production com o banco falhando, com prazos de milissegundos e com os três usuários vendo cada um o que pode, componentes com `HtmlRenderer` e unidade das políticas de autorização). O GitHub roda os mesmos testes a cada push (`.github/workflows/ci.yml`).
+No Visual Studio: **Teste > Gerenciador de Testes > Executar Todos** (`Ctrl+R, A`). Pela CLI: `dotnet test`. São 151 testes: 88 do domínio (com a política de prazos e um relógio controlado), 16 de integração com o banco e 47 da aplicação web (integração com `WebApplicationFactory`, inclusive em ambiente Production com o banco falhando, com prazos de milissegundos, com os três usuários vendo cada um o que pode e conversando nos chamados, componentes com `HtmlRenderer` e unidade das políticas de autorização). O GitHub roda os mesmos testes a cada push (`.github/workflows/ci.yml`).
 
 ## Estrutura
 
@@ -262,3 +276,9 @@ No Visual Studio: **Teste > Gerenciador de Testes > Executar Todos** (`Ctrl+R, A
 - **404, e não 403, para chamado de outra pessoa** (meus chamados): quem não pode ver um chamado não fica sabendo que ele existe. A tentativa é registrada no log para quem investiga.
 - **Chamados antigos sem dono** (meus chamados): não há como saber, depois do fato, quem abriu os chamados anteriores; eles ficam visíveis só para atendentes e coordenação, em vez de ganharem um dono inventado.
 - **O autor é opcional no serviço** (meus chamados): os testes do domínio e a semente continuam simples, e a camada Web sempre informa o usuário conectado. Como o compilador não acusa a falta de um parâmetro opcional, testes de integração conferem o autor pela API e pelas Razor Pages (formulário de abertura e botões do detalhe); os caminhos da fila Blazor foram conferidos no navegador.
+- **Comentar não muda a versão** (comentários): a versão protege título, prioridade e status contra gravações cruzadas. Uma mensagem só acrescenta uma linha em outra tabela; se mudasse a versão, quem estivesse editando o chamado receberia um conflito por causa de uma conversa. Um teste de integração grava uma mensagem no meio de uma transição e confere que as duas ficam.
+- **Mensagens imutáveis e com autor obrigatório** (comentários): não há editar nem apagar; o que foi dito fica como foi dito, com o nome do autor como era no momento. Ao contrário das transições, o autor não é opcional no domínio: mensagem sem autor não faz sentido.
+- **Conversa em qualquer status** (comentários): depois de resolvido, "voltou a dar problema" também é conversa. Comentar não reabre o chamado; reabertura seria outra transição, com regra própria.
+- **Duas coleções, um JOIN só** (comentários): com histórico e conversa no mesmo chamado, o detalhe usa `AsSingleQuery`. O JOIN repete cada registro do histórico a cada mensagem, mas o histórico tem no máximo dois registros (iniciar e resolver ou cancelar). Em troca, o SQL ordena pela chave das mensagens, e elas chegam na ordem em que foram gravadas; com `AsSplitQuery` (uma consulta por tabela), o EF ordena só pelo chamado, e essa ordem ficaria por conta do banco.
+- **`totalComentarios` na lista, `comentarios` no detalhe** (comentários): nomes diferentes porque os tipos são diferentes (número e lista). Com o mesmo nome, um cliente que lesse o detalhe com o tipo da lista quebraria; um teste já existente pegou exatamente isso.
+- **Sem atualização ao vivo** (comentários): a conversa aparece ao abrir ou recarregar o detalhe (Post/Redirect/Get). Mensagens chegando sozinhas pediriam o detalhe em Blazor ou SignalR; ficou de fora por ora.

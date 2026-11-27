@@ -7,6 +7,7 @@ namespace Chamados.Web;
 /// Popula o banco com exemplos, apenas em Development e só se ele estiver vazio.
 /// Meus chamados: cada exemplo tem dono (ana, bruno ou carla), e as mudanças de status são da ana,
 /// a atendente. Por isso a semente de usuários roda antes desta (Program.cs).
+/// Comentários: duas conversas de exemplo, uma num chamado da carla e outra num do bruno.
 /// </summary>
 public static class SementeDados
 {
@@ -33,6 +34,10 @@ public static class SementeDados
             new NovoChamado("Ar-condicionado da sala 204 desligando", Prioridade.Alta, "Desliga após 10 minutos de uso", carla),
             cancellationToken);
         await servico.IniciarAtendimentoAsync(arCondicionado.Id, "Equipe de climatização", ana, cancellationToken);
+        await ComentarAsync(servico, arCondicionado.Id, carla, "Hoje desligou duas vezes antes do almoço.", cancellationToken);
+        await ComentarAsync(servico, arCondicionado.Id, ana,
+            "Técnico agendado para amanhã às 9h. A sala pode ficar aberta nesse horário?", cancellationToken);
+        await ComentarAsync(servico, arCondicionado.Id, carla, "Pode, sim. A chave fica na secretaria.", cancellationToken);
 
         var vazamento = await servico.AbrirAsync(
             new NovoChamado("Vazamento na copa", Prioridade.Critica, "Água sob a pia", ana),
@@ -53,7 +58,10 @@ public static class SementeDados
             new NovoChamado("Wi-Fi instável no bloco B", Prioridade.Alta, "Cai a cada 15 minutos", carla), cancellationToken);
         await servico.IniciarAtendimentoAsync(wifi.Id, "Redes", ana, cancellationToken);
 
-        await servico.AbrirAsync(new NovoChamado("Impressora do 2º andar sem toner", Prioridade.Media, AbertoPor: bruno), cancellationToken);
+        var impressora = await servico.AbrirAsync(
+            new NovoChamado("Impressora do 2º andar sem toner", Prioridade.Media, AbertoPor: bruno), cancellationToken);
+        await ComentarAsync(servico, impressora.Id, ana,
+            "Já pedimos o toner ao almoxarifado. Enquanto isso, use a impressora do 1º andar.", cancellationToken);
         await servico.AbrirAsync(new NovoChamado("Porta do laboratório 3 não tranca", Prioridade.Critica, AbertoPor: ana), cancellationToken);
 
         var lampada = await servico.AbrirAsync(
@@ -65,6 +73,16 @@ public static class SementeDados
         await servico.AbrirAsync(
             new NovoChamado("Ar-condicionado da biblioteca pingando", Prioridade.Alta, "Goteira sobre as mesas", carla),
             cancellationToken);
+    }
+
+    // Sem o usuário de exemplo (semente de usuários desligada), a mensagem fica de fora.
+    private static async Task ComentarAsync(ChamadoServico servico, Guid id, Autor? autor, string texto,
+        CancellationToken cancellationToken)
+    {
+        if (autor is not null)
+        {
+            await servico.ComentarAsync(id, texto, autor, cancellationToken);
+        }
     }
 
     // Usuário de exemplo como autor; null se ele não existir (o chamado fica sem dono).
